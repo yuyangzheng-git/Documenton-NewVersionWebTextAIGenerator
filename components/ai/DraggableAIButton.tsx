@@ -87,13 +87,14 @@ export function DraggableAIButton({ onGenerate, isGenerating }: DraggableAIButto
       {isOpen ? (
         // Expanded panel
         <div
-          className="bg-white rounded-xl shadow-2xl border p-4 min-w-[280px]"
+          className="bg-white rounded shadow-lg p-3 min-w-[200px]"
           style={{
-            borderColor: 'var(--notion-border)',
+            border: '1px solid var(--notion-border)',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
             cursor: 'default'
           }}
         >
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <Sparkles className="w-4 h-4" style={{ color: 'var(--notion-blue)' }} />
               <span className="text-sm font-medium" style={{ color: 'var(--notion-text)' }}>
@@ -102,7 +103,7 @@ export function DraggableAIButton({ onGenerate, isGenerating }: DraggableAIButto
             </div>
             <button
               onClick={() => setIsOpen(false)}
-              className="p-1 rounded hover:bg-[var(--notion-hover)] transition-colors"
+              className="p-1 rounded hover:bg-[var(--notion-gray-hover)] transition-colors"
               style={{ color: 'var(--notion-text-secondary)' }}
             >
               <X className="w-4 h-4" />
@@ -110,7 +111,7 @@ export function DraggableAIButton({ onGenerate, isGenerating }: DraggableAIButto
           </div>
 
           <p className="text-sm mb-3" style={{ color: 'var(--notion-text-secondary)' }}>
-            Click to generate content for all outline blocks
+            Generate content for all outline blocks
           </p>
 
           <button
@@ -119,9 +120,9 @@ export function DraggableAIButton({ onGenerate, isGenerating }: DraggableAIButto
               setIsOpen(false);
             }}
             disabled={isGenerating}
-            className="w-full px-4 py-2.5 rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full px-3 py-2 rounded font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm"
             style={{
-              backgroundColor: 'var(--notion-text)',
+              backgroundColor: 'var(--notion-blue)',
               color: 'white'
             }}
           >
@@ -146,14 +147,14 @@ export function DraggableAIButton({ onGenerate, isGenerating }: DraggableAIButto
             setIsOpen(true);
           }}
           disabled={isGenerating}
-          className="p-4 rounded-full shadow-2xl transition-all hover:scale-110 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="p-3 rounded shadow-lg transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
           style={{
-            backgroundColor: 'var(--notion-text)',
+            backgroundColor: 'var(--notion-blue)',
             cursor: 'pointer'
           }}
           title="AI Assistant"
         >
-          <Sparkles className={`w-6 h-6 text-white ${isGenerating ? 'animate-spin' : ''}`} />
+          <Sparkles className={`w-5 h-5 text-white ${isGenerating ? 'animate-spin' : ''}`} />
         </button>
       )}
     </div>

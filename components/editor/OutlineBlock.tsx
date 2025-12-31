@@ -59,8 +59,10 @@ export function OutlineBlock({ block, onUpdate, onDelete, onAddBelow }: OutlineB
   };
 
   const headingClass = block.level === 1
-    ? 'text-3xl font-bold'
-    : 'text-xl font-semibold';
+    ? 'text-2xl font-bold'
+    : block.level === 2
+    ? 'text-xl font-semibold'
+    : 'text-lg font-medium';
 
   const contentIndent = block.level === 1 ? 'ml-0' : 'ml-8';
 
@@ -68,9 +70,9 @@ export function OutlineBlock({ block, onUpdate, onDelete, onAddBelow }: OutlineB
     <div
       ref={setNodeRef}
       style={style}
-      className={cn('group relative mb-1', contentIndent)}
+      className={cn('group relative', contentIndent)}
     >
-      <div className="flex flex-col gap-1 py-1 px-2 rounded-md hover:bg-[var(--notion-hover)] transition-colors">
+      <div className="flex flex-col py-2 px-2 rounded hover:bg-[var(--notion-gray-hover)] transition-colors">
         {/* Title Row */}
         <div className="flex items-center gap-1">
           {/* Drag Handle - only visible on hover */}
@@ -78,13 +80,13 @@ export function OutlineBlock({ block, onUpdate, onDelete, onAddBelow }: OutlineB
             {...attributes}
             {...listeners}
             className="cursor-grab p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-[var(--notion-active)] transition-all flex-shrink-0"
-            style={{ color: 'var(--notion-text-secondary)' }}
+            style={{ color: 'var(--notion-text-tertiary)' }}
           >
             <GripVertical className="w-4 h-4" />
           </button>
 
           {/* Status Icon */}
-          <div className="flex-shrink-0">
+          <div className="flex-shrink-0 w-5">
             {getStatusIcon()}
           </div>
 
@@ -108,7 +110,7 @@ export function OutlineBlock({ block, onUpdate, onDelete, onAddBelow }: OutlineB
                   'w-full bg-transparent focus:outline-none',
                   headingClass
                 )}
-                style={{ color: 'var(--notion-text)' }}
+                style={{ color: 'var(--notion-text)', caretColor: 'var(--notion-blue)' }}
               />
             ) : (
               <h2
@@ -125,51 +127,50 @@ export function OutlineBlock({ block, onUpdate, onDelete, onAddBelow }: OutlineB
           </div>
 
           {/* Actions - Notion style text buttons */}
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
             <button
               onClick={() => onAddBelow(block.id)}
-              className="px-2 py-1 text-xs rounded hover:bg-[var(--notion-active)] transition-colors"
-              style={{ color: 'var(--notion-text-secondary)' }}
+              className="p-1 rounded hover:bg-[var(--notion-active)] transition-colors"
+              style={{ color: 'var(--notion-text-tertiary)' }}
             >
-              <Plus className="w-3.5 h-3.5" />
+              <Plus className="w-4 h-4" />
             </button>
             <button
               onClick={() => onDelete(block.id)}
-              className="px-2 py-1 text-xs rounded hover:bg-[var(--notion-active)] transition-colors"
-              style={{ color: 'var(--notion-text-secondary)' }}
+              className="p-1 rounded hover:bg-[var(--notion-active)] transition-colors"
+              style={{ color: 'var(--notion-text-tertiary)' }}
             >
-              <Trash2 className="w-3.5 h-3.5" />
+              <Trash2 className="w-4 h-4" />
             </button>
           </div>
         </div>
 
         {/* Content */}
-        <div className="ml-6">
+        <div className="ml-6 mt-1">
           {isEditingContent ? (
             <textarea
               value={editContent}
               onChange={(e) => setEditContent(e.target.value)}
               onBlur={handleSaveContent}
-              placeholder="Empty. Click to add content or let AI generate..."
-              className="w-full p-2 text-base bg-transparent border-none focus:outline-none resize-none rounded-md"
+              placeholder="Empty. Click to add content..."
+              className="w-full text-base bg-transparent focus:outline-none resize-none rounded"
               style={{
                 color: 'var(--notion-text)',
-                minHeight: '60px'
+                minHeight: '60px',
+                caretColor: 'var(--notion-blue)'
               }}
               rows={3}
             />
           ) : (
             <div
               onClick={() => setIsEditingContent(true)}
-              className={cn(
-                'min-h-[40px] p-2 rounded-md cursor-text transition-all',
-                !block.content && 'text-sm'
-              )}
+              className="min-h-[40px] cursor-text transition-all text-base"
               style={{
-                color: block.content ? 'var(--notion-text)' : 'var(--notion-text-secondary)',
+                color: block.content ? 'var(--notion-text)' : 'var(--notion-text-tertiary)',
+                lineHeight: '1.6'
               }}
             >
-              {block.content || 'Empty. Click to add content or let AI generate...'}
+              {block.content || 'Empty. Click to add content...'}
             </div>
           )}
         </div>

@@ -358,24 +358,24 @@ export default function Editor() {
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: 'var(--notion-bg)' }}>
       {/* Header - Notion style */}
-      <header className="flex-shrink-0 border-b px-6 py-3 flex items-center justify-between sticky top-0 z-40 bg-white/80 backdrop-blur-sm" style={{ borderColor: 'var(--notion-border)' }}>
+      <header className="flex-shrink-0 px-8 py-3 flex items-center justify-between sticky top-0 z-40 bg-[var(--notion-bg)]/95 backdrop-blur-sm" style={{ borderBottom: '1px solid var(--notion-border)' }}>
         <div className="flex items-center gap-3">
-          <div className="text-2xl">📄</div>
+          <div className="text-xl">📄</div>
           <input
             type="text"
             value={documentTitle}
             onChange={(e) => setDocumentTitle(e.target.value)}
             className="text-base font-medium bg-transparent border-none focus:outline-none"
-            style={{ color: 'var(--notion-text)' }}
+            style={{ color: 'var(--notion-text)', caretColor: 'var(--notion-blue)' }}
             placeholder="Untitled"
           />
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
           {/* Generate Outline Button */}
           <button
             onClick={() => setShowOutlineGenerator(true)}
-            className="px-3 py-1.5 text-sm rounded-md hover:bg-[var(--notion-hover)] transition-colors"
+            className="px-3 py-1.5 text-sm rounded hover:bg-[var(--notion-gray-hover)] transition-colors"
             style={{ color: 'var(--notion-text-secondary)' }}
             title="Generate new outline with AI"
           >
@@ -396,24 +396,24 @@ export default function Editor() {
           <div className="relative" ref={menuRef}>
             <button
               onClick={() => setMenuOpen(!menuOpen)}
-              className="px-3 py-1.5 text-sm rounded-md hover:bg-[var(--notion-hover)] transition-colors"
+              className="p-1.5 rounded hover:bg-[var(--notion-gray-hover)] transition-colors"
               style={{ color: 'var(--notion-text-secondary)' }}
             >
               <MoreHorizontal className="w-5 h-5" />
             </button>
 
             {menuOpen && (
-              <div className="absolute right-0 top-full mt-2 w-52 bg-white rounded-lg shadow-2xl border overflow-hidden z-50" style={{ borderColor: 'var(--notion-border)' }}>
+              <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded shadow-xl border overflow-hidden z-50" style={{ borderColor: 'var(--notion-border-strong)', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}>
                 <button
                   onClick={handleExportDocx}
-                  className="w-full px-4 py-2.5 text-left text-sm hover:bg-[var(--notion-hover)] transition-colors"
+                  className="w-full px-3 py-2 text-left text-sm hover:bg-[var(--notion-gray-hover)] transition-colors"
                   style={{ color: 'var(--notion-text)' }}
                 >
                   Export as DOCX
                 </button>
                 <button
                   onClick={handleExportPdf}
-                  className="w-full px-4 py-2.5 text-left text-sm hover:bg-[var(--notion-hover)] transition-colors"
+                  className="w-full px-3 py-2 text-left text-sm hover:bg-[var(--notion-gray-hover)] transition-colors"
                   style={{ color: 'var(--notion-text)' }}
                 >
                   Export as PDF
@@ -426,47 +426,45 @@ export default function Editor() {
 
       {/* Error Toast */}
       {error && (
-        <div className="fixed top-20 right-6 z-50 bg-red-50 border border-red-200 rounded-lg px-4 py-3 shadow-lg animate-fade-in">
-          <p className="text-sm text-red-800">{error}</p>
+        <div className="fixed top-20 right-6 z-50 bg-white rounded shadow-lg px-4 py-3 animate-fade-in" style={{ border: '1px solid var(--notion-border-strong)' }}>
+          <p className="text-sm" style={{ color: 'var(--notion-text)' }}>{error}</p>
         </div>
       )}
 
       {/* Outline Generator Modal */}
       {showOutlineGenerator && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div
-            className="bg-white rounded-xl shadow-2xl border max-w-md w-full p-6"
-            style={{ borderColor: 'var(--notion-border)' }}
+            className="bg-white rounded shadow-2xl max-w-md w-full"
+            style={{ border: '1px solid var(--notion-border)' }}
           >
             {/* Header */}
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold" style={{ color: 'var(--notion-text)' }}>
+            <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid var(--notion-border)' }}>
+              <h2 className="text-base font-medium" style={{ color: 'var(--notion-text)' }}>
                 Generate Outline
               </h2>
               <button
                 onClick={() => setShowOutlineGenerator(false)}
-                className="p-1 rounded hover:bg-[var(--notion-hover)] transition-colors"
+                className="p-1 rounded hover:bg-[var(--notion-gray-hover)] transition-colors"
                 style={{ color: 'var(--notion-text-secondary)' }}
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
             {/* Content */}
-            <div className="space-y-4">
+            <div className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--notion-text)' }}>
-                  Document Topic
-                </label>
                 <input
                   type="text"
                   value={outlineTopic}
                   onChange={(e) => setOutlineTopic(e.target.value)}
-                  placeholder="e.g., Introduction to Artificial Intelligence"
-                  className="w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
+                  placeholder="Document topic..."
+                  className="w-full px-3 py-2 bg-transparent border rounded-sm focus:outline-none focus:ring-1"
                   style={{
                     color: 'var(--notion-text)',
-                    borderColor: 'var(--notion-border)'
+                    borderColor: 'var(--notion-border)',
+                    caretColor: 'var(--notion-blue)'
                   }}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleGenerateOutline();
@@ -475,13 +473,10 @@ export default function Editor() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--notion-text)' }}>
-                  Writing Style
-                </label>
                 <select
                   value={outlineStyle}
                   onChange={(e) => setOutlineStyle(e.target.value)}
-                  className="w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
+                  className="w-full px-3 py-2 bg-transparent border rounded-sm focus:outline-none focus:ring-1"
                   style={{
                     color: 'var(--notion-text)',
                     borderColor: 'var(--notion-border)'
@@ -506,7 +501,7 @@ export default function Editor() {
                 </button>
                 <button
                   onClick={() => setShowOutlineGenerator(false)}
-                  className="px-4 py-2.5 rounded-lg font-medium hover:bg-[var(--notion-hover)] transition-colors"
+                  className="px-4 py-2.5 rounded-lg font-medium hover:bg-[var(--notion-gray-hover)] transition-colors"
                   style={{ color: 'var(--notion-text-secondary)' }}
                 >
                   Cancel
@@ -518,10 +513,10 @@ export default function Editor() {
       )}
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto" style={{ backgroundColor: 'var(--notion-bg)' }}>
-        <div className="max-w-[900px] mx-auto py-16 px-24">
+      <main className="flex-1 overflow-y-auto">
+        <div className="max-w-[800px] mx-auto py-16 px-8">
           {/* Document Title */}
-          <h1 className="text-5xl font-bold mb-12 cursor-text" style={{ color: 'var(--notion-text)' }}>
+          <h1 className="text-4xl font-bold mb-8 cursor-text" style={{ color: 'var(--notion-text)' }}>
             {documentTitle}
           </h1>
 
@@ -532,7 +527,7 @@ export default function Editor() {
             onDragEnd={handleDragEnd}
           >
             <SortableContext items={blocks.map(b => b.id)} strategy={verticalListSortingStrategy}>
-              <div className="space-y-0">
+              <div>
                 {blocks.map((block) => (
                   <OutlineBlock
                     key={block.id}
@@ -549,7 +544,7 @@ export default function Editor() {
           {/* Add Block Button - Notion style */}
           <button
             onClick={handleAddBlockAtEnd}
-            className="mt-2 px-3 py-1.5 text-sm rounded-md hover:bg-[var(--notion-hover)] transition-all flex items-center gap-2"
+            className="mt-2 px-3 py-1.5 text-sm rounded hover:bg-[var(--notion-gray-hover)] transition-all flex items-center gap-2"
             style={{ color: 'var(--notion-text-secondary)' }}
           >
             <Plus className="w-4 h-4" />

@@ -29,37 +29,43 @@ export default function Home() {
   return (
     <div className="min-h-screen" style={{ backgroundColor: 'var(--notion-bg)' }}>
       {/* Header - Minimal Notion style */}
-      <header className="border-b px-6 py-3" style={{ borderColor: 'var(--notion-border)' }}>
-        <div className="max-w-5xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="text-xl">📄</div>
-            <span className="text-base font-semibold" style={{ color: 'var(--notion-text)' }}>AI Document Generator</span>
+      <header className="px-8 py-4" style={{ borderBottom: '1px solid var(--notion-border)' }}>
+        <div className="max-w-4xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="text-lg">📄</div>
+            <span className="text-sm font-medium" style={{ color: 'var(--notion-text)' }}>AI Document Generator</span>
           </div>
           <button
             onClick={() => router.push('/editor')}
-            className="px-3 py-1.5 text-sm rounded-md hover:bg-[var(--notion-hover)] transition-colors"
+            className="px-3 py-1.5 text-sm rounded hover:bg-[var(--notion-gray-hover)] transition-colors"
             style={{ color: 'var(--notion-text-secondary)' }}
           >
-            Open Editor
+            New page
           </button>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="max-w-3xl mx-auto px-6 py-24">
-        {/* Hero Section */}
-        <div className="text-center mb-20">
-          <h1 className="text-6xl font-bold mb-5" style={{ color: 'var(--notion-text)' }}>
+      <main className="max-w-2xl mx-auto px-8 py-20">
+        {/* Hero Section - Notion page style */}
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold mb-4" style={{ color: 'var(--notion-text)' }}>
             Transform Ideas Into Documents
           </h1>
-          <p className="text-xl" style={{ color: 'var(--notion-text-secondary)' }}>
+          <p className="text-base" style={{ color: 'var(--notion-text-secondary)', lineHeight: '1.7' }}>
             Generate structured outlines and content with AI
           </p>
         </div>
 
-        {/* Input Section */}
-        <div className="mb-24">
-          <div className="mx-auto max-w-2xl flex gap-3 p-3 rounded-full" style={{ borderColor: 'var(--notion-border)' }}>
+        {/* Input Section - Notion style */}
+        <div className="mb-16">
+          <div
+            className="w-full px-4 py-2.5 border rounded-sm"
+            style={{
+              borderColor: 'transparent',
+              transition: 'all 0.15s ease'
+            }}
+          >
             <input
               type="text"
               value={prompt}
@@ -68,53 +74,69 @@ export default function Home() {
                 if (e.key === 'Enter') handleGenerate();
               }}
               placeholder="Describe what you want to write..."
-              className="flex-1 px-5 py-3 text-base bg-transparent focus:outline-none"
-              style={{ color: 'var(--notion-text)' }}
+              className="w-full text-base bg-transparent focus:outline-none"
+              style={{
+                color: 'var(--notion-text)',
+                caretColor: 'var(--notion-blue)'
+              }}
             />
-            <button
-              onClick={handleGenerate}
-              disabled={!prompt.trim()}
-              className="w-12 h-12 rounded-full flex items-center justify-center transition-opacity disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-80"
-              style={{ backgroundColor: 'var(--notion-text)', color: 'white' }}
-            >
-              <ArrowRight className="w-5 h-5" />
-            </button>
           </div>
+          {prompt && (
+            <div className="mt-2 flex items-center gap-2">
+              <button
+                onClick={handleGenerate}
+                className="px-3 py-1.5 text-sm rounded hover:bg-[var(--notion-gray-hover)] transition-colors"
+                style={{ color: 'var(--notion-blue)' }}
+              >
+                Generate
+              </button>
+              <button
+                onClick={() => setPrompt('')}
+                className="px-3 py-1.5 text-sm rounded hover:bg-[var(--notion-gray-hover)] transition-colors"
+                style={{ color: 'var(--notion-text-secondary)' }}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* Templates */}
-        <div className="mb-16">
-          <h2 className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: 'var(--notion-text-secondary)' }}>
+        {/* Divider */}
+        <div className="my-12" style={{ borderTop: '1px solid var(--notion-border)' }} />
+
+        {/* Templates - Notion list style */}
+        <div className="mb-12">
+          <h2 className="text-sm font-medium mb-4" style={{ color: 'var(--notion-text)' }}>
             Templates
           </h2>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="space-y-1">
             {templates.map((template, index) => (
               <button
                 key={index}
                 onClick={() => {
                   setPrompt(`Write a ${template.title.toLowerCase()}`);
                 }}
-                className="p-5 text-left hover:bg-[var(--notion-hover)] transition-all group rounded-xl"
+                className="w-full flex items-center gap-3 px-3 py-2 rounded hover:bg-[var(--notion-gray-hover)] transition-colors group text-left"
               >
-                <template.icon className="w-7 h-7 mb-3 transition-transform group-hover:scale-110" style={{ color: 'var(--notion-text-secondary)' }} />
-                <h3 className="font-semibold mb-1.5" style={{ color: 'var(--notion-text)' }}>{template.title}</h3>
-                <p className="text-sm" style={{ color: 'var(--notion-text-secondary)' }}>{template.description}</p>
+                <template.icon className="w-4 h-4 transition-transform group-hover:scale-110" style={{ color: 'var(--notion-text-secondary)' }} />
+                <span className="text-sm" style={{ color: 'var(--notion-text)' }}>{template.title}</span>
+                <span className="text-xs" style={{ color: 'var(--notion-text-secondary)' }}>{template.description}</span>
               </button>
             ))}
           </div>
         </div>
 
-        {/* Example Prompts */}
+        {/* Example Prompts - Notion list style */}
         <div>
-          <h2 className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: 'var(--notion-text-secondary)' }}>
-            Examples
+          <h2 className="text-sm font-medium mb-4" style={{ color: 'var(--notion-text)' }}>
+            Example prompts
           </h2>
-          <div className="space-y-2">
+          <div className="space-y-1">
             {examplePrompts.map((example, index) => (
               <button
                 key={index}
                 onClick={() => setPrompt(example)}
-                className="w-full flex items-center justify-between p-4 rounded-xl hover:bg-[var(--notion-hover)] transition-all text-left group"
+                className="w-full flex items-center justify-between px-3 py-2 rounded hover:bg-[var(--notion-gray-hover)] transition-colors group text-left"
               >
                 <span className="text-sm" style={{ color: 'var(--notion-text)' }}>{example}</span>
                 <ArrowRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--notion-text-secondary)' }} />

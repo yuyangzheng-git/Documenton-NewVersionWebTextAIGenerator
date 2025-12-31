@@ -62,7 +62,7 @@ export function ApiKeySettings({ plannerKey, workerKey, onSave }: ApiKeySettings
       {/* Settings Button */}
       <button
         onClick={() => setIsOpen(true)}
-        className="px-3 py-1.5 text-sm rounded-md hover:bg-[var(--notion-hover)] transition-colors flex items-center gap-2"
+        className="px-2.5 py-1.5 text-sm rounded hover:bg-[var(--notion-gray-hover)] transition-colors flex items-center gap-1.5"
         style={{ color: hasKeys ? 'var(--notion-blue)' : 'var(--notion-text-secondary)' }}
         title={hasKeys ? 'API keys configured' : 'Configure API keys'}
       >
@@ -72,38 +72,40 @@ export function ApiKeySettings({ plannerKey, workerKey, onSave }: ApiKeySettings
 
       {/* Settings Modal */}
       {isOpen && (
-        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div
-            className="bg-white rounded-xl shadow-2xl border max-w-md w-full p-6"
-            style={{ borderColor: 'var(--notion-border)' }}
+            className="bg-white rounded shadow-2xl max-w-md w-full"
+            style={{ border: '1px solid var(--notion-border)' }}
           >
             {/* Header */}
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid var(--notion-border)' }}>
               <div className="flex items-center gap-2">
-                <Settings className="w-5 h-5" style={{ color: 'var(--notion-blue)' }} />
-                <h2 className="text-lg font-semibold" style={{ color: 'var(--notion-text)' }}>
+                <Settings className="w-4 h-4" style={{ color: 'var(--notion-blue)' }} />
+                <h2 className="text-base font-medium" style={{ color: 'var(--notion-text)' }}>
                   Dify API Settings
                 </h2>
               </div>
               <button
                 onClick={() => setIsOpen(false)}
-                className="p-1 rounded hover:bg-[var(--notion-hover)] transition-colors"
+                className="p-1 rounded hover:bg-[var(--notion-gray-hover)] transition-colors"
                 style={{ color: 'var(--notion-text-secondary)' }}
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
             {/* Content */}
-            <div className="space-y-4">
+            <div className="p-6 space-y-4">
               {/* Planner API Key */}
               <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--notion-text)' }}>
-                  Planner API Key
-                  <span className="ml-2 text-xs" style={{ color: 'var(--notion-text-secondary)' }}>
-                    (For outline generation)
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium" style={{ color: 'var(--notion-text)' }}>
+                    Planner API Key
+                  </label>
+                  <span className="text-xs" style={{ color: 'var(--notion-text-secondary)' }}>
+                    For outline generation
                   </span>
-                </label>
+                </div>
                 <input
                   type="password"
                   value={inputPlannerKey}
@@ -112,22 +114,25 @@ export function ApiKeySettings({ plannerKey, workerKey, onSave }: ApiKeySettings
                     setPlannerStatus('idle');
                   }}
                   placeholder="app-xxxxxxxxxxxxxxxxxxxx"
-                  className="w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
+                  className="w-full px-3 py-2 border rounded-sm focus:outline-none transition-all"
                   style={{
                     color: 'var(--notion-text)',
-                    borderColor: 'var(--notion-border)'
+                    borderColor: 'var(--notion-border)',
+                    caretColor: 'var(--notion-blue)'
                   }}
                 />
               </div>
 
               {/* Worker API Key */}
               <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--notion-text)' }}>
-                  Worker API Key
-                  <span className="ml-2 text-xs" style={{ color: 'var(--notion-text-secondary)' }}>
-                    (For content generation)
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-sm font-medium" style={{ color: 'var(--notion-text)' }}>
+                    Worker API Key
+                  </label>
+                  <span className="text-xs" style={{ color: 'var(--notion-text-secondary)' }}>
+                    For content generation
                   </span>
-                </label>
+                </div>
                 <input
                   type="password"
                   value={inputWorkerKey}
@@ -136,10 +141,11 @@ export function ApiKeySettings({ plannerKey, workerKey, onSave }: ApiKeySettings
                     setWorkerStatus('idle');
                   }}
                   placeholder="app-xxxxxxxxxxxxxxxxxxxx"
-                  className="w-full px-4 py-2.5 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
+                  className="w-full px-3 py-2 border rounded-sm focus:outline-none transition-all"
                   style={{
                     color: 'var(--notion-text)',
-                    borderColor: 'var(--notion-border)'
+                    borderColor: 'var(--notion-border)',
+                    caretColor: 'var(--notion-blue)'
                   }}
                 />
                 <p className="mt-2 text-xs" style={{ color: 'var(--notion-text-secondary)' }}>
@@ -148,8 +154,8 @@ export function ApiKeySettings({ plannerKey, workerKey, onSave }: ApiKeySettings
                     href="https://cloud.dify.ai"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="underline hover:opacity-70"
-                    style={{ color: 'var(--notion-blue)' }}
+                    className="hover:opacity-70"
+                    style={{ color: 'var(--notion-blue)', textDecoration: 'underline' }}
                   >
                     Dify Cloud
                   </a>
@@ -161,38 +167,40 @@ export function ApiKeySettings({ plannerKey, workerKey, onSave }: ApiKeySettings
                 <div className="space-y-2">
                   {plannerStatus !== 'idle' && (
                     <div
-                      className={`p-3 rounded-lg flex items-center gap-2 text-sm ${
-                        plannerStatus === 'valid' ? 'bg-green-50' : 'bg-red-50'
-                      }`}
+                      className="p-2 rounded-sm flex items-center gap-2 text-sm"
+                      style={{
+                        backgroundColor: plannerStatus === 'valid' ? '#E7F3EC' : '#FDE8E8'
+                      }}
                     >
                       {plannerStatus === 'valid' ? (
                         <>
-                          <CheckCircle2 className="w-4 h-4 text-green-600" />
-                          <span className="text-green-700">Planner API key is valid!</span>
+                          <CheckCircle2 className="w-4 h-4" style={{ color: '#0E5F35' }} />
+                          <span style={{ color: '#0E5F35' }}>Planner API key is valid!</span>
                         </>
                       ) : (
                         <>
-                          <AlertCircle className="w-4 h-4 text-red-600" />
-                          <span className="text-red-700">Invalid Planner API key.</span>
+                          <AlertCircle className="w-4 h-4" style={{ color: '#C74122' }} />
+                          <span style={{ color: '#C74122' }}>Invalid Planner API key.</span>
                         </>
                       )}
                     </div>
                   )}
                   {workerStatus !== 'idle' && (
                     <div
-                      className={`p-3 rounded-lg flex items-center gap-2 text-sm ${
-                        workerStatus === 'valid' ? 'bg-green-50' : 'bg-red-50'
-                      }`}
+                      className="p-2 rounded-sm flex items-center gap-2 text-sm"
+                      style={{
+                        backgroundColor: workerStatus === 'valid' ? '#E7F3EC' : '#FDE8E8'
+                      }}
                     >
                       {workerStatus === 'valid' ? (
                         <>
-                          <CheckCircle2 className="w-4 h-4 text-green-600" />
-                          <span className="text-green-700">Worker API key is valid!</span>
+                          <CheckCircle2 className="w-4 h-4" style={{ color: '#0E5F35' }} />
+                          <span style={{ color: '#0E5F35' }}>Worker API key is valid!</span>
                         </>
                       ) : (
                         <>
-                          <AlertCircle className="w-4 h-4 text-red-600" />
-                          <span className="text-red-700">Invalid Worker API key.</span>
+                          <AlertCircle className="w-4 h-4" style={{ color: '#C74122' }} />
+                          <span style={{ color: '#C74122' }}>Invalid Worker API key.</span>
                         </>
                       )}
                     </div>
@@ -205,14 +213,14 @@ export function ApiKeySettings({ plannerKey, workerKey, onSave }: ApiKeySettings
                 <button
                   onClick={handleValidate}
                   disabled={(!inputPlannerKey.trim() && !inputWorkerKey.trim()) || isValidating}
-                  className="flex-1 px-4 py-2.5 rounded-lg font-medium transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
-                  style={{ backgroundColor: 'var(--notion-text)', color: 'white' }}
+                  className="flex-1 px-4 py-2 rounded font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                  style={{ backgroundColor: 'var(--notion-blue)', color: 'white' }}
                 >
                   {isValidating ? 'Validating...' : 'Validate & Save'}
                 </button>
                 <button
                   onClick={() => setIsOpen(false)}
-                  className="px-4 py-2.5 rounded-lg font-medium hover:bg-[var(--notion-hover)] transition-colors"
+                  className="px-4 py-2 rounded font-medium hover:bg-[var(--notion-gray-hover)] transition-colors text-sm"
                   style={{ color: 'var(--notion-text-secondary)' }}
                 >
                   Cancel

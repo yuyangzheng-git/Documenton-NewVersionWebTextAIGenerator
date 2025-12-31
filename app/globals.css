@@ -6,13 +6,17 @@
   /* Notion-inspired color palette */
   --notion-bg: #FFFFFF;
   --notion-bg-secondary: #F7F6F3;
-  --notion-border: #E9E9E7;
+  --notion-border: rgba(229, 227, 223, 0.6);
+  --notion-border-strong: rgba(200, 198, 193, 0.8);
   --notion-text: #37352F;
   --notion-text-secondary: #787774;
-  --notion-hover: rgba(0, 0, 0, 0.03);
-  --notion-active: rgba(0, 0, 0, 0.05);
+  --notion-text-tertiary: #9B9A97;
+  --notion-hover: rgba(55, 53, 47, 0.04);
+  --notion-active: rgba(55, 53, 47, 0.08);
   --notion-blue: #2EAADC;
   --notion-sidebar-bg: #F7F6F3;
+  --notion-selection: rgba(46, 170, 220, 0.22);
+  --notion-gray-hover: #F7F6F3;
 
   --background: 0 0% 100%;
   --foreground: 0 0% 10%;
@@ -38,7 +42,9 @@
 body {
   background-color: var(--notion-bg);
   color: var(--notion-text);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* Smooth transitions for interactive elements */
@@ -64,8 +70,8 @@ button, a, input, textarea, select {
 
 /* Custom scrollbar - Notion style */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
@@ -73,12 +79,12 @@ button, a, input, textarea, select {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(55, 53, 47, 0.16);
-  border-radius: 3px;
+  background: rgba(55, 53, 47, 0.12);
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(55, 53, 47, 0.24);
+  background: rgba(55, 53, 47, 0.2);
 }
 
 /* Tiptap Editor Styles - Notion inspired */
@@ -262,5 +268,27 @@ button, a, input, textarea, select {
 
 /* Selection */
 .ProseMirror ::selection {
-  background-color: rgba(46, 170, 220, 0.28);
+  background-color: var(--notion-selection);
+}
+
+/* Notion-style focus outline */
+*:focus-visible {
+  outline: 2px solid var(--notion-blue);
+  outline-offset: 1px;
+}
+
+/* Notion-style button hover */
+button:not(:disabled) {
+  cursor: pointer;
+}
+
+/* Remove focus outline for mouse users */
+button:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Notion-style input focus */
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(46, 170, 220, 0.2);
 }
