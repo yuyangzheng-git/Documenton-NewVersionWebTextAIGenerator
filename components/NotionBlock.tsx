@@ -319,32 +319,30 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
       onMouseLeave={() => setIsHovered(false)}
       {...attributes}
     >
-      {/* 拖拽手柄 */}
-      <button
-        style={{
-          position: 'absolute',
-          left: '-32px',
-          top: '50%',
-          transform: 'translateY(-50%)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          width: '20px',
-          height: '20px',
-          padding: 0,
-          borderRadius: '50%',
-          backgroundColor: 'transparent',
-          border: 'none',
-          cursor: 'grab',
-          opacity: isHovered || isDragging ? 1 : 0,
-          transition: 'opacity 20ms ease-in'
-        }}
-        {...listeners}
-      >
-        <GripVertical style={{ width: '16px', height: '16px', color: 'rgba(55, 53, 47, 0.4)' }} />
-      </button>
-
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+        {/* 拖拽手柄 */}
+        <button
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '20px',
+            height: '20px',
+            padding: 0,
+            borderRadius: '50%',
+            backgroundColor: 'transparent',
+            border: 'none',
+            cursor: 'grab',
+            opacity: isHovered || isDragging ? 1 : 0,
+            transition: 'opacity 20ms ease-in',
+            flexShrink: 0,
+            marginTop: '2px',
+          }}
+          {...listeners}
+        >
+          <GripVertical style={{ width: '16px', height: '16px', color: 'rgba(55, 53, 47, 0.4)' }} />
+        </button>
+
         {/* 序号显示（仅用于标题） */}
         {number && (block.type === 'h1' || block.type === 'h2' || block.type === 'h3') && (
           <span
