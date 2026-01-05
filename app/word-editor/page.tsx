@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStore } from '@/store/useStore';
 import { OutlinePanel } from '@/components/outline/OutlinePanel';
-import { FloatingAIButton } from '@/components/FloatingAIButton';
+import { AIChat } from '@/components/AIChat';
+import { TextSelectionToolbar } from '@/components/TextSelectionToolbar';
 import { NotionEditor, NotionBlock } from '@/components/NotionEditor';
 import { ChevronLeft, Palette, Download, FileText } from 'lucide-react';
 import { WORD_TEMPLATES } from '@/lib/word-templates';
@@ -17,6 +18,25 @@ export default function WordEditorPage() {
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   const [showOutlinePanel, setShowOutlinePanel] = useState(true);
   const [blocks, setBlocks] = useState<NotionBlock[]>([]);
+
+  const handleRewriteText = (text: string) => {
+    // Handle AI rewrite request - could open a dialog with the AI chat
+    console.log('Rewrite text:', text);
+  };
+
+  const handleFormatText = (text: string, format: { bold?: boolean; italic?: boolean; size?: number }) => {
+    // Find the block containing the text and update it with formatting
+    setBlocks(prev => prev.map(block => {
+      if (block.content.includes(text)) {
+        const updatedContent = block.content.replace(
+          text,
+          `<span style="${format.bold ? 'font-weight:bold;' : ''}${format.italic ? 'font-style:italic;' : ''}${format.size ? `font-size:${format.size}px;` : ''}">${text}</span>`
+        );
+        return { ...block, content: updatedContent };
+      }
+      return block;
+    }));
+  };
 
   // Convert outline to Notion blocks
   useEffect(() => {
@@ -386,8 +406,11 @@ export default function WordEditorPage() {
         <OutlinePanel show={showOutlinePanel} onClose={() => setShowOutlinePanel(false)} />
       </div>
 
-      {/* Floating AI Button */}
-      <FloatingAIButton />
+      {/* Text Selection Toolbar */}
+      <TextSelectionToolbar onRewrite={handleRewriteText} onFormat={handleFormatText} />
+
+      {/* AI Chat */}
+      <AIChat />
 
       <style>{`
         @keyframes fadeIn {

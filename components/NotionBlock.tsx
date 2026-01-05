@@ -95,7 +95,9 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      onAdd(null, 0, 'paragraph');
+      // Find current block index by traversing parent
+      // For now, we'll use a simpler approach - add after the current block
+      onAdd(block.id, 0, 'paragraph');
     } else if (e.key === 'Backspace' && !editContent && !isDragging) {
       e.preventDefault();
       onDelete(block.id);
@@ -342,15 +344,7 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
       </button>
 
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-        {/* 块图标 */}
-        {block.type !== 'divider' && (
-          <span style={{ color: 'rgba(55, 53, 47, 0.4)', marginTop: '2px', flexShrink: 0 }}>
-            {(() => {
-              const Icon = BLOCK_ICONS[block.type];
-              return Icon ? <Icon style={{ width: '16px', height: '16px' }} /> : null;
-            })()}
-          </span>
-        )}
+        {/* 块图标 - REMOVED */}
 
         {/* 内容 */}
         <div style={{ flex: 1, position: 'relative' }}>

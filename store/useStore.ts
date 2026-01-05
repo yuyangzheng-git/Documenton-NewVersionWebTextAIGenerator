@@ -35,36 +35,27 @@ interface DocumentStore {
 
 // Generate numbering for outline items (1, 1.1, 1.1.1, 2, 2.1, 2.1.1, etc.)
 function generateNumbers(items: OutlineItem[]): OutlineItem[] {
-  const level1Counters: { [key: string]: number } = {};
-  const level2Counters: { [key: string]: number } = {};
-  const level3Counters: { [key: string]: number } = {};
-  let lastLevel1Id: string | null = null;
-  let lastLevel2Id: string | null = null;
+  let level1Counter = 0;
+  let level2Counter = 0;
 
   return items.map(item => {
     if (item.level === 1) {
-      lastLevel1Id = item.id;
-      lastLevel2Id = null;
-      level1Counters[item.id] = (level1Counters[item.id] || 0) + 1;
+      level1Counter += 1;
+      level2Counter = 0;
       return {
         ...item,
-        number: level1Counters[item.id].toString()
+        number: level1Counter.toString()
       };
-    } else if (item.level === 2 && lastLevel1Id) {
-      lastLevel2Id = item.id;
-      level2Counters[item.id] = (level2Counters[item.id] || 0) + 1;
-      const level1Num = level1Counters[lastLevel1Id];
+    } else if (item.level === 2) {
+      level2Counter += 1;
       return {
         ...item,
-        number: `${level1Num}.${level2Counters[item.id]}`
+        number: `${level1Counter}.${level2Counter}`
       };
-    } else if (item.level === 3 && lastLevel2Id) {
-      level3Counters[item.id] = (level3Counters[item.id] || 0) + 1;
-      const level1Num = level1Counters[lastLevel1Id!];
-      const level2Num = level2Counters[lastLevel2Id];
+    } else if (item.level === 3) {
       return {
         ...item,
-        number: `${level1Num}.${level2Num}.${level3Counters[item.id]}`
+        number: `${level1Counter}.${level2Counter}.1`
       };
     }
     return item;

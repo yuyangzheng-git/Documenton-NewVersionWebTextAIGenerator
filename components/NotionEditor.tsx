@@ -70,10 +70,13 @@ export function NotionEditor({ blocks, setBlocks }: NotionEditorProps) {
     };
 
     if (parentId) {
-      updateBlock(parentId, {
-        children: [...(blocks.find((b) => b.id === parentId)?.children || []), newBlock],
-      });
+      // Find the index of the parent block and insert after it
+      const parentIndex = blocks.findIndex((b) => b.id === parentId);
+      if (parentIndex !== -1) {
+        setBlocks([...blocks.slice(0, parentIndex + 1), newBlock, ...blocks.slice(parentIndex + 1)]);
+      }
     } else {
+      // Insert at the specified position
       setBlocks([...blocks.slice(0, position), newBlock, ...blocks.slice(position)]);
     }
   };
