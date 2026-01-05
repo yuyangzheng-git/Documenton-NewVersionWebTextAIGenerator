@@ -1,150 +1,957 @@
 'use client';
 
-import { useState } from 'react';
-import { ArrowRight, FileText, BookOpen, Zap } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Clock, Paperclip, Globe, ArrowUp, X, Sparkles, ListChecks, FileText, CheckCircle2, AtSign, Eye, Loader2, Settings } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { generateOutline } from '@/store/useDocumentActions';
+import { useStore } from '@/store/useStore';
 
 export default function Home() {
   const router = useRouter();
   const [prompt, setPrompt] = useState('');
+  const [showGetStarted, setShowGetStarted] = useState(true);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [apiKey, setApiKey] = useState('');
+  const { setDocumentTitle, apiKey: storedApiKey, setApiKey: saveApiKey } = useStore();
 
-  const handleGenerate = () => {
+  useEffect(() => {
+    if (storedApiKey) {
+      setApiKey(storedApiKey);
+    }
+  }, [storedApiKey]);
+
+  const handleGenerate = async () => {
     if (!prompt.trim()) return;
-    localStorage.setItem('documentPrompt', prompt);
-    router.push('/editor');
+
+    setIsGenerating(true);
+
+    try {
+      // Set document title from prompt
+      const title = prompt.slice(0, 50) + (prompt.length > 50 ? '...' : '');
+      setDocumentTitle(title);
+
+      // Check if API key is available
+      if (!storedApiKey) {
+        // Use sample data for demo purposes
+        await generateSampleOutline(prompt);
+      } else {
+        // Generate outline using Dify API
+        await generateOutline(prompt);
+      }
+
+      // Navigate to editor page
+      router.push('/word-editor');
+    } catch (error) {
+      console.error('Error generating outline:', error);
+      alert('Failed to generate outline. Please check your API key in settings.');
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
-  const templates = [
-    { icon: FileText, title: 'Article', description: 'Write a blog post or article' },
-    { icon: BookOpen, title: 'Report', description: 'Create a professional report' },
-    { icon: Zap, title: 'Tutorial', description: 'Step-by-step guide' },
-  ];
+  // Generate sample outline for demo without API
+  const generateSampleOutline = async (topic: string) => {
+    return new Promise<void>((resolve) => {
+      setTimeout(() => {
+        const { setOutline } = useStore.getState();
 
-  const examplePrompts = [
-    'Write an introduction to artificial intelligence',
-    'Create a product launch announcement',
-    'Explain the benefits of remote work',
+        // Create sample outline based on the topic
+        const sampleOutline = [
+          {
+            id: '1',
+            title: '引言',
+            level: 1 as const,
+            status: 'idle' as const,
+            content: '本文将探讨' + topic + '的各个方面。通过深入分析，我们将了解其背景、发展历程以及未来趋势。',
+          },
+          {
+            id: '2',
+            title: '背景概述',
+            level: 1 as const,
+            status: 'idle' as const,
+            content: '在深入了解之前，我们需要先了解' + topic + '的基本概念和背景。这一部分将为后续的讨论奠定基础。',
+          },
+          {
+            id: '3',
+            title: '历史发展',
+            level: 1 as const,
+            status: 'idle' as const,
+            content: '',
+          },
+          {
+            id: '4',
+            title: '早期阶段',
+            level: 2 as const,
+            status: 'idle' as const,
+            content: '在发展的早期阶段，' + topic + '还处于探索期。当时的主要关注点集中在基础功能的建设和完善。',
+          },
+          {
+            id: '5',
+            title: '快速发展期',
+            level: 2 as const,
+            status: 'idle' as const,
+            content: '随着技术的进步，' + topic + '进入了快速发展期。这一时期出现了许多重要的突破和创新。',
+          },
+          {
+            id: '6',
+            title: '核心概念',
+            level: 1 as const,
+            status: 'idle' as const,
+            content: '',
+          },
+          {
+            id: '7',
+            title: '定义与范围',
+            level: 2 as const,
+            status: 'idle' as const,
+            content: topic + '可以被定义为...。其适用范围涵盖了多个领域，包括教育、医疗、金融等。',
+          },
+          {
+            id: '8',
+            title: '关键特征',
+            level: 2 as const,
+            status: 'idle' as const,
+            content: '1. 高效性 - ' + topic + '能够显著提高工作效率\n2. 准确性 - 在处理复杂任务时保持高精度\n3. 智能化 - 能够学习和适应用户需求',
+          },
+          {
+            id: '9',
+            title: '应用领域',
+            level: 1 as const,
+            status: 'idle' as const,
+            content: '',
+          },
+          {
+            id: '10',
+            title: '商业应用',
+            level: 2 as const,
+            status: 'idle' as const,
+            content: '在商业领域，' + topic + '已经被广泛应用于客户服务、数据分析、流程优化等方面。',
+          },
+          {
+            id: '11',
+            title: '个人应用',
+            level: 2 as const,
+            status: 'idle' as const,
+            content: '对于个人用户，' + topic + '可以帮助更好地管理时间、提高学习效率、简化日常任务。',
+          },
+          {
+            id: '12',
+            title: '未来展望',
+            level: 1 as const,
+            status: 'idle' as const,
+            content: '展望未来，' + topic + '将继续朝着更加智能化、人性化的方向发展。我们有理由相信，它将在更多领域发挥重要作用。',
+          },
+        ];
+
+        setOutline(sampleOutline);
+        resolve();
+      }, 1500); // Simulate API delay
+    });
+  };
+
+  const quickActions = [
+    {
+      id: 'whats-new',
+      title: 'Notion AI 新功能',
+      icon: Sparkles
+    },
+    {
+      id: 'meeting-agenda',
+      title: '撰写会议议程',
+      icon: ListChecks
+    },
+    {
+      id: 'analyze-pdf',
+      title: '分析 PDF 或图片',
+      icon: FileText
+    },
+    {
+      id: 'task-tracker',
+      title: '创建任务跟踪器',
+      icon: CheckCircle2
+    }
   ];
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: 'var(--notion-bg)' }}>
-      {/* Header - Minimal Notion style */}
-      <header className="px-8 py-4" style={{ borderBottom: '1px solid var(--notion-border)' }}>
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="text-lg">📄</div>
-            <span className="text-sm font-medium" style={{ color: 'var(--notion-text)' }}>AI Document Generator</span>
-          </div>
+    <div
+      className="min-h-screen"
+      style={{
+        backgroundColor: '#fff',
+        fontFamily: 'ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Helvetica, "PingFang SC", "Microsoft YaHei", Helvetica, "Apple Color Emoji", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol"',
+        WebkitFontSmoothing: 'auto',
+        color: 'var(--c-texPri, rgba(55, 53, 47, 1))',
+        lineHeight: 1.5
+      }}
+    >
+      {/* Top Toolbar */}
+      <div
+        role="toolbar"
+        tabIndex={0}
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          overflow: 'hidden',
+          height: '44px',
+          paddingInline: '12px 10px'
+        }}
+      >
+        <div style={{ position: 'relative', display: 'flex', flexShrink: 0, alignItems: 'center', gap: '4px' }}>
           <button
-            onClick={() => router.push('/editor')}
-            className="px-3 py-1.5 text-sm rounded hover:bg-[var(--notion-gray-hover)] transition-colors"
-            style={{ color: 'var(--notion-text-secondary)' }}
-          >
-            New page
-          </button>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-2xl mx-auto px-8 py-20">
-        {/* Hero Section - Notion page style */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-4" style={{ color: 'var(--notion-text)' }}>
-            Transform Ideas Into Documents
-          </h1>
-          <p className="text-base" style={{ color: 'var(--notion-text-secondary)', lineHeight: '1.7' }}>
-            Generate structured outlines and content with AI
-          </p>
-        </div>
-
-        {/* Input Section - Notion style */}
-        <div className="mb-16">
-          <div
-            className="w-full px-4 py-2.5 border rounded-sm"
+            role="button"
+            tabIndex={0}
+            aria-label="对话记录"
             style={{
-              borderColor: 'transparent',
-              transition: 'all 0.15s ease'
+              userSelect: 'none',
+              transition: 'background 20ms ease-in',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 0,
+              height: '28px',
+              paddingInline: 0,
+              borderRadius: '4px',
+              whiteSpace: 'nowrap',
+              fontSize: '14px',
+              fontWeight: 500,
+              lineHeight: 1.2,
+              width: '34px',
+              color: 'var(--c-texPri, rgba(55, 53, 47, 1))',
+              flexShrink: 0,
+              marginInlineEnd: 0,
+              background: 'transparent',
+              border: 'none'
             }}
           >
-            <input
-              type="text"
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleGenerate();
-              }}
-              placeholder="Describe what you want to write..."
-              className="w-full text-base bg-transparent focus:outline-none"
+            <Clock style={{ width: '22px', height: '22px', display: 'block', fill: 'var(--c-icoPri, rgba(55, 53, 47, 0.65))', flexShrink: 0 }} />
+          </button>
+        </div>
+        <div style={{ flexGrow: 1, flexShrink: 1 }}></div>
+        <div style={{ position: 'relative', display: 'flex', flexShrink: 0, alignItems: 'center', gap: '4px' }}>
+          <button
+            role="button"
+            tabIndex={0}
+            onClick={() => setShowSettings(!showSettings)}
+            style={{
+              userSelect: 'none',
+              transition: 'background 20ms ease-in',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'unset',
+              height: '28px',
+              paddingInline: '8px',
+              borderRadius: '6px',
+              whiteSpace: 'nowrap',
+              fontSize: '14px',
+              fontWeight: 400,
+              lineHeight: 1.2,
+              color: 'var(--c-texPri, rgba(55, 53, 47, 1))',
+              flexShrink: 0,
+              minWidth: 0,
+              gap: '6px',
+              background: 'transparent',
+              border: 'none'
+            }}
+          >
+            <Settings style={{ width: '20px', height: '20px', display: 'block', fill: 'var(--c-icoPri, rgba(55, 53, 47, 0.65))', flexShrink: 0, color: 'inherit' }} />
+            <span>API 设置</span>
+          </button>
+        </div>
+
+        {/* API Key Settings Modal */}
+        {showSettings && (
+          <div
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 1000,
+            }}
+            onClick={() => setShowSettings(false)}
+          >
+            <div
               style={{
-                color: 'var(--notion-text)',
-                caretColor: 'var(--notion-blue)'
+                backgroundColor: 'white',
+                borderRadius: '16px',
+                padding: '24px',
+                width: '400px',
+                maxWidth: '90%',
               }}
-            />
-          </div>
-          {prompt && (
-            <div className="mt-2 flex items-center gap-2">
-              <button
-                onClick={handleGenerate}
-                className="px-3 py-1.5 text-sm rounded hover:bg-[var(--notion-gray-hover)] transition-colors"
-                style={{ color: 'var(--notion-blue)' }}
-              >
-                Generate
-              </button>
-              <button
-                onClick={() => setPrompt('')}
-                className="px-3 py-1.5 text-sm rounded hover:bg-[var(--notion-gray-hover)] transition-colors"
-                style={{ color: 'var(--notion-text-secondary)' }}
-              >
-                Cancel
-              </button>
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '16px', color: 'rgba(55, 53, 47, 1)' }}>
+                Dify API Key 设置
+              </h3>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '14px', marginBottom: '8px', color: 'rgba(55, 53, 47, 0.65)' }}>
+                  Workflow API Key
+                </label>
+                <input
+                  type="password"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  placeholder="app-xxxxxxxxxxxxxxxxxxx"
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    border: '1px solid rgba(55, 53, 47, 0.09)',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    color: 'rgba(55, 53, 47, 1)',
+                  }}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                <button
+                  onClick={() => setShowSettings(false)}
+                  style={{
+                    padding: '10px 20px',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(55, 53, 47, 0.09)',
+                    background: 'transparent',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  取消
+                </button>
+                <button
+                  onClick={() => {
+                    saveApiKey(apiKey);
+                    setShowSettings(false);
+                  }}
+                  style={{
+                    padding: '10px 20px',
+                    borderRadius: '8px',
+                    background: 'linear-gradient(135deg, #2383E2 0%, #1A6FC4 100%)',
+                    color: 'white',
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    border: 'none',
+                  }}
+                >
+                  保存
+                </button>
+              </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
+      </div>
 
-        {/* Divider */}
-        <div className="my-12" style={{ borderTop: '1px solid var(--notion-border)' }} />
+      {/* Main Content Area */}
+      <div
+        style={{
+          width: '100%',
+          flexGrow: 1,
+          overflowY: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center'
+        }}
+      >
+        <div
+          style={{
+            width: '100%',
+            maxWidth: '1168px',
+            marginTop: '-24px',
+            paddingBottom: '15vh',
+            flexGrow: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'center',
+              flexDirection: 'column',
+              gap: '24px',
+              alignItems: 'center',
+              paddingInline: '48px',
+              width: '100%'
+            }}
+          >
+            {/* Logo Section */}
+            <div
+              style={{
+                opacity: 1,
+                transition: 'opacity 800ms ease-in-out',
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                paddingTop: '16px',
+                paddingBottom: '16px',
+                marginTop: '-16px',
+                marginBottom: '-16px'
+              }}
+            >
+              <div style={{ position: 'relative', display: 'inline-block' }}>
+                <button
+                  role="button"
+                  tabIndex={0}
+                  aria-label="Open personalization settings"
+                  style={{
+                    userSelect: 'none',
+                    transition: 'background 20ms ease-in',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'unset',
+                    height: '64px',
+                    paddingInline: 0,
+                    borderRadius: '50%',
+                    whiteSpace: 'nowrap',
+                    fontSize: '14px',
+                    fontWeight: 400,
+                    lineHeight: 1.2,
+                    color: 'var(--c-texPri, rgba(55, 53, 47, 1))',
+                    flexShrink: 0,
+                    minWidth: 0,
+                    width: '64px',
+                    backgroundColor: 'var(--c-bacEle, #fff)',
+                    boxShadow: 'var(--c-shaSM, 0 1px 2px rgba(0, 0, 0, 0.03))',
+                    pointerEvents: 'auto',
+                    touchAction: 'manipulation',
+                    border: 'none'
+                  }}
+                >
+                  <div>
+                    <div style={{ position: 'relative', width: '64px', height: '64px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <div
+                        style={{
+                          width: '64px',
+                          height: '64px',
+                          borderRadius: '100%',
+                          background: 'var(--c-assCorButBac, linear-gradient(135deg, #2383E2 0%, #1A6FC4 100%))',
+                          boxShadow: 'var(--c-shaMD, 0 2px 8px rgba(0, 0, 0, 0.1))',
+                          overflow: 'hidden',
+                          userSelect: 'none'
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: '64px',
+                            height: '64px',
+                            borderRadius: '100%',
+                            background: 'linear-gradient(135deg, #2383E2 0%, #1A6FC4 100%)',
+                            overflow: 'hidden',
+                            transform: 'scaleX(var(--direction, 1))'
+                          }}
+                        >
+                          {/* Notion AI Face Logo */}
+                          <svg viewBox="0 0 48 48" style={{ height: '64px', width: '64px', userSelect: 'none' }} className="select-none">
+                            <defs>
+                              <linearGradient id="notionLogoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stopColor="#ffffff" stopOpacity="1" />
+                                <stop offset="100%" stopColor="#f5f5f5" stopOpacity="0.95" />
+                              </linearGradient>
+                            </defs>
+                            <circle cx="24" cy="24" r="20" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="1.5" />
+                            <path
+                              d="M24 8 C14 8, 8 14, 8 24 C8 34, 14 40, 24 40 C34 40, 40 34, 40 24 C40 14, 34 8, 24 8 Z M24 12 C30 12, 34 16, 34 24 C34 32, 30 36, 24 36 C18 36, 14 32, 14 24 C14 16, 18 12, 24 12 Z"
+                              fill="url(#notionLogoGradient)"
+                              fillRule="evenodd"
+                            />
+                            <circle cx="18" cy="22" r="2.5" fill="white" />
+                            <circle cx="30" cy="22" r="2.5" fill="white" />
+                            <path
+                              d="M16 28 Q24 32, 32 28"
+                              stroke="white"
+                              strokeWidth="2.5"
+                              fill="none"
+                              strokeLinecap="round"
+                            />
+                          </svg>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              </div>
+            </div>
 
-        {/* Templates - Notion list style */}
-        <div className="mb-12">
-          <h2 className="text-sm font-medium mb-4" style={{ color: 'var(--notion-text)' }}>
-            Templates
-          </h2>
-          <div className="space-y-1">
-            {templates.map((template, index) => (
-              <button
-                key={index}
-                onClick={() => {
-                  setPrompt(`Write a ${template.title.toLowerCase()}`);
+            {/* Main Heading */}
+            <div style={{ opacity: 1, transition: 'opacity 800ms ease-in-out' }}>
+              <div
+                style={{
+                  fontSize: '30px',
+                  lineHeight: 1.2,
+                  fontWeight: 600,
+                  paddingInline: '8px',
+                  textAlign: 'center',
+                  color: 'rgba(55, 53, 47, 1)'
                 }}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded hover:bg-[var(--notion-gray-hover)] transition-colors group text-left"
               >
-                <template.icon className="w-4 h-4 transition-transform group-hover:scale-110" style={{ color: 'var(--notion-text-secondary)' }} />
-                <span className="text-sm" style={{ color: 'var(--notion-text)' }}>{template.title}</span>
-                <span className="text-xs" style={{ color: 'var(--notion-text-secondary)' }}>{template.description}</span>
-              </button>
-            ))}
-          </div>
-        </div>
+                {isGenerating ? '正在生成大纲...' : '今日事，我来帮。'}
+              </div>
+            </div>
 
-        {/* Example Prompts - Notion list style */}
-        <div>
-          <h2 className="text-sm font-medium mb-4" style={{ color: 'var(--notion-text)' }}>
-            Example prompts
-          </h2>
-          <div className="space-y-1">
-            {examplePrompts.map((example, index) => (
-              <button
-                key={index}
-                onClick={() => setPrompt(example)}
-                className="w-full flex items-center justify-between px-3 py-2 rounded hover:bg-[var(--notion-gray-hover)] transition-colors group text-left"
+            {/* Input Area */}
+            <div style={{ flex: '0 0 auto', position: 'relative', padding: '0px 0px 16px' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                  margin: '0px auto',
+                  width: '100%',
+                  maxWidth: '710px',
+                  padding: 0,
+                  marginInlineStart: 'auto',
+                  flex: '0 0 auto'
+                }}
               >
-                <span className="text-sm" style={{ color: 'var(--notion-text)' }}>{example}</span>
-                <ArrowRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: 'var(--notion-text-secondary)' }} />
-              </button>
-            ))}
+                <div
+                  style={{
+                    minWidth: 0,
+                    position: 'relative'
+                  }}
+                >
+                  <div role="presentation" style={{ position: 'relative' }}>
+                    <div
+                      style={{
+                        borderRadius: '22px',
+                        boxShadow: 'var(--c-shaOutSm, 0 1px 2px rgba(0, 0, 0, 0.03))',
+                        backgroundColor: '#F7F6F3',
+                        minWidth: 0,
+                        transition: 'box-shadow 0.1s ease-in-out',
+                        pointerEvents: 'none',
+                        border: '1px solid rgba(55, 53, 47, 0.09)'
+                      }}
+                    >
+                      <div style={{ pointerEvents: 'auto', height: 'auto', opacity: 1 }}>
+                        <div>
+                          {/* Add Context Button */}
+                          <div
+                            style={{
+                              padding: '10px 10px 0px',
+                              flexWrap: 'wrap',
+                              gap: '6px 4px',
+                              pointerEvents: 'none',
+                              display: 'flex',
+                              alignItems: 'center'
+                            }}
+                          >
+                            <div style={{ opacity: 1, filter: 'blur(0px)', width: 'auto' }}>
+                              <button
+                                role="button"
+                                tabIndex={0}
+                                data-testid="unified-chat-add-context-button"
+                                aria-expanded={false}
+                                aria-haspopup="dialog"
+                                style={{
+                                  userSelect: 'none',
+                                  transition: 'background 20ms ease-in',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  height: '28px',
+                                  paddingInline: '8px',
+                                  borderRadius: '50px',
+                                  whiteSpace: 'nowrap',
+                                  fontSize: '12px',
+                                  fontWeight: 400,
+                                  lineHeight: 1.2,
+                                  border: '1px solid var(--c-borPri, rgba(55, 53, 47, 0.09))',
+                                  color: 'var(--c-texPri, rgba(55, 53, 47, 1))',
+                                  padding: '2px 3px',
+                                  outline: 'none',
+                                  position: 'relative',
+                                  pointerEvents: 'auto',
+                                  background: 'transparent'
+                                }}
+                              >
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '20px', height: '20px', flexShrink: 0 }}>
+                                  <AtSign style={{ width: '16px', height: '16px', display: 'block', flexShrink: 0, color: 'var(--c-icoSec, rgba(55, 53, 47, 0.65))' }} />
+                                </div>
+                                <div style={{ flexShrink: 0, width: '4px' }}></div>
+                                <div style={{ overflow: 'hidden', opacity: 1, width: 'auto' }}>
+                                  <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, flex: '1 1 0%' }}>
+                                    <div style={{ color: 'var(--c-texSec, rgba(55, 53, 47, 0.65))', fontSize: '12px', lineHeight: '16px', fontWeight: 400 }}>
+                                      添加背景信息
+                                    </div>
+                                  </div>
+                                </div>
+                                <div style={{ flexShrink: 0, width: '8px' }}></div>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Input Field */}
+                        <div style={{ color: 'var(--c-texPri, rgba(55, 53, 47, 1))', fontSize: '14px', lineHeight: '20px', fontWeight: 400, position: 'relative' }}>
+                          <div
+                            contentEditable={true}
+                            spellCheck={true}
+                            data-placeholder="询问、搜索或制作任何内容…"
+                            data-content-editable-leaf={true}
+                            tabIndex={0}
+                            role="textbox"
+                            aria-label="开始输入以编辑文本"
+                            onInput={(e) => {
+                              const text = e.currentTarget.textContent || '';
+                              setPrompt(text);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                handleGenerate();
+                              }
+                            }}
+                            className={!prompt ? 'empty-placeholder' : ''}
+                            style={{
+                              maxWidth: '100%',
+                              width: '100%',
+                              whiteSpace: 'break-spaces',
+                              wordBreak: 'break-word',
+                              caretColor: 'var(--c-texPri, rgba(55, 53, 47, 1))',
+                              flexGrow: 1,
+                              padding: '12px',
+                              minHeight: '56px',
+                              maxHeight: '240px',
+                              overflow: 'auto',
+                              pointerEvents: 'auto',
+                              color: prompt ? 'var(--c-texPri, rgba(55, 53, 47, 1))' : 'transparent',
+                              cursor: 'text',
+                              outline: 'none',
+                              border: 'none',
+                              background: 'transparent'
+                            }}
+                          ></div>
+                        </div>
+
+                        {/* Bottom Controls */}
+                        <div
+                          style={{
+                            padding: '0px 8px 8px',
+                            gap: '12px',
+                            pointerEvents: 'none',
+                            minWidth: 0,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '2px', pointerEvents: 'none', minWidth: 0, flexGrow: 1 }}>
+                            <button
+                              role="button"
+                              tabIndex={0}
+                              data-testid="unified-chat-attach-file-button"
+                              aria-label="附加文件"
+                              style={{
+                                userSelect: 'none',
+                                transition: 'background 20ms ease-in',
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: 0,
+                                height: '28px',
+                                paddingInline: 0,
+                                borderRadius: '50%',
+                                whiteSpace: 'nowrap',
+                                fontSize: '14px',
+                                fontWeight: 500,
+                                lineHeight: 1.2,
+                                width: '28px',
+                                color: 'var(--c-texPri, rgba(55, 53, 47, 1))',
+                                flexShrink: 0,
+                                pointerEvents: 'auto',
+                                background: 'transparent',
+                                border: 'none'
+                              }}
+                            >
+                              <Paperclip style={{ width: '20px', height: '20px', display: 'block', flexShrink: 0, color: 'var(--c-icoSec, rgba(55, 53, 47, 0.65))' }} />
+                            </button>
+                            <button
+                              role="button"
+                              tabIndex={0}
+                              data-testid="unified-chat-model-button"
+                              aria-expanded={false}
+                              aria-haspopup="dialog"
+                              style={{
+                                userSelect: 'none',
+                                transition: 'background 20ms ease-in',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                height: '28px',
+                                paddingInline: '12px',
+                                borderRadius: '50px',
+                                whiteSpace: 'nowrap',
+                                fontSize: '14px',
+                                fontWeight: 500,
+                                lineHeight: 1.2,
+                                color: 'var(--c-texPri, rgba(55, 53, 47, 1))',
+                                background: 'transparent',
+                                gap: '6px',
+                                pointerEvents: 'auto',
+                                minWidth: 0,
+                                maxWidth: '200px',
+                                border: 'none'
+                              }}
+                            >
+                              <div style={{ color: 'var(--c-graTexSec, rgba(55, 53, 47, 0.65))', fontSize: '14px', lineHeight: '20px', fontWeight: 500, textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden' }}>
+                                自动
+                              </div>
+                            </button>
+                            <button
+                              role="button"
+                              tabIndex={0}
+                              data-testid="unified-chat-research-mode-button"
+                              aria-pressed={false}
+                              style={{
+                                userSelect: 'none',
+                                transition: 'background 20ms ease-in',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                height: '28px',
+                                paddingInline: '8px',
+                                borderRadius: '50px',
+                                whiteSpace: 'nowrap',
+                                fontSize: '14px',
+                                fontWeight: 500,
+                                lineHeight: 1.2,
+                                color: 'var(--c-texPri, rgba(55, 53, 47, 1))',
+                                background: 'transparent',
+                                gap: '4px',
+                                pointerEvents: 'auto',
+                                border: 'none'
+                              }}
+                            >
+                              <Eye style={{ width: '20px', height: '20px', display: 'block', flexShrink: 0, color: 'var(--c-graIcoSec, rgba(55, 53, 47, 0.65))' }} />
+                              <div style={{ color: 'var(--c-graTexSec, rgba(55, 53, 47, 0.65))', fontSize: '14px', lineHeight: '20px', fontWeight: 500 }}>
+                                探究
+                              </div>
+                            </button>
+                            <button
+                              role="button"
+                              tabIndex={0}
+                              data-testid="unified-chat-search-scope-button"
+                              aria-expanded={false}
+                              aria-haspopup="dialog"
+                              style={{
+                                userSelect: 'none',
+                                transition: 'background 20ms ease-in',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                height: '28px',
+                                paddingInline: '6px 10px',
+                                borderRadius: '50px',
+                                whiteSpace: 'nowrap',
+                                fontSize: '14px',
+                                fontWeight: 500,
+                                lineHeight: 1.2,
+                                color: 'var(--c-texPri, rgba(55, 53, 47, 1))',
+                                background: 'transparent',
+                                gap: '4px',
+                                pointerEvents: 'auto',
+                                flexShrink: 1,
+                                minWidth: 0,
+                                border: 'none'
+                              }}
+                            >
+                              <Globe style={{ width: '20px', height: '20px', display: 'block', flexShrink: 0, color: 'var(--c-graIcoAccPri, #2383E2)' }} />
+                              <div style={{ color: 'var(--c-graTexSec, rgba(55, 53, 47, 0.65))', fontSize: '14px', lineHeight: '20px', fontWeight: 500, textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden', minWidth: 0 }}>
+                                全部信息源
+                              </div>
+                            </button>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', pointerEvents: 'none' }}>
+                            <button
+                              aria-disabled={!prompt.trim() || isGenerating}
+                              role="button"
+                              tabIndex={!prompt.trim() || isGenerating ? -1 : 0}
+                              data-testid="agent-send-message-button"
+                              aria-label="提交 AI 消息"
+                              onClick={handleGenerate}
+                              disabled={!prompt.trim() || isGenerating}
+                              style={{
+                                userSelect: 'none',
+                                transition: 'background 20ms ease-in',
+                                cursor: !prompt.trim() || isGenerating ? 'default' : 'pointer',
+                                opacity: !prompt.trim() || isGenerating ? 0.4 : 1,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: 0,
+                                height: '28px',
+                                paddingInline: 0,
+                                borderRadius: '30px',
+                                whiteSpace: 'nowrap',
+                                fontSize: '14px',
+                                fontWeight: 500,
+                                lineHeight: 1.2,
+                                width: '28px',
+                                color: 'var(--c-texSec, rgba(55, 53, 47, 0.65))',
+                                flexShrink: 0,
+                                pointerEvents: 'auto',
+                                background: !prompt.trim() || isGenerating ? 'var(--ca-bacTerTra, transparent)' : 'transparent',
+                                border: 'none'
+                              }}
+                            >
+                              {isGenerating ? (
+                                <Loader2 className="animate-spin" style={{ width: '16px', height: '16px', display: 'block', flexShrink: 0, color: 'var(--c-icoTer, rgba(55, 53, 47, 0.4))' }} />
+                              ) : (
+                                <ArrowUp style={{ width: '16px', height: '16px', display: 'block', flexShrink: 0, color: 'var(--c-icoTer, rgba(55, 53, 47, 0.4))' }} />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Get Started Section */}
+            <div
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                maxWidth: '710px',
+                width: '100%',
+                alignSelf: 'center',
+                margin: '0px auto',
+                paddingTop: '16px'
+              }}
+            >
+              {showGetStarted && (
+                <div
+                  style={{
+                    width: '100%',
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(2, 1fr)',
+                    gap: '16px',
+                    justifyContent: 'center',
+                    marginBottom: '16px',
+                    maxHeight: '200px',
+                    opacity: 1,
+                    transform: 'translateY(0px)',
+                    transition: 'margin-bottom 400ms ease-out, max-height 400ms ease-out, opacity 400ms ease-out, transform 400ms ease-out',
+                    overflow: 'hidden'
+                  }}
+                >
+                  <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingInlineStart: '8px', marginBottom: '-8px' }}>
+                    <div style={{ color: 'var(--c-texSec, rgba(55, 53, 47, 0.65))', fontSize: '12px', lineHeight: '16px', fontWeight: 400 }}>
+                      立即开始
+                    </div>
+                    <button
+                      role="button"
+                      tabIndex={0}
+                      aria-label="关闭"
+                      onClick={() => setShowGetStarted(false)}
+                      style={{
+                        userSelect: 'none',
+                        transition: 'background 20ms ease-in',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 0,
+                        height: '24px',
+                        paddingInline: 0,
+                        borderRadius: '50%',
+                        whiteSpace: 'nowrap',
+                        fontSize: '14px',
+                        fontWeight: 500,
+                        lineHeight: 1.2,
+                        width: '24px',
+                        color: 'var(--c-graTexAccPri, rgba(55, 53, 47, 0.65))',
+                        flexShrink: 0,
+                        background: 'transparent',
+                        border: 'none'
+                      }}
+                    >
+                      <X style={{ width: '16px', height: '16px', display: 'block', flexShrink: 0, color: 'var(--c-graIcoAccPri, rgba(55, 53, 47, 0.65))' }} />
+                    </button>
+                  </div>
+                  {quickActions.map((action) => {
+                    const Icon = action.icon;
+                    return (
+                      <button
+                        key={action.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => {
+                          const promptText = action.title;
+                          setPrompt(promptText);
+                          // Auto-generate after a short delay for better UX
+                          setTimeout(async () => {
+                            if (promptText.trim()) {
+                              setIsGenerating(true);
+                              try {
+                                const title = promptText.slice(0, 50) + (promptText.length > 50 ? '...' : '');
+                                setDocumentTitle(title);
+
+                                if (!storedApiKey) {
+                                  await generateSampleOutline(promptText);
+                                } else {
+                                  await generateOutline(promptText);
+                                }
+                                router.push('/word-editor');
+                              } catch (error) {
+                                console.error('Error generating outline:', error);
+                                setIsGenerating(false);
+                              }
+                            }
+                          }, 300);
+                        }}
+                        style={{
+                          userSelect: 'none',
+                          transition: 'opacity 800ms ease-in-out',
+                          cursor: 'pointer',
+                          opacity: 1,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'flex-start',
+                          gap: '10px',
+                          padding: '12px',
+                          borderRadius: '16px',
+                          whiteSpace: 'nowrap',
+                          color: 'var(--c-texSec, rgba(55, 53, 47, 0.65))',
+                          backgroundColor: 'var(--ca-graBacPriTra, rgba(0, 0, 0, 0.02))',
+                          flexBasis: 0,
+                          flexGrow: 1,
+                          border: 'none',
+                          textAlign: 'left'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                          <Icon style={{ width: '20px', height: '20px', display: 'block', flexShrink: 0, color: 'var(--c-icoSec, rgba(55, 53, 47, 0.65))' }} />
+                        </div>
+                        <div style={{ fontSize: '12px', fontWeight: 400, lineHeight: 1.2, width: '100%', overflowWrap: 'break-word', whiteSpace: 'normal' }}>
+                          {action.title}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </main>
+      </div>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { generateOutline as generateOutlineAPI } from '@/lib/dify-api';
+import { generateOutlineWithPlanner as generateOutlineAPI, DifyOutlineItem } from '@/lib/dify-api';
 import { useStore } from './useStore';
 import { OutlineItem } from './useStore';
 
@@ -10,8 +10,10 @@ export const generateOutline = async (prompt: string) => {
     }
 
     const outline = await generateOutlineAPI(apiKey, prompt);
-    const outlineWithStatus: OutlineItem[] = outline.map((item: any) => ({
-      ...item,
+    const outlineWithStatus: OutlineItem[] = outline.map((item: DifyOutlineItem) => ({
+      id: item.id,
+      title: item.title,
+      level: item.level as 1 | 2,
       status: 'pending' as const,
     }));
 
@@ -28,8 +30,11 @@ export const generateContent = async (
   onChunk: (text: string) => void,
   onComplete: () => void
 ) => {
-  const { generateContent: generateContentAPI } = await import('@/lib/dify-api');
+  const { generateSectionWithWorker } = await import('@/lib/dify-api');
   const apiKey = useStore.getState().apiKey;
+  const documentTitle = useStore.getState().documentTitle;
+  const outline = useStore.getState().outline;
+  const fullOutline = outline.map((block) => `${'  '.repeat(block.level - 1)}- ${block.title}`).join('\n');
 
-  await generateContentAPI(apiKey, item.title, onChunk, onComplete);
+  await generateSectionWithWorker(apiKey, item.title, documentTitle, fullOutline, onChunk, onComplete);
 };
