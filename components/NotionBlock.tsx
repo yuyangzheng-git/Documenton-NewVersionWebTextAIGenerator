@@ -43,6 +43,7 @@ interface NotionBlockProps {
   onUpdate: (id: string, updates: Partial<NotionBlock>) => void;
   onDelete: (id: string) => void;
   onAdd: (parentId: string | null, position: number, type: BlockType) => void;
+  number?: string;
 }
 
 const BLOCK_ICONS: Record<BlockType, React.ComponentType<React.SVGProps<SVGSVGElement>>> = {
@@ -72,7 +73,7 @@ const BLOCK_TYPES = [
   { type: 'quote' as BlockType, label: '引用' },
 ];
 
-export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockProps) {
+export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: NotionBlockProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [editContent, setEditContent] = useState(block.content);
@@ -344,7 +345,20 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
       </button>
 
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-        {/* 块图标 - REMOVED */}
+        {/* 序号显示（仅用于标题） */}
+        {number && (block.type === 'h1' || block.type === 'h2' || block.type === 'h3') && (
+          <span
+            style={{
+              color: 'rgba(55, 53, 47, 0.5)',
+              fontSize: block.type === 'h1' ? '18px' : block.type === 'h2' ? '16px' : '14px',
+              fontWeight: 500,
+              minWidth: '50px',
+              flexShrink: 0,
+            }}
+          >
+            {number}
+          </span>
+        )}
 
         {/* 内容 */}
         <div style={{ flex: 1, position: 'relative' }}>

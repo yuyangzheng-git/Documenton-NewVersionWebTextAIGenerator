@@ -26,6 +26,108 @@ interface NotionEditorProps {
 }
 
 export function NotionEditor({ blocks, setBlocks }: NotionEditorProps) {
+  // Calculate block numbers (1, 1.1, 1.2, 2, 2.1, etc.)
+  const getBlockNumber = (index: number): string | undefined => {
+    const block = blocks[index];
+    if (!block || (block.type !== 'h1' && block.type !== 'h2' && block.type !== 'h3')) {
+      return undefined;
+    }
+
+    if (block.type === 'h1') {
+      // Count how many h1 blocks before this one
+      let h1Count = 0;
+      for (let i = 0; i < index; i++) {
+        if (blocks[i].type === 'h1') {
+          h1Count++;
+        }
+      }
+      return (h1Count + 1).toString();
+    } else if (block.type === 'h2') {
+      // Find the most recent h1 block
+      let h1Index = -1;
+      for (let i = index - 1; i >= 0; i--) {
+        if (blocks[i].type === 'h1') {
+          h1Index = i;
+          break;
+        }
+      }
+
+      if (h1Index === -1) return undefined;
+
+      // Count how many h1 blocks before the h1 we found
+      let h1Count = 0;
+      for (let i = 0; i < h1Index; i++) {
+        if (blocks[i].type === 'h1') {
+          h1Count++;
+        }
+      }
+
+      // Count how many h2 blocks between h1 and current block
+      let h2Count = 0;
+      for (let i = h1Index + 1; i < index; i++) {
+        if (blocks[i].type === 'h1') {
+          break;
+        }
+        if (blocks[i].type === 'h2') {
+          h2Count++;
+        }
+      }
+
+      return `${h1Count + 1}.${h2Count + 1}`;
+    } else if (block.type === 'h3') {
+      // Find the most recent h2 block
+      let h2Index = -1;
+      for (let i = index - 1; i >= 0; i--) {
+        if (blocks[i].type === 'h2') {
+          h2Index = i;
+          break;
+        }
+      }
+
+      if (h2Index === -1) return undefined;
+
+      // Find the h1 that this h2 belongs to
+      let h1Index = -1;
+      for (let i = h2Index - 1; i >= 0; i--) {
+        if (blocks[i].type === 'h1') {
+          h1Index = i;
+          break;
+        }
+      }
+
+      if (h1Index === -1) return undefined;
+
+      // Count h1 blocks before h1Index
+      let h1Count = 0;
+      for (let i = 0; i < h1Index; i++) {
+        if (blocks[i].type === 'h1') {
+          h1Count++;
+        }
+      }
+
+      // Count h2 blocks between h1 and h2
+      let h2Count = 0;
+      for (let i = h1Index + 1; i < h2Index; i++) {
+        if (blocks[i].type === 'h1') break;
+        if (blocks[i].type === 'h2') {
+          h2Count++;
+        }
+      }
+
+      // Count h3 blocks between h2 and current block
+      let h3Count = 0;
+      for (let i = h2Index + 1; i < index; i++) {
+        if (blocks[i].type === 'h1' || blocks[i].type === 'h2') break;
+        if (blocks[i].type === 'h3') {
+          h3Count++;
+        }
+      }
+
+      return `${h1Count + 1}.${h2Count + 1}.${h3Count + 1}`;
+    }
+
+    return undefined;
+  };
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -100,13 +202,14 @@ export function NotionEditor({ blocks, setBlocks }: NotionEditorProps) {
       onDragEnd={handleDragEnd}
     >
       <SortableContext items={blocks} strategy={verticalListSortingStrategy}>
-        {blocks.map((block) => (
+        {blocks.map((block, index) => (
           <NotionBlockComponent
             key={block.id}
             block={block}
             onUpdate={updateBlock}
             onDelete={deleteBlock}
             onAdd={addBlock}
+            number={getBlockNumber(index)}
           />
         ))}
       </SortableContext>

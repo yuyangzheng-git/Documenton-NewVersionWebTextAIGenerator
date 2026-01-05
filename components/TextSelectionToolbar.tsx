@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Bold, Italic, Type, Sparkles } from 'lucide-react';
+import { Type, Sparkles } from 'lucide-react';
 
 interface TextSelectionToolbarProps {
   onRewrite: (text: string) => void;

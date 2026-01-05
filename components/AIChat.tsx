@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { MessageSquare, Send, X, Minus2, Maximize2, Loader2 } from 'lucide-react';
+import { MessageSquare, Send, X, Minus, Maximize2, Loader2 } from 'lucide-react';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -141,7 +141,7 @@ export function AIChat({ onRewriteText }: AIChatProps) {
             {isMinimized ? (
               <Maximize2 style={{ width: '16px', height: '16px' }} />
             ) : (
-              <Minus2 style={{ width: '16px', height: '16px' }} />
+              <Minus style={{ width: '16px', height: '16px' }} />
             )}
           </button>
           <button
