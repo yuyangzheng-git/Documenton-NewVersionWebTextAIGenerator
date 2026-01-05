@@ -34,8 +34,8 @@ export interface NotionBlock {
   id: string;
   type: BlockType;
   content: string;
-  properties: any;
-  children: any[];
+  properties: Record<string, unknown>;
+  children: NotionBlock[];
 }
 
 interface NotionBlockProps {
@@ -45,7 +45,7 @@ interface NotionBlockProps {
   onAdd: (parentId: string | null, position: number, type: BlockType) => void;
 }
 
-const BLOCK_ICONS: Record<BlockType, any> = {
+const BLOCK_ICONS: Record<BlockType, React.ComponentType<React.SVGProps<SVGSVGElement>>> = {
   paragraph: Type,
   h1: Type,
   h2: Type,
@@ -101,14 +101,17 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
       onDelete(block.id);
     } else if (e.key === 'Escape') {
       setShowSlashMenu(false);
-    } else if (e.key === '/' && editContent === '') {
+    } else if (e.key === '/') {
       setShowSlashMenu(true);
     }
   };
 
   const handleBlur = () => {
+    // Only update if slash menu is not shown
+    if (!showSlashMenu) {
+      onUpdate(block.id, { content: editContent });
+    }
     setShowSlashMenu(false);
-    onUpdate(block.id, { content: editContent });
   };
 
   const handleFocus = () => {
@@ -116,7 +119,9 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
   };
 
   const handleTypeChange = (type: BlockType) => {
-    onUpdate(block.id, { type });
+    // Remove the '/' from content before changing type
+    const cleanContent = editContent.replace(/^\/$/, '');
+    onUpdate(block.id, { type, content: cleanContent });
     setShowSlashMenu(false);
     editorRef.current?.focus();
   };
@@ -137,7 +142,7 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
       case 'h1':
         return (
           <input
-            ref={editorRef as any}
+            ref={editorRef}
             type="text"
             value={editContent}
             onChange={(e) => setEditContent(e.target.value)}
@@ -151,7 +156,7 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
       case 'h2':
         return (
           <input
-            ref={editorRef as any}
+            ref={editorRef}
             type="text"
             value={editContent}
             onChange={(e) => setEditContent(e.target.value)}
@@ -165,7 +170,7 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
       case 'h3':
         return (
           <input
-            ref={editorRef as any}
+            ref={editorRef}
             type="text"
             value={editContent}
             onChange={(e) => setEditContent(e.target.value)}
@@ -180,7 +185,7 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
       case 'numbered':
         return (
           <input
-            ref={editorRef as any}
+            ref={editorRef}
             type="text"
             value={editContent}
             onChange={(e) => setEditContent(e.target.value)}
@@ -208,7 +213,7 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
               />
             </button>
             <input
-              ref={editorRef as any}
+              ref={editorRef}
               type="text"
               value={editContent}
               onChange={(e) => setEditContent(e.target.value)}
@@ -251,7 +256,7 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
         return (
           <div style={{ flex: 1, paddingLeft: '16px', borderLeft: '2px solid rgba(55, 53, 47, 0.3)' }}>
             <input
-              ref={editorRef as any}
+              ref={editorRef}
               type="text"
               value={editContent}
               onChange={(e) => setEditContent(e.target.value)}
@@ -269,7 +274,7 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
         return (
           <div style={{ flex: 1, padding: '12px 16px', borderRadius: '8px', backgroundColor: 'rgba(35, 131, 226, 0.08)' }}>
             <input
-              ref={editorRef as any}
+              ref={editorRef}
               type="text"
               value={editContent}
               onChange={(e) => setEditContent(e.target.value)}
@@ -284,7 +289,7 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
       default:
         return (
           <input
-            ref={editorRef as any}
+            ref={editorRef}
             type="text"
             value={editContent}
             onChange={(e) => setEditContent(e.target.value)}
@@ -454,7 +459,7 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
             onClick={() => onAdd(block.id, 0, 'paragraph')}
             style={{
               position: 'absolute',
-              left: '-56px',
+              right: '-32px',
               top: '50%',
               transform: 'translateY(-50%)',
               display: 'flex',

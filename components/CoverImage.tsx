@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { X, Upload } from 'lucide-react';
 
 interface CoverImageProps {
@@ -50,10 +51,12 @@ export function CoverImage({ imageUrl, onChange, onDrop }: CoverImageProps) {
               background: 'linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.2))'
             }}
           />
-          <img
+          <Image
             src={imageUrl}
             alt="Cover"
-            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+            fill
+            style={{ objectFit: 'cover' }}
+            priority
           />
           {isHovered && (
             <div

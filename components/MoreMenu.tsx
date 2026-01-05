@@ -20,11 +20,11 @@ import {
 
 interface MoreMenuProps {
   onClose: () => void;
-  onExport: () => void;
-  documentTitle: string;
+  onExport?: () => void;
+  documentTitle?: string;
 }
 
-export function MoreMenu({ onClose, onExport, documentTitle }: MoreMenuProps) {
+export function MoreMenu({ onClose }: MoreMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -59,7 +59,7 @@ export function MoreMenu({ onClose, onExport, documentTitle }: MoreMenuProps) {
     item.label.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleItemClick = (item: any) => {
+  const handleItemClick = (item: { label: string }) => {
     if (item.label === '导入模板') {
       const input = document.createElement('input');
       input.type = 'file';

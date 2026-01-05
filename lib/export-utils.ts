@@ -209,25 +209,25 @@ function processElement(
             const parts = src.split(',');
             const meta = parts[0];
             const base64Data = parts[1];
-            
+
             // Extract image type
             const mime = meta.split(':')[1].split(';')[0];
             let extension = mime.split('/')[1];
             if (extension === 'jpeg') extension = 'jpg';
-            
+
             const binaryString = window.atob(base64Data);
             const bytes = new Uint8Array(binaryString.length);
             for (let i = 0; i < binaryString.length; i++) {
               bytes[i] = binaryString.charCodeAt(i);
             }
-            
+
             imageRun = new ImageRun({
               data: bytes,
               transformation: {
                 width: 400,
                 height: 300,
               },
-              type: extension as any,
+              type: extension as 'png' | 'jpg' | 'gif' | 'bmp',
             });
           } else if (src.startsWith('http')) {
             console.warn('URL images not yet supported in export');
@@ -418,8 +418,8 @@ function createHeader(template: WordTemplate): { default: Header } | undefined {
     template.header.alignment === 'left'
       ? AlignmentType.LEFT
       : template.header.alignment === 'right'
-      ? AlignmentType.RIGHT
-      : AlignmentType.CENTER;
+        ? AlignmentType.RIGHT
+        : AlignmentType.CENTER;
 
   return {
     default: new Header({
@@ -449,8 +449,8 @@ function createFooter(template: WordTemplate): { default: Footer } | undefined {
     template.footer.alignment === 'left'
       ? AlignmentType.LEFT
       : template.footer.alignment === 'right'
-      ? AlignmentType.RIGHT
-      : AlignmentType.CENTER;
+        ? AlignmentType.RIGHT
+        : AlignmentType.CENTER;
 
   const footerText = template.footer.text.replace('{page}', '');
 
