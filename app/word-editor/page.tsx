@@ -322,18 +322,18 @@ export default function WordEditorPage() {
         <main
           style={{
             flex: 1,
-            maxWidth: '1168px',
+            maxWidth: showOutlinePanel ? 'calc(1168px - 320px)' : '1168px',
+            width: showOutlinePanel ? 'calc(100% - 320px)' : '100%',
             margin: '0 auto',
             padding: '24px',
-            transition: 'margin-right 200ms ease-in-out',
-            marginRight: showOutlinePanel ? '320px' : '0',
+            transition: 'all 200ms ease-in-out',
           }}
         >
           <div
             style={{
               backgroundColor: '#fff',
               borderRadius: '16px',
-              overflow: 'hidden',
+              overflow: 'visible',
               border: '1px solid rgba(55, 53, 47, 0.09)',
               boxShadow: '0 1px 2px rgba(0, 0, 0, 0.03)',
               minHeight: '600px',
