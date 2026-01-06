@@ -108,7 +108,8 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    // Shift+Enter creates a new block
+    if (e.key === 'Enter' && e.shiftKey) {
       e.preventDefault();
 
       const textarea = e.currentTarget;
@@ -151,6 +152,10 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
 
         setTimeout(() => focusNewBlock(0), 0);
       }
+    } else if (e.key === 'Enter') {
+      // Regular Enter - allow default behavior (insert newline in textarea)
+      // Let the textarea handle the newline naturally
+      setTimeout(() => autoResize(), 0);
     } else if (e.key === 'Backspace' && !editContent && !isDragging) {
       e.preventDefault();
       onDelete(block.id);
