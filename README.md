@@ -44,7 +44,7 @@ A modern AI-powered document generation tool built with Next.js, featuring Notio
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/2812019221/Documenton-NewVersionWebTextAIGenerator.git
+git clone https://github.com/yuyangzheng-git/Documenton-NewVersionWebTextAIGenerator.git
 cd ai-document-generator
 ```
 
@@ -76,9 +76,10 @@ Before using the AI features, you need to configure your Dify API keys:
 1. **Enter Your Idea**: Type your document topic or idea in the search box on the home page
 2. **Generate Outline**: Click the arrow button to let AI create an outline for you
 3. **Edit Content**: Add, edit, or delete blocks in the Word editor
-4. **Drag to Reorder**: Use drag handles to reorder content blocks
-5. **Apply Template**: Click the template button to select and apply a Word template
-6. **Export Document**: Use the export button to save as Word or PDF
+4. **Press Enter**: Split text at cursor position - content after cursor moves to next block
+5. **Drag to Reorder**: Use drag handles to reorder content blocks
+6. **Apply Template**: Click the template button to select and apply a Word template
+7. **Export Document**: Use the export button to save as Word or PDF
 
 ### Block Types
 
@@ -110,9 +111,7 @@ ai-document-generator/
 │   │   └── page.tsx
 │   └── page.tsx             # Home page
 ├── components/               # React components
-│   ├── CoverImage.tsx       # Cover image component
-│   ├── MoreMenu.tsx         # More menu component
-│   ├── NotionBlock.tsx      # Block component
+│   ├── NotionBlock.tsx      # Block component with Enter key split functionality
 │   └── NotionEditor.tsx     # Editor main component
 ├── lib/                      # Utility functions
 │   ├── export-utils.ts      # Export functionality
@@ -165,12 +164,12 @@ This Next.js application can be deployed to any platform that supports Node.js, 
 ### v0.1.0 (Latest)
 - ✅ Complete Notion-style Word editor
 - ✅ Implement block-level editor (paragraphs, headings, lists, code, quotes, etc.)
-- ✅ Add cover image support (drag-and-drop upload)
+- ✅ Implement Word-like Enter key behavior (split text at cursor position)
+- ✅ Auto-resize textareas for multi-line content display
 - ✅ Implement Word template system (5 preset templates)
 - ✅ Add Slash command menu
 - ✅ Implement drag-and-drop sorting
 - ✅ Unified design style between home page and editor
 - ✅ Support Word document export
-- ✅ Add more menu and text format bar
 - ✅ Optimize button styles (referencing Notion design)
 - ✅ Complete dark mode support
