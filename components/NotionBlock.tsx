@@ -108,8 +108,8 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    // Shift+Enter creates a new block
-    if (e.key === 'Enter' && e.shiftKey) {
+    // Enter creates a new paragraph block
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
 
       const textarea = e.currentTarget;
@@ -123,10 +123,13 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
       // Determine the type for the new block
       let newBlockType: BlockType = 'paragraph';
       if (block.type === 'code') {
+        // For code blocks, Enter creates new paragraph
         newBlockType = 'paragraph';
       } else if (block.type === 'h1' || block.type === 'h2' || block.type === 'h3') {
+        // For headings, Enter creates new paragraph
         newBlockType = 'paragraph';
       } else {
+        // For other types, keep the same type
         newBlockType = block.type;
       }
 
@@ -152,8 +155,8 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
 
         setTimeout(() => focusNewBlock(0), 0);
       }
-    } else if (e.key === 'Enter') {
-      // Regular Enter - allow default behavior (insert newline in textarea)
+    } else if (e.key === 'Enter' && e.shiftKey) {
+      // Shift+Enter - insert newline in current block (for multi-line content)
       // Let the textarea handle the newline naturally
       setTimeout(() => autoResize(), 0);
     } else if (e.key === 'Backspace' && !editContent && !isDragging) {
