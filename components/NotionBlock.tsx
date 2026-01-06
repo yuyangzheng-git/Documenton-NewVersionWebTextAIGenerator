@@ -108,7 +108,7 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    // Enter creates a new paragraph block
+    // Enter creates a new block (Notion-style)
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
 
@@ -120,17 +120,32 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
       // Update current block with content before cursor
       onUpdate(block.id, { content: beforeCursor });
 
-      // Determine the type for the new block
+      // Determine the type for the new block (Notion behavior)
       let newBlockType: BlockType = 'paragraph';
       if (block.type === 'code') {
-        // For code blocks, Enter creates new paragraph
-        newBlockType = 'paragraph';
+        // For code blocks, Enter creates new line in same block
+        newBlockType = 'code';
       } else if (block.type === 'h1' || block.type === 'h2' || block.type === 'h3') {
         // For headings, Enter creates new paragraph
         newBlockType = 'paragraph';
+      } else if (block.type === 'bullet') {
+        // For bullet lists, Enter creates new bullet item
+        newBlockType = 'bullet';
+      } else if (block.type === 'numbered') {
+        // For numbered lists, Enter creates new numbered item
+        newBlockType = 'numbered';
+      } else if (block.type === 'todo') {
+        // For todo items, Enter creates new todo item
+        newBlockType = 'todo';
+      } else if (block.type === 'quote') {
+        // For quotes, Enter creates new quote
+        newBlockType = 'quote';
+      } else if (block.type === 'callout') {
+        // For callouts, Enter creates new callout
+        newBlockType = 'callout';
       } else {
-        // For other types, keep the same type
-        newBlockType = block.type;
+        // For paragraphs, Enter creates new paragraph
+        newBlockType = 'paragraph';
       }
 
       // Add new block with content after cursor and get its ID
