@@ -130,15 +130,68 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
   };
 
   const renderContent = () => {
+    // 中文文档标准格式配置
+    const getBlockStyles = () => {
+      switch (block.type) {
+        case 'h1':
+          return {
+            fontSize: '22px',
+            fontWeight: 600,
+            lineHeight: 1.6,
+            marginBottom: '16px',
+            marginTop: '24px',
+          };
+        case 'h2':
+          return {
+            fontSize: '18px',
+            fontWeight: 600,
+            lineHeight: 1.6,
+            marginBottom: '14px',
+            marginTop: '20px',
+          };
+        case 'h3':
+          return {
+            fontSize: '16px',
+            fontWeight: 600,
+            lineHeight: 1.6,
+            marginBottom: '12px',
+            marginTop: '16px',
+          };
+        case 'bullet':
+        case 'numbered':
+          return {
+            fontSize: '15px',
+            lineHeight: 1.8,
+            marginBottom: '8px',
+            paddingLeft: block.type === 'bullet' ? '24px' : '24px',
+          };
+        case 'quote':
+          return {
+            fontSize: '15px',
+            lineHeight: 1.8,
+            marginBottom: '12px',
+            fontStyle: 'italic',
+            color: 'rgba(55, 53, 47, 0.8)',
+            paddingLeft: '16px',
+            borderLeft: '3px solid rgba(55, 53, 47, 0.2)',
+          };
+        default:
+          return {
+            fontSize: '15px',
+            lineHeight: 1.8,
+            marginBottom: '8px',
+          };
+      }
+    };
+
     const baseStyle = {
       flex: 1,
       outline: 'none',
       color: 'rgba(55, 53, 47, 1)',
-      fontSize: '14px',
-      lineHeight: 1.5,
       background: 'transparent',
       border: 'none',
-      padding: 0
+      padding: 0,
+      ...getBlockStyles()
     };
 
     switch (block.type) {
@@ -152,7 +205,7 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
             onFocus={handleFocus}
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
-            style={{ ...baseStyle, fontSize: '30px', fontWeight: 600 }}
+            style={baseStyle}
             placeholder="标题 1"
           />
         );
@@ -166,7 +219,7 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
             onFocus={handleFocus}
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
-            style={{ ...baseStyle, fontSize: '24px', fontWeight: 600 }}
+            style={baseStyle}
             placeholder="标题 2"
           />
         );
@@ -180,36 +233,55 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
             onFocus={handleFocus}
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
-            style={{ ...baseStyle, fontSize: '20px', fontWeight: 500 }}
+            style={baseStyle}
             placeholder="标题 3"
           />
         );
       case 'bullet':
+        return (
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', flex: 1 }}>
+            <span style={{ color: 'rgba(55, 53, 47, 0.4)', marginTop: '2px' }}>•</span>
+            <input
+              ref={editorRef}
+              type="text"
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              onFocus={handleFocus}
+              onBlur={handleBlur}
+              onKeyDown={handleKeyDown}
+              style={baseStyle}
+              placeholder="输入内容..."
+            />
+          </div>
+        );
       case 'numbered':
         return (
-          <input
-            ref={editorRef}
-            type="text"
-            value={editContent}
-            onChange={(e) => setEditContent(e.target.value)}
-            onFocus={handleFocus}
-            onBlur={handleBlur}
-            onKeyDown={handleKeyDown}
-            style={baseStyle}
-            placeholder="输入内容..."
-          />
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', flex: 1 }}>
+            <span style={{ color: 'rgba(55, 53, 47, 0.4)', marginTop: '2px' }}>•</span>
+            <input
+              ref={editorRef}
+              type="text"
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              onFocus={handleFocus}
+              onBlur={handleBlur}
+              onKeyDown={handleKeyDown}
+              style={baseStyle}
+              placeholder="输入内容..."
+            />
+          </div>
         );
       case 'todo':
         return (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', flex: 1, marginTop: '8px' }}>
             <button
               onClick={() => onUpdate(block.id, { properties: { ...block.properties, checked: !block.properties.checked } })}
-              style={{ cursor: 'pointer', padding: 0, background: 'transparent', border: 'none', display: 'flex', alignItems: 'center' }}
+              style={{ cursor: 'pointer', padding: 0, background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', marginTop: '2px' }}
             >
               <CheckCircle2
                 style={{
-                  width: '20px',
-                  height: '20px',
+                  width: '18px',
+                  height: '18px',
                   color: block.properties.checked ? 'rgba(35, 131, 226, 1)' : 'rgba(55, 53, 47, 0.4)',
                   fill: block.properties.checked ? 'rgba(35, 131, 226, 1)' : 'none'
                 }}
@@ -230,7 +302,7 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
         );
       case 'code':
         return (
-          <div style={{ flex: 1 }}>
+          <div style={{ flex: 1, marginTop: '8px' }}>
             <textarea
               value={editContent}
               onChange={(e) => setEditContent(e.target.value)}
@@ -241,12 +313,13 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
                 width: '100%',
                 padding: '12px',
                 backgroundColor: '#F7F6F3',
-                borderRadius: '8px',
+                borderRadius: '4px',
                 fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-                fontSize: '13px',
+                fontSize: '14px',
+                lineHeight: 1.6,
                 color: 'rgba(55, 53, 47, 1)',
                 outline: 'none',
-                border: '1px solid rgba(55, 53, 47, 0.09)',
+                border: '1px solid rgba(55, 53, 47, 0.15)',
                 resize: 'vertical',
                 minHeight: '80px'
               }}
@@ -257,7 +330,7 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
         );
       case 'quote':
         return (
-          <div style={{ flex: 1, paddingLeft: '16px', borderLeft: '2px solid rgba(55, 53, 47, 0.3)' }}>
+          <div style={{ flex: 1, marginTop: '8px', paddingLeft: '16px', borderLeft: '3px solid rgba(55, 53, 47, 0.2)', backgroundColor: 'rgba(55, 53, 47, 0.03)' }}>
             <input
               ref={editorRef}
               type="text"
@@ -266,16 +339,16 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
               onFocus={handleFocus}
               onBlur={handleBlur}
               onKeyDown={handleKeyDown}
-              style={{ ...baseStyle, fontSize: '16px', fontStyle: 'italic' }}
+              style={baseStyle}
               placeholder="引用..."
             />
           </div>
         );
       case 'divider':
-        return <hr style={{ flex: 1, border: 'none', borderTop: '1px solid rgba(55, 53, 47, 0.2)', margin: '16px 0' }} />;
+        return <hr style={{ flex: 1, border: 'none', borderTop: '1px solid rgba(55, 53, 47, 0.15)', margin: '24px 0' }} />;
       case 'callout':
         return (
-          <div style={{ flex: 1, padding: '12px 16px', borderRadius: '8px', backgroundColor: 'rgba(35, 131, 226, 0.08)' }}>
+          <div style={{ flex: 1, marginTop: '8px', padding: '12px 16px', borderRadius: '4px', backgroundColor: 'rgba(35, 131, 226, 0.08)' }}>
             <input
               ref={editorRef}
               type="text"
@@ -284,7 +357,7 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
               onFocus={handleFocus}
               onBlur={handleBlur}
               onKeyDown={handleKeyDown}
-              style={{ width: '100%', background: 'transparent', outline: 'none', border: 'none', fontSize: '14px', color: 'rgba(55, 53, 47, 1)' }}
+              style={{ width: '100%', background: 'transparent', outline: 'none', border: 'none', fontSize: '15px', color: 'rgba(55, 53, 47, 1)' }}
               placeholder="提示..."
             />
           </div>
@@ -312,7 +385,7 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
       style={{
         ...style,
         position: 'relative',
-        padding: '4px 0',
+        padding: '0',
         transition: 'opacity 150ms ease-in-out'
       }}
       onMouseEnter={() => setIsHovered(true)}
@@ -347,11 +420,13 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
         {number && (block.type === 'h1' || block.type === 'h2' || block.type === 'h3') && (
           <span
             style={{
-              color: 'rgba(55, 53, 47, 0.5)',
-              fontSize: block.type === 'h1' ? '18px' : block.type === 'h2' ? '16px' : '14px',
-              fontWeight: 500,
-              minWidth: '50px',
+              color: 'rgba(55, 53, 47, 0.65)',
+              fontSize: block.type === 'h1' ? '22px' : block.type === 'h2' ? '18px' : '16px',
+              fontWeight: 600,
+              minWidth: '60px',
               flexShrink: 0,
+              textAlign: 'right',
+              paddingRight: '12px',
             }}
           >
             {number}
