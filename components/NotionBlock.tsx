@@ -117,7 +117,10 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
       const beforeCursor = editContent.slice(0, cursorPosition);
       const afterCursor = editContent.slice(cursorPosition);
 
-      // Update current block with content before cursor
+      // Update local state first to immediately show the change
+      setEditContent(beforeCursor);
+
+      // Then update the parent state
       onUpdate(block.id, { content: beforeCursor });
 
       // Determine the type for the new block (Notion behavior)
