@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import {
@@ -42,8 +42,9 @@ interface NotionBlockProps {
   block: NotionBlock;
   onUpdate: (id: string, updates: Partial<NotionBlock>) => void;
   onDelete: (id: string) => void;
-  onAdd: (parentId: string | null, position: number, type: BlockType) => void;
+  onAdd: (parentId: string | null, position: number, type: BlockType, initialContent?: string) => string | undefined;
   number?: string;
+  onFocusNext?: () => void;
 }
 
 const BLOCK_ICONS: Record<BlockType, React.ComponentType<React.SVGProps<SVGSVGElement>>> = {
@@ -77,7 +78,20 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
   const [isHovered, setIsHovered] = useState(false);
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [editContent, setEditContent] = useState(block.content);
-  const editorRef = useRef<HTMLInputElement>(null);
+  const editorRef = useRef<HTMLTextAreaElement | HTMLInputElement>(null);
+
+  // Auto-resize textarea
+  const autoResize = () => {
+    const textarea = editorRef.current;
+    if (textarea && textarea.tagName === 'TEXTAREA') {
+      textarea.style.height = 'auto';
+      textarea.style.height = textarea.scrollHeight + 'px';
+    }
+  };
+
+  useEffect(() => {
+    autoResize();
+  }, [editContent]);
 
   const {
     attributes,
@@ -93,12 +107,50 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
     transition,
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      // Find current block index by traversing parent
-      // For now, we'll use a simpler approach - add after the current block
-      onAdd(block.id, 0, 'paragraph');
+
+      const textarea = e.currentTarget;
+      const cursorPosition = textarea.selectionStart;
+      const beforeCursor = editContent.slice(0, cursorPosition);
+      const afterCursor = editContent.slice(cursorPosition);
+
+      // Update current block with content before cursor
+      onUpdate(block.id, { content: beforeCursor });
+
+      // Determine the type for the new block
+      let newBlockType: BlockType = 'paragraph';
+      if (block.type === 'code') {
+        newBlockType = 'paragraph';
+      } else if (block.type === 'h1' || block.type === 'h2' || block.type === 'h3') {
+        newBlockType = 'paragraph';
+      } else {
+        newBlockType = block.type;
+      }
+
+      // Add new block with content after cursor and get its ID
+      const newBlockId = onAdd(block.id, 0, newBlockType, afterCursor);
+
+      // Focus the new block after it's created
+      if (newBlockId) {
+        // Use multiple attempts to find and focus the new block
+        const focusNewBlock = (attempts = 0) => {
+          const newBlockElement = document.querySelector(`[data-block-id="${newBlockId}"] textarea`) as HTMLTextAreaElement;
+          if (newBlockElement) {
+            newBlockElement.focus();
+            newBlockElement.setSelectionRange(0, 0);
+            // Trigger auto-resize
+            const resizeEvent = new Event('input', { bubbles: true });
+            newBlockElement.dispatchEvent(resizeEvent);
+          } else if (attempts < 10) {
+            // Retry with a longer delay
+            setTimeout(() => focusNewBlock(attempts + 1), (attempts + 1) * 20);
+          }
+        };
+
+        setTimeout(() => focusNewBlock(0), 0);
+      }
     } else if (e.key === 'Backspace' && !editContent && !isDragging) {
       e.preventDefault();
       onDelete(block.id);
@@ -191,92 +243,93 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
       background: 'transparent',
       border: 'none',
       padding: 0,
+      width: '100%',
       ...getBlockStyles()
     };
 
     switch (block.type) {
       case 'h1':
         return (
-          <input
-            ref={editorRef}
-            type="text"
+          <textarea
+            ref={editorRef as any}
             value={editContent}
             onChange={(e) => setEditContent(e.target.value)}
             onFocus={handleFocus}
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
-            style={baseStyle}
+            style={{ ...baseStyle, width: '100%', resize: 'none', overflow: 'hidden', height: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}
             placeholder="标题 1"
+            rows={1}
           />
         );
       case 'h2':
         return (
-          <input
-            ref={editorRef}
-            type="text"
+          <textarea
+            ref={editorRef as any}
             value={editContent}
             onChange={(e) => setEditContent(e.target.value)}
             onFocus={handleFocus}
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
-            style={baseStyle}
+            style={{ ...baseStyle, width: '100%', resize: 'none', overflow: 'hidden', height: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}
             placeholder="标题 2"
+            rows={1}
           />
         );
       case 'h3':
         return (
-          <input
-            ref={editorRef}
-            type="text"
+          <textarea
+            ref={editorRef as any}
             value={editContent}
             onChange={(e) => setEditContent(e.target.value)}
             onFocus={handleFocus}
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
-            style={baseStyle}
+            style={{ ...baseStyle, width: '100%', resize: 'none', overflow: 'hidden', height: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}
             placeholder="标题 3"
+            rows={1}
           />
         );
       case 'bullet':
         return (
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', flex: 1 }}>
-            <span style={{ color: 'rgba(55, 53, 47, 0.4)', marginTop: '2px' }}>•</span>
-            <input
-              ref={editorRef}
-              type="text"
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', flex: 1, width: '100%' }}>
+            <span style={{ color: 'rgba(55, 53, 47, 0.4)', marginTop: '2px', flexShrink: 0 }}>•</span>
+            <textarea
+              ref={editorRef as any}
               value={editContent}
               onChange={(e) => setEditContent(e.target.value)}
               onFocus={handleFocus}
               onBlur={handleBlur}
               onKeyDown={handleKeyDown}
-              style={baseStyle}
+              style={{ ...baseStyle, flex: 1, resize: 'none', overflow: 'hidden', height: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}
               placeholder="输入内容..."
+              rows={1}
             />
           </div>
         );
       case 'numbered':
         return (
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', flex: 1 }}>
-            <span style={{ color: 'rgba(55, 53, 47, 0.4)', marginTop: '2px' }}>•</span>
-            <input
-              ref={editorRef}
-              type="text"
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', flex: 1, width: '100%' }}>
+            <span style={{ color: 'rgba(55, 53, 47, 0.4)', marginTop: '2px', flexShrink: 0 }}>•</span>
+            <textarea
+              ref={editorRef as any}
               value={editContent}
               onChange={(e) => setEditContent(e.target.value)}
               onFocus={handleFocus}
               onBlur={handleBlur}
               onKeyDown={handleKeyDown}
-              style={baseStyle}
+              style={{ ...baseStyle, flex: 1, resize: 'none', overflow: 'hidden', height: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}
               placeholder="输入内容..."
+              rows={1}
             />
           </div>
         );
       case 'todo':
         return (
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', flex: 1, marginTop: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', flex: 1, marginTop: '8px', width: '100%' }}>
             <button
               onClick={() => onUpdate(block.id, { properties: { ...block.properties, checked: !block.properties.checked } })}
-              style={{ cursor: 'pointer', padding: 0, background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', marginTop: '2px' }}
+              style={{ cursor: 'pointer', padding: 0, background: 'transparent', border: 'none', display: 'flex', alignItems: 'center', marginTop: '2px', flexShrink: 0 }}
             >
               <CheckCircle2
                 style={{
@@ -287,16 +340,16 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
                 }}
               />
             </button>
-            <input
-              ref={editorRef}
-              type="text"
+            <textarea
+              ref={editorRef as any}
               value={editContent}
               onChange={(e) => setEditContent(e.target.value)}
               onFocus={handleFocus}
               onBlur={handleBlur}
               onKeyDown={handleKeyDown}
-              style={{ ...baseStyle, textDecoration: block.properties.checked ? 'line-through' : 'none', opacity: block.properties.checked ? 0.5 : 1 }}
+              style={{ ...baseStyle, textDecoration: block.properties.checked ? 'line-through' : 'none', opacity: block.properties.checked ? 0.5 : 1, flex: 1, resize: 'none', overflow: 'hidden', height: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}
               placeholder="待办事项..."
+              rows={1}
             />
           </div>
         );
@@ -330,17 +383,17 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
         );
       case 'quote':
         return (
-          <div style={{ flex: 1, marginTop: '8px', paddingLeft: '16px', borderLeft: '3px solid rgba(55, 53, 47, 0.2)', backgroundColor: 'rgba(55, 53, 47, 0.03)' }}>
-            <input
-              ref={editorRef}
-              type="text"
+          <div style={{ flex: 1, marginTop: '8px', paddingLeft: '16px', borderLeft: '3px solid rgba(55, 53, 47, 0.2)', backgroundColor: 'rgba(55, 53, 47, 0.03)', width: '100%' }}>
+            <textarea
+              ref={editorRef as any}
               value={editContent}
               onChange={(e) => setEditContent(e.target.value)}
               onFocus={handleFocus}
               onBlur={handleBlur}
               onKeyDown={handleKeyDown}
-              style={baseStyle}
+              style={{ ...baseStyle, width: '100%', resize: 'none', overflow: 'hidden', height: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}
               placeholder="引用..."
+              rows={1}
             />
           </div>
         );
@@ -348,32 +401,32 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
         return <hr style={{ flex: 1, border: 'none', borderTop: '1px solid rgba(55, 53, 47, 0.15)', margin: '24px 0' }} />;
       case 'callout':
         return (
-          <div style={{ flex: 1, marginTop: '8px', padding: '12px 16px', borderRadius: '4px', backgroundColor: 'rgba(35, 131, 226, 0.08)' }}>
-            <input
-              ref={editorRef}
-              type="text"
+          <div style={{ flex: 1, marginTop: '8px', padding: '12px 16px', borderRadius: '4px', backgroundColor: 'rgba(35, 131, 226, 0.08)', width: '100%' }}>
+            <textarea
+              ref={editorRef as any}
               value={editContent}
               onChange={(e) => setEditContent(e.target.value)}
               onFocus={handleFocus}
               onBlur={handleBlur}
               onKeyDown={handleKeyDown}
-              style={{ width: '100%', background: 'transparent', outline: 'none', border: 'none', fontSize: '15px', color: 'rgba(55, 53, 47, 1)' }}
+              style={{ width: '100%', background: 'transparent', outline: 'none', border: 'none', fontSize: '15px', color: 'rgba(55, 53, 47, 1)', lineHeight: 1.8, resize: 'none', overflow: 'hidden', height: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}
               placeholder="提示..."
+              rows={1}
             />
           </div>
         );
       default:
         return (
-          <input
-            ref={editorRef}
-            type="text"
+          <textarea
+            ref={editorRef as any}
             value={editContent}
             onChange={(e) => setEditContent(e.target.value)}
             onFocus={handleFocus}
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
-            style={baseStyle}
+            style={{ ...baseStyle, width: '100%', resize: 'none', overflow: 'hidden', height: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}
             placeholder="输入内容... (按 / 显示菜单)"
+            rows={1}
           />
         );
     }
@@ -382,6 +435,7 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
   return (
     <div
       ref={setNodeRef}
+      data-block-id={block.id}
       style={{
         ...style,
         position: 'relative',

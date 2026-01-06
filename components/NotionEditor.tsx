@@ -162,11 +162,12 @@ export function NotionEditor({ blocks, setBlocks }: NotionEditorProps) {
     setBlocks((prev) => prev.filter((block) => block.id !== id));
   };
 
-  const addBlock = (parentId: string | null, position: number, type: BlockType) => {
+  const addBlock = (parentId: string | null, position: number, type: BlockType, initialContent?: string): string | undefined => {
+    const newBlockId = `block-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
     const newBlock: NotionBlock = {
-      id: `block-${Date.now()}`,
+      id: newBlockId,
       type,
-      content: '',
+      content: initialContent || '',
       properties: {},
       children: [],
     };
@@ -181,6 +182,8 @@ export function NotionEditor({ blocks, setBlocks }: NotionEditorProps) {
       // Insert at the specified position
       setBlocks([...blocks.slice(0, position), newBlock, ...blocks.slice(position)]);
     }
+
+    return newBlockId;
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
