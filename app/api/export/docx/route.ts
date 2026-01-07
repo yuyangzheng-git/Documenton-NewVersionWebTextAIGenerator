@@ -2,13 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Packer } from 'docx';
 import { WORD_TEMPLATES } from '@/lib/word-templates';
 import { exportToDocx } from '@/lib/export-utils';
-// @ts-ignore - carbone doesn't have TypeScript definitions
-import carbone from 'carbone';
+
+// Carbone API configuration
+const CARBONE_API_URL = 'https://api.carbone.io';
+const CARBONE_API_TOKEN = process.env.CARBONE_API_TOKEN || 'test_YOUR_TOKEN_HERE';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { outline, blocks, documentTitle, templateId, customTemplateBase64 } = body;
+    const { outline, blocks, documentTitle, templateId, customTemplateId } = body;
 
     if (!blocks || blocks.length === 0) {
       return NextResponse.json(
@@ -17,33 +19,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Convert blocks to HTML for docx library
-    const htmlContent = blocksToHtml(blocks);
-    const template = WORD_TEMPLATES.find((t) => t.id === templateId) || WORD_TEMPLATES[0];
-
     let buffer: Buffer;
 
-    if (customTemplateBase64) {
-      // Use Carbone with custom template
-      const data = prepareCarboneData(blocks, outline, documentTitle);
-      const templateBuffer = Buffer.from(customTemplateBase64, 'base64');
-
-      buffer = await new Promise<Buffer>((resolve, reject) => {
-        carbone.render(
-          templateBuffer,
-          data,
-          { language: 'zh-CN' },
-          (err: any, result: Buffer) => {
-            if (err) {
-              reject(err);
-            } else {
-              resolve(result);
-            }
-          }
-        );
-      });
+    if (customTemplateId && CARBONE_API_TOKEN !== 'test_YOUR_TOKEN_HERE') {
+      // Use Carbone API with custom template
+      buffer = await exportWithCarboneApi(blocks, outline, documentTitle, customTemplateId);
     } else {
       // Use docx library for built-in templates
+      const htmlContent = blocksToHtml(blocks);
+      const template = WORD_TEMPLATES.find((t) => t.id === templateId) || WORD_TEMPLATES[0];
       const doc = await exportToDocx(htmlContent, documentTitle || '文档', template);
       buffer = await Packer.toBuffer(doc);
     }
@@ -63,6 +47,57 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+// Export using Carbone API
+async function exportWithCarboneApi(
+  blocks: any[],
+  outline: any[],
+  title: string,
+  templateId: string
+): Promise<Buffer> {
+  // Prepare data for template rendering
+  const data = prepareCarboneData(blocks, outline, title);
+
+  // Render report using Carbone API
+  const response = await fetch(`${CARBONE_API_URL}/render/${templateId}`, {
+    method: 'POST',
+    headers: {
+      'carbone-version': '4',
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${CARBONE_API_TOKEN}`,
+    },
+    body: JSON.stringify({ data }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Carbone render error:', errorText);
+    throw new Error(`Carbone API error: ${response.status} - ${errorText}`);
+  }
+
+  const result = await response.json();
+
+  if (!result.success) {
+    throw new Error('Carbone API returned error');
+  }
+
+  const renderId = result.data.renderId;
+
+  // Download the rendered document
+  const downloadResponse = await fetch(`${CARBONE_API_URL}/render/${renderId}`, {
+    method: 'GET',
+    headers: {
+      'carbone-version': '4',
+    },
+  });
+
+  if (!downloadResponse.ok) {
+    throw new Error('Failed to download rendered document');
+  }
+
+  const arrayBuffer = await downloadResponse.arrayBuffer();
+  return Buffer.from(arrayBuffer);
 }
 
 // Convert blocks to HTML string

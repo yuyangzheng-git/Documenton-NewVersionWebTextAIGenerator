@@ -18,7 +18,7 @@ export default function WordEditorPage() {
   const [showOutlinePanel, setShowOutlinePanel] = useState(true);
   const [blocks, setBlocks] = useState<NotionBlock[]>([]);
   const [documentTopic, setDocumentTopic] = useState('');
-  const [customTemplateBase64, setCustomTemplateBase64] = useState<string | null>(null);
+  const [customTemplateId, setCustomTemplateId] = useState<string | null>(null);
   const [customTemplateName, setCustomTemplateName] = useState<string | null>(null);
   const [showCustomTemplate, setShowCustomTemplate] = useState(false);
 
@@ -106,12 +106,13 @@ export default function WordEditorPage() {
           blocks,
           documentTitle,
           templateId: selectedTemplate,
-          customTemplateBase64: showCustomTemplate ? customTemplateBase64 : null,
+          customTemplateId: showCustomTemplate ? customTemplateId : null,
         }),
       });
 
       if (!response.ok) {
-        throw new Error('导出失败');
+        const errorData = await response.json();
+        throw new Error(errorData.error || '导出失败');
       }
 
       const blob = await response.blob();
@@ -125,7 +126,7 @@ export default function WordEditorPage() {
       window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Export error:', error);
-      alert('导出文档失败，请重试');
+      alert('导出文档失败：' + (error instanceof Error ? error.message : '请重试'));
     }
   };
 
@@ -148,17 +149,18 @@ export default function WordEditorPage() {
       });
 
       if (!response.ok) {
-        throw new Error('模板上传失败');
+        const errorData = await response.json();
+        throw new Error(errorData.error || '模板上传失败');
       }
 
       const result = await response.json();
-      setCustomTemplateBase64(result.templateBase64);
+      setCustomTemplateId(result.templateId);
       setCustomTemplateName(result.templateName);
       setShowCustomTemplate(true);
-      alert('模板上传成功！');
+      alert('模板上传成功！模板ID: ' + result.templateId);
     } catch (error) {
       console.error('Template upload error:', error);
-      alert('模板上传失败，请重试');
+      alert('模板上传失败：' + (error instanceof Error ? error.message : '请重试'));
     }
   };
 

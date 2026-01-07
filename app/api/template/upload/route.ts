@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// Carbone API configuration
+const CARBONE_API_URL = 'https://api.carbone.io';
+const CARBONE_API_TOKEN = process.env.CARBONE_API_TOKEN || 'test_YOUR_TOKEN_HERE';
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
@@ -20,21 +24,59 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Convert file to base64 for storage
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    const base64 = buffer.toString('base64');
+    // Check if Carbone API token is configured
+    if (!CARBONE_API_TOKEN || CARBONE_API_TOKEN === 'test_YOUR_TOKEN_HERE') {
+      return NextResponse.json(
+        { 
+          error: 'Carbone API token not configured',
+          message: 'Please set CARBONE_API_TOKEN in environment variables'
+        },
+        { status: 500 }
+      );
+    }
 
-    // Return template info
+    // Prepare form data for Carbone API
+    const carboneFormData = new FormData();
+    carboneFormData.append('template', file);
+
+    // Upload template to Carbone API
+    const response = await fetch(`${CARBONE_API_URL}/template`, {
+      method: 'POST',
+      headers: {
+        'carbone-version': '4',
+        'Authorization': `Bearer ${CARBONE_API_TOKEN}`,
+      },
+      body: carboneFormData,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Carbone API error:', errorText);
+      return NextResponse.json(
+        { error: 'Failed to upload template to Carbone API', details: errorText },
+        { status: response.status }
+      );
+    }
+
+    const result = await response.json();
+
+    if (!result.success) {
+      return NextResponse.json(
+        { error: 'Carbone API returned error', details: result },
+        { status: 500 }
+      );
+    }
+
+    // Return template ID from Carbone
     return NextResponse.json({
       success: true,
+      templateId: result.data.templateId,
       templateName: file.name,
-      templateBase64: base64,
     });
   } catch (error) {
     console.error('Template upload error:', error);
     return NextResponse.json(
-      { error: 'Failed to upload template' },
+      { error: 'Failed to upload template', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }

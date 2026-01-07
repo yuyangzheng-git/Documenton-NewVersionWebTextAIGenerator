@@ -2,7 +2,20 @@
 
 ## 概述
 
-本项目使用 Carbone 模板引擎来生成 Word 文档。你可以上传自定义的 .docx 模板文件来控制文档的样式和布局。
+本项目使用 Carbone 云端 API 来生成 Word 文档。你可以上传自定义的 .docx 模板文件来控制文档的样式和布局。
+
+## 前置要求
+
+使用自定义模板功能需要配置 Carbone API Token：
+
+1. 访问 [Carbone 官网](https://carbone.io) 注册账号
+2. 获取 API Token（有测试 Token 和生产 Token 两种）
+3. 在项目环境变量中设置 `CARBONE_API_TOKEN`
+
+```bash
+# 在 .env.local 文件中设置
+CARBONE_API_TOKEN=your_api_token_here
+```
 
 ## Carbone 模板语法
 
@@ -60,7 +73,7 @@ Carbone 使用简单的标记语法来插入数据：
 
 {#d.sections}
 {d.sections.heading}
-{d.sections.level === 1 ? '' : ''}
+
 {#d.sections.paragraphs}
 {d.sections.paragraphs}
 
@@ -68,12 +81,14 @@ Carbone 使用简单的标记语法来插入数据：
 {/d.sections}
 ```
 
-### 使用表格展示列表
+### 使用列表
 
 ```
+{#d.sections}
 {#d.sections.lists}
-{d.sections.lists.type === 'bullet' ? '• ' : '{@index}. '}{d.sections.lists.items.0}
+• {d.sections.lists.items.0}
 {/d.sections.lists}
+{/d.sections}
 ```
 
 ### 条件显示
@@ -90,39 +105,15 @@ Carbone 使用简单的标记语法来插入数据：
 4. 保存为 .docx 格式
 5. 在应用的模板选择器中上传
 
-## 高级功能
+## API 使用说明
 
-### 循环遍历列表项
+### 上传模板
 
-```
-{#d.sections}
-{#d.sections.lists}
-{#d.sections.lists.items}
-- {d.sections.lists.items}
-{/d.sections.lists.items}
-{/d.sections.lists}
-{/d.sections}
-```
+上传模板后会获得一个 `templateId`，用于后续的文档生成。
 
-### 嵌套循环
+### 生成文档
 
-```
-{#d.sections}
-## {d.sections.heading}
-
-{#d.sections.paragraphs}
-{d.sections.paragraphs}
-
-{/d.sections.paragraphs}
-
-{#d.sections.lists}
-• 列表:
-  {#d.sections.lists.items}
-  - {d.sections.lists.items}
-  {/d.sections.lists.items}
-{/d.sections.lists}
-{/d.sections}
-```
+使用 `templateId` 和数据调用渲染 API 生成文档。
 
 ## 常见问题
 
@@ -132,13 +123,17 @@ A: 直接在 Word 模板中修改，Carbone 会保留所有格式。
 ### Q: 如何添加页眉页脚？
 A: 在 Word 中正常添加页眉页脚，可以在其中使用 `{d.title}` 等变量。
 
-### Q: 支持哪些数据类型？
-A: 支持字符串、数字、布尔值、数组和对象。
+### Q: 支持 PDF 导出吗？
+A: 是的，可以通过设置 `convertTo: "pdf"` 参数来导出 PDF。
 
-### Q: 如何处理空值？
-A: Carbone 会自动跳过 null 和 undefined 值。
+### Q: 测试 Token 和生产 Token 的区别？
+A: 测试 Token 生成的文档带有水印，生产 Token 需要绑定支付方式。
+
+### Q: 没有 API Token 怎么办？
+A: 没有配置 API Token 时，会使用内置的 docx 库生成文档，仅支持 5 种预设模板。
 
 ## 参考资源
 
-- Carbone 官方文档: https://carbone.io
-- Carbone GitHub: https://github.com/agence-alma/carbone
+- Carbone 官方文档: https://carbone.io/documentation.html
+- Carbone API 文档: https://carbone.io/documentation.html#how-to-use-api
+
