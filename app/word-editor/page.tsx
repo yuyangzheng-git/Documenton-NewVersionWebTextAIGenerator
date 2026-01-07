@@ -18,6 +18,14 @@ export default function WordEditorPage() {
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   const [showOutlinePanel, setShowOutlinePanel] = useState(true);
   const [blocks, setBlocks] = useState<NotionBlock[]>([]);
+  const [documentTopic, setDocumentTopic] = useState('');
+
+  // Get document topic from URL or first outline item
+  useEffect(() => {
+    if (outline.length > 0) {
+      setDocumentTopic(outline[0].title);
+    }
+  }, [outline]);
 
   const handleRewriteText = (text: string) => {
     // Handle AI rewrite request - could open a dialog with the AI chat
@@ -42,11 +50,12 @@ export default function WordEditorPage() {
   useEffect(() => {
     const notionBlocks: NotionBlock[] = [];
     outline.forEach((item) => {
-      // Add heading block
+      // Add heading block with auto-generated number
+      const titleWithNumber = item.number ? `${item.number} ${item.title}` : item.title;
       notionBlocks.push({
         id: `heading-${item.id}`,
         type: item.level === 1 ? 'h1' : 'h2',
-        content: item.title,
+        content: titleWithNumber,
         properties: {},
         children: [],
       });
@@ -57,6 +66,17 @@ export default function WordEditorPage() {
           id: `content-${item.id}`,
           type: 'paragraph',
           content: item.content,
+          properties: {},
+          children: [],
+        });
+      }
+
+      // Add placeholder paragraph after each heading for easy editing
+      if (!item.content) {
+        notionBlocks.push({
+          id: `placeholder-${item.id}`,
+          type: 'paragraph',
+          content: '',
           properties: {},
           children: [],
         });
@@ -95,6 +115,10 @@ export default function WordEditorPage() {
             return '<hr>';
           case 'code':
             return `<pre><code>${block.content}</code></pre>`;
+          case 'image':
+            return block.content ? `<img src="${block.content}" alt="图片" />` : '';
+          case 'callout':
+            return `<div style="background-color: rgba(35, 131, 226, 0.08); padding: 12px 16px; border-radius: 4px; border-left: 3px solid #2383E2;">${block.content}</div>`;
           default:
             return `<p>${block.content}</p>`;
         }
@@ -403,7 +427,11 @@ export default function WordEditorPage() {
         </main>
 
         {/* Outline Panel */}
-        <OutlinePanel show={showOutlinePanel} onClose={() => setShowOutlinePanel(false)} />
+        <OutlinePanel
+          show={showOutlinePanel}
+          onClose={() => setShowOutlinePanel(false)}
+          documentTopic={documentTopic}
+        />
       </div>
 
       {/* Text Selection Toolbar */}

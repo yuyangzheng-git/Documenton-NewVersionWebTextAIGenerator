@@ -43,7 +43,6 @@ interface NotionBlockProps {
   onUpdate: (id: string, updates: Partial<NotionBlock>) => void;
   onDelete: (id: string) => void;
   onAdd: (parentId: string | null, position: number, type: BlockType, initialContent?: string) => string | undefined;
-  number?: string;
   onFocusNext?: () => void;
 }
 
@@ -74,11 +73,12 @@ const BLOCK_TYPES = [
   { type: 'quote' as BlockType, label: '引用' },
 ];
 
-export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: NotionBlockProps) {
+export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [editContent, setEditContent] = useState(block.content);
   const editorRef = useRef<HTMLTextAreaElement | HTMLInputElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   // Auto-resize textarea
   const autoResize = () => {
@@ -92,6 +92,28 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
   useEffect(() => {
     autoResize();
   }, [editContent]);
+
+  // Update local content when block content or type changes from parent
+  useEffect(() => {
+    setEditContent(block.content);
+  }, [block.content, block.type]);
+
+  // Handle click outside to close menu
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node) && editorRef.current && !editorRef.current.contains(event.target as Node)) {
+        setShowSlashMenu(false);
+      }
+    };
+
+    if (showSlashMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showSlashMenu]);
 
   const {
     attributes,
@@ -183,7 +205,10 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
     } else if (e.key === 'Escape') {
       setShowSlashMenu(false);
     } else if (e.key === '/') {
-      setShowSlashMenu(true);
+      // Only show menu if it's the first character
+      if (!editContent || editContent === '') {
+        setShowSlashMenu(true);
+      }
     }
   };
 
@@ -202,9 +227,29 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
   const handleTypeChange = (type: BlockType) => {
     // Remove the '/' from content before changing type
     const cleanContent = editContent.replace(/^\/$/, '');
+
+    console.log('Changing block type:', {
+      blockId: block.id,
+      currentType: block.type,
+      newType: type,
+      currentContent: editContent,
+      cleanContent
+    });
+
+    // Update the block with new type
     onUpdate(block.id, { type, content: cleanContent });
+
+    // Close the menu
     setShowSlashMenu(false);
-    editorRef.current?.focus();
+
+    // Update local state to match immediately
+    setEditContent(cleanContent);
+  };
+
+  const handleMenuItemClick = (type: BlockType, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    handleTypeChange(type);
   };
 
   const renderContent = () => {
@@ -283,7 +328,7 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
             onFocus={handleFocus}
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
-            style={{ ...baseStyle, width: '100%', resize: 'none', overflow: 'hidden', height: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}
+            style={{ ...baseStyle, width: '100%', resize: 'none', overflow: 'hidden', height: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word', marginTop: '2px' }}
             placeholder="标题 1"
             rows={1}
           />
@@ -297,7 +342,7 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
             onFocus={handleFocus}
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
-            style={{ ...baseStyle, width: '100%', resize: 'none', overflow: 'hidden', height: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}
+            style={{ ...baseStyle, width: '100%', resize: 'none', overflow: 'hidden', height: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word', marginTop: '2px' }}
             placeholder="标题 2"
             rows={1}
           />
@@ -311,7 +356,7 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
             onFocus={handleFocus}
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
-            style={{ ...baseStyle, width: '100%', resize: 'none', overflow: 'hidden', height: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}
+            style={{ ...baseStyle, width: '100%', resize: 'none', overflow: 'hidden', height: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word', marginTop: '2px' }}
             placeholder="标题 3"
             rows={1}
           />
@@ -327,7 +372,7 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
               onFocus={handleFocus}
               onBlur={handleBlur}
               onKeyDown={handleKeyDown}
-              style={{ ...baseStyle, flex: 1, resize: 'none', overflow: 'hidden', height: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}
+              style={{ ...baseStyle, flex: 1, resize: 'none', overflow: 'hidden', height: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word', marginTop: '2px' }}
               placeholder="输入内容..."
               rows={1}
             />
@@ -344,7 +389,7 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
               onFocus={handleFocus}
               onBlur={handleBlur}
               onKeyDown={handleKeyDown}
-              style={{ ...baseStyle, flex: 1, resize: 'none', overflow: 'hidden', height: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}
+              style={{ ...baseStyle, flex: 1, resize: 'none', overflow: 'hidden', height: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word', marginTop: '2px' }}
               placeholder="输入内容..."
               rows={1}
             />
@@ -441,6 +486,80 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
             />
           </div>
         );
+      case 'image':
+        return (
+          <div style={{ flex: 1, marginTop: '8px', width: '100%' }}>
+            {editContent ? (
+              <div style={{ position: 'relative', width: '100%' }}>
+                <img
+                  src={editContent}
+                  alt="插入的图片"
+                  style={{ maxWidth: '100%', borderRadius: '4px', display: 'block' }}
+                  onError={() => {
+                    // 如果图片加载失败，清除内容
+                    onUpdate(block.id, { content: '' });
+                    alert('图片加载失败，请检查图片链接是否正确');
+                  }}
+                />
+                <textarea
+                  ref={editorRef as any}
+                  value={editContent}
+                  onChange={(e) => setEditContent(e.target.value)}
+                  onFocus={handleFocus}
+                  onBlur={handleBlur}
+                  onKeyDown={handleKeyDown}
+                  style={{
+                    marginTop: '8px',
+                    width: '100%',
+                    padding: '8px',
+                    backgroundColor: '#F7F6F3',
+                    borderRadius: '4px',
+                    fontSize: '13px',
+                    color: 'rgba(55, 53, 47, 0.6)',
+                    outline: 'none',
+                    border: '1px solid rgba(55, 53, 47, 0.15)',
+                    resize: 'none',
+                    overflow: 'hidden',
+                    height: 'auto',
+                    whiteSpace: 'pre-wrap',
+                    wordWrap: 'break-word'
+                  }}
+                  placeholder="输入图片 URL..."
+                  rows={1}
+                />
+              </div>
+            ) : (
+              <div style={{ border: '2px dashed rgba(55, 53, 47, 0.2)', borderRadius: '8px', padding: '32px', textAlign: 'center', backgroundColor: 'rgba(55, 53, 47, 0.02)' }}>
+                <ImageIcon style={{ width: '48px', height: '48px', color: 'rgba(55, 53, 47, 0.3)', marginBottom: '12px', margin: '0 auto 12px' }} />
+                <textarea
+                  ref={editorRef as any}
+                  value={editContent}
+                  onChange={(e) => setEditContent(e.target.value)}
+                  onFocus={handleFocus}
+                  onBlur={handleBlur}
+                  onKeyDown={handleKeyDown}
+                  style={{
+                    width: '100%',
+                    backgroundColor: 'transparent',
+                    outline: 'none',
+                    border: 'none',
+                    fontSize: '15px',
+                    color: 'rgba(55, 53, 47, 1)',
+                    textAlign: 'center',
+                    resize: 'none',
+                    overflow: 'hidden',
+                    height: 'auto',
+                    whiteSpace: 'pre-wrap',
+                    wordWrap: 'break-word'
+                  }}
+                  placeholder="输入图片 URL..."
+                  rows={1}
+                />
+                <div style={{ fontSize: '13px', color: 'rgba(55, 53, 47, 0.5)', marginTop: '8px' }}>支持 HTTPS 图片链接</div>
+              </div>
+            )}
+          </div>
+        );
       default:
         return (
           <textarea
@@ -450,7 +569,7 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
             onFocus={handleFocus}
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
-            style={{ ...baseStyle, width: '100%', resize: 'none', overflow: 'hidden', height: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}
+            style={{ ...baseStyle, width: '100%', resize: 'none', overflow: 'hidden', height: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word', marginTop: '2px' }}
             placeholder="输入内容... (按 / 显示菜单)"
             rows={1}
           />
@@ -473,8 +592,8 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
       {...attributes}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-        {/* 拖拽手柄 */}
         <button
+          {...listeners}
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -491,27 +610,9 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
             flexShrink: 0,
             marginTop: '2px',
           }}
-          {...listeners}
         >
           <GripVertical style={{ width: '16px', height: '16px', color: 'rgba(55, 53, 47, 0.4)' }} />
         </button>
-
-        {/* 序号显示（仅用于标题） */}
-        {number && (block.type === 'h1' || block.type === 'h2' || block.type === 'h3') && (
-          <span
-            style={{
-              color: 'rgba(55, 53, 47, 0.65)',
-              fontSize: block.type === 'h1' ? '22px' : block.type === 'h2' ? '18px' : '16px',
-              fontWeight: 600,
-              minWidth: '60px',
-              flexShrink: 0,
-              textAlign: 'right',
-              paddingRight: '12px',
-            }}
-          >
-            {number}
-          </span>
-        )}
 
         {/* 内容 */}
         <div style={{ flex: 1, position: 'relative' }}>
@@ -520,6 +621,7 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
           {/* Slash 菜单 */}
           {showSlashMenu && (
             <div
+              ref={menuRef}
               style={{
                 position: 'absolute',
                 top: '100%',
@@ -540,7 +642,7 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
                 {BLOCK_TYPES.map((type) => (
                   <button
                     key={type.type}
-                    onClick={() => handleTypeChange(type.type)}
+                    onClick={(e) => handleMenuItemClick(type.type, e)}
                     style={{
                       userSelect: 'none',
                       transition: 'background 20ms ease-in',
@@ -559,6 +661,12 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
                       border: 'none',
                       width: '100%',
                       textAlign: 'left'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = 'rgba(55, 53, 47, 0.04)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'transparent';
                     }}
                   >
                     <span style={{ color: 'rgba(55, 53, 47, 0.5)', display: 'flex', alignItems: 'center' }}>
@@ -574,12 +682,10 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
 
               <div style={{ borderTop: '1px solid rgba(55, 53, 47, 0.09)', padding: '8px' }}>
                 <div style={{ fontSize: '11px', color: 'rgba(55, 53, 47, 0.5)', marginBottom: '4px', padding: '0 4px' }}>高级块</div>
-                {['quote', 'divider', 'callout'].map((type) => (
+                {['quote', 'divider', 'callout', 'image'].map((type) => (
                   <button
                     key={type}
-                    onClick={() => {
-                      handleTypeChange(type as BlockType);
-                    }}
+                    onClick={(e) => handleMenuItemClick(type as BlockType, e)}
                     style={{
                       userSelect: 'none',
                       transition: 'background 20ms ease-in',
@@ -599,6 +705,12 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
                       width: '100%',
                       textAlign: 'left'
                     }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = 'rgba(55, 53, 47, 0.04)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                    }}
                   >
                     <span style={{ color: 'rgba(55, 53, 47, 0.5)', display: 'flex', alignItems: 'center' }}>
                       {(() => {
@@ -606,7 +718,7 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, number }: Notion
                         return Icon ? <Icon style={{ width: '16px', height: '16px' }} /> : null;
                       })()}
                     </span>
-                    <span>{type === 'quote' ? '引用' : type === 'divider' ? '分割线' : '提示框'}</span>
+                    <span>{type === 'quote' ? '引用' : type === 'divider' ? '分割线' : type === 'callout' ? '提示框' : '图片'}</span>
                   </button>
                 ))}
               </div>

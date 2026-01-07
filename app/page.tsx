@@ -13,13 +13,82 @@ export default function Home() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [apiKey, setApiKey] = useState('');
-  const { setDocumentTitle, apiKey: storedApiKey, setApiKey: saveApiKey } = useStore();
+  const [apiUrl, setApiUrl] = useState('');
+  const [lastEnterTime, setLastEnterTime] = useState(0);
+  const { setDocumentTitle, apiKey: storedApiKey, setApiKey: saveApiKey, apiUrl: storedApiUrl, setApiUrl: saveApiUrl } = useStore();
 
   useEffect(() => {
     if (storedApiKey) {
       setApiKey(storedApiKey);
     }
-  }, [storedApiKey]);
+    if (storedApiUrl) {
+      setApiUrl(storedApiUrl);
+    }
+  }, [storedApiKey, storedApiUrl]);
+
+  const handleQuickAction = async (actionId: string) => {
+    setIsGenerating(true);
+    try {
+      switch (actionId) {
+        case 'whats-new':
+          // 智能文档生成 - 显示产品功能
+          alert('智能文档生成器功能：\n\n• AI 驱动的文档大纲自动生成\n• 支持多种文档模板\n• 实时智能编辑辅助\n• 一键导出 Word 文档');
+          setIsGenerating(false);
+          return;
+
+        case 'meeting-agenda':
+          // 撰写会议纪要 - 生成会议纪要模板
+          setDocumentTitle('会议纪要');
+          const meetingOutline = [
+            { id: '1', title: '会议信息', level: 1 as const, status: 'idle' as const, content: '' },
+            { id: '2', title: '会议主题', level: 2 as const, status: 'idle' as const, content: '本次会议讨论的核心议题' },
+            { id: '3', title: '会议时间', level: 2 as const, status: 'idle' as const, content: 'YYYY年MM月DD日 HH:MM' },
+            { id: '4', title: '参会人员', level: 2 as const, status: 'idle' as const, content: '列出所有参会人员名单' },
+            { id: '5', title: '会议内容', level: 1 as const, status: 'idle' as const, content: '' },
+            { id: '6', title: '议题讨论', level: 2 as const, status: 'idle' as const, content: '详细记录各项议题的讨论过程和要点' },
+            { id: '7', title: '决议事项', level: 2 as const, status: 'idle' as const, content: '记录会议达成的共识和决议' },
+            { id: '8', title: '后续行动', level: 2 as const, status: 'idle' as const, content: '明确下一步行动计划和责任人' },
+            { id: '9', title: '下次会议', level: 1 as const, status: 'idle' as const, content: '预定下次会议的时间地点' },
+          ];
+          useStore.getState().setOutline(meetingOutline);
+          router.push('/word-editor');
+          return;
+
+        case 'analyze-pdf':
+          // 智能文档分析 - 提示功能
+          alert('智能文档分析功能：\n\n• 支持上传 PDF、Word、图片等文件\n• AI 自动提取关键信息和摘要\n• 智能生成文档大纲\n• 识别文档中的重点内容\n\n请先创建文档，然后在编辑器中使用 AI 助手进行分析。');
+          setIsGenerating(false);
+          return;
+
+        case 'task-tracker':
+          // 项目管理模板 - 生成项目管理模板
+          setDocumentTitle('项目管理');
+          const taskOutline = [
+            { id: '1', title: '项目概况', level: 1 as const, status: 'idle' as const, content: '' },
+            { id: '2', title: '项目背景', level: 2 as const, status: 'idle' as const, content: '简要描述项目的背景和目标' },
+            { id: '3', title: '项目范围', level: 2 as const, status: 'idle' as const, content: '界定项目的边界和交付成果' },
+            { id: '4', title: '时间规划', level: 1 as const, status: 'idle' as const, content: '' },
+            { id: '5', title: '里程碑节点', level: 2 as const, status: 'idle' as const, content: '列出关键的时间节点和交付日期' },
+            { id: '6', title: '任务分配', level: 2 as const, status: 'idle' as const, content: '明确各阶段的任务负责人和团队分工' },
+            { id: '7', title: '风险管理', level: 1 as const, status: 'idle' as const, content: '' },
+            { id: '8', title: '风险识别', level: 2 as const, status: 'idle' as const, content: '识别可能影响项目的风险因素' },
+            { id: '9', title: '应对策略', level: 2 as const, status: 'idle' as const, content: '制定相应的风险应对和缓解措施' },
+            { id: '10', title: '资源需求', level: 1 as const, status: 'idle' as const, content: '项目所需的人力、物力和财务资源' },
+          ];
+          useStore.getState().setOutline(taskOutline);
+          router.push('/word-editor');
+          return;
+
+        default:
+          setIsGenerating(false);
+          return;
+      }
+    } catch (error) {
+      console.error('Error handling quick action:', error);
+      alert('操作失败，请稍后重试。');
+      setIsGenerating(false);
+    }
+  };
 
   const handleGenerate = async () => {
     if (!prompt.trim()) return;
@@ -153,22 +222,22 @@ export default function Home() {
   const quickActions = [
     {
       id: 'whats-new',
-      title: 'Notion AI 新功能',
+      title: '智能文档生成',
       icon: Sparkles
     },
     {
       id: 'meeting-agenda',
-      title: '撰写会议议程',
+      title: '撰写会议纪要',
       icon: ListChecks
     },
     {
       id: 'analyze-pdf',
-      title: '分析 PDF 或图片',
+      title: '智能文档分析',
       icon: FileText
     },
     {
       id: 'task-tracker',
-      title: '创建任务跟踪器',
+      title: '项目管理模板',
       icon: CheckCircle2
     }
   ];
@@ -289,8 +358,31 @@ export default function Home() {
               onClick={(e) => e.stopPropagation()}
             >
               <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '16px', color: 'rgba(55, 53, 47, 1)' }}>
-                Dify API Key 设置
+                Dify API 设置
               </h3>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '14px', marginBottom: '8px', color: 'rgba(55, 53, 47, 0.65)' }}>
+                  API Base URL
+                </label>
+                <input
+                  type="text"
+                  value={apiUrl}
+                  onChange={(e) => setApiUrl(e.target.value)}
+                  placeholder="http://10.23.22.37/v1"
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    border: '1px solid rgba(55, 53, 47, 0.09)',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    color: 'rgba(55, 53, 47, 1)',
+                    marginBottom: '8px',
+                  }}
+                />
+                <div style={{ fontSize: '12px', color: 'rgba(55, 53, 47, 0.45)' }}>
+                  Dify API 基础 URL,例如: http://10.23.22.37/v1
+                </div>
+              </div>
               <div style={{ marginBottom: '16px' }}>
                 <label style={{ display: 'block', fontSize: '14px', marginBottom: '8px', color: 'rgba(55, 53, 47, 0.65)' }}>
                   Workflow API Key
@@ -327,6 +419,7 @@ export default function Home() {
                 <button
                   onClick={() => {
                     saveApiKey(apiKey);
+                    saveApiUrl(apiUrl);
                     setShowSettings(false);
                   }}
                   style={{
@@ -608,7 +701,17 @@ export default function Home() {
                             onKeyDown={(e) => {
                               if (e.key === 'Enter' && !e.shiftKey) {
                                 e.preventDefault();
-                                handleGenerate();
+                                const currentTime = Date.now();
+                                const timeDiff = currentTime - lastEnterTime;
+
+                                if (timeDiff < 500) {
+                                  // 双击回车，发送消息
+                                  handleGenerate();
+                                  setLastEnterTime(0);
+                                } else {
+                                  // 单击回车，记录时间
+                                  setLastEnterTime(currentTime);
+                                }
                               }
                             }}
                             className={!prompt ? 'empty-placeholder' : ''}
@@ -893,30 +996,7 @@ export default function Home() {
                         key={action.id}
                         role="button"
                         tabIndex={0}
-                        onClick={() => {
-                          const promptText = action.title;
-                          setPrompt(promptText);
-                          // Auto-generate after a short delay for better UX
-                          setTimeout(async () => {
-                            if (promptText.trim()) {
-                              setIsGenerating(true);
-                              try {
-                                const title = promptText.slice(0, 50) + (promptText.length > 50 ? '...' : '');
-                                setDocumentTitle(title);
-
-                                if (!storedApiKey) {
-                                  await generateSampleOutline(promptText);
-                                } else {
-                                  await generateOutline(promptText);
-                                }
-                                router.push('/word-editor');
-                              } catch (error) {
-                                console.error('Error generating outline:', error);
-                                setIsGenerating(false);
-                              }
-                            }
-                          }, 300);
-                        }}
+                        onClick={() => handleQuickAction(action.id)}
                         style={{
                           userSelect: 'none',
                           transition: 'opacity 800ms ease-in-out',
