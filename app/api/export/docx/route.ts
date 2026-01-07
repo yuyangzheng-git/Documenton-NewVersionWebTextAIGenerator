@@ -137,7 +137,7 @@ function prepareCarboneData(blocks: any[], outline: any[], title: string) {
   const date = new Date().toLocaleDateString('zh-CN');
   const year = new Date().getFullYear();
 
-  // Convert blocks to structured content
+  // Convert blocks to structured content with full formatting
   const sections: Array<{
     heading: string;
     level: number;
@@ -145,6 +145,7 @@ function prepareCarboneData(blocks: any[], outline: any[], title: string) {
     paragraphs: string[];
     lists?: Array<{ type: string; items: string[] }>;
     quotes?: string[];
+    rawContent?: string;  // Raw HTML content for full formatting
   }> = [];
   let currentSection: {
     heading: string;
@@ -153,6 +154,7 @@ function prepareCarboneData(blocks: any[], outline: any[], title: string) {
     paragraphs: string[];
     lists?: Array<{ type: string; items: string[] }>;
     quotes?: string[];
+    rawContent?: string;
   } | null = null;
 
   blocks.forEach((block) => {
@@ -165,15 +167,18 @@ function prepareCarboneData(blocks: any[], outline: any[], title: string) {
         level: parseInt(block.type.replace('h', '')),
         content: '',
         paragraphs: [],
+        rawContent: '',  // Will accumulate content with full formatting
       };
     } else if (block.type === 'paragraph' || block.type === 'text') {
       if (currentSection) {
         currentSection.paragraphs.push(block.content);
+        currentSection.rawContent = (currentSection.rawContent || '') + block.content;
       } else {
         if (!sections[0]) {
-          sections.push({ heading: '', level: 1, content: '', paragraphs: [] });
+          sections.push({ heading: '', level: 1, content: '', paragraphs: [], rawContent: '' });
         }
         sections[0].paragraphs.push(block.content);
+        sections[0].rawContent = (sections[0].rawContent || '') + block.content;
       }
     } else if (block.type === 'bullet' || block.type === 'numbered') {
       if (currentSection) {
@@ -184,6 +189,9 @@ function prepareCarboneData(blocks: any[], outline: any[], title: string) {
           type: block.type,
           items: [block.content],
         });
+        // Add list item to raw content
+        const listPrefix = block.type === 'bullet' ? '• ' : '1. ';
+        currentSection.rawContent = (currentSection.rawContent || '') + `${listPrefix}${block.content}\n`;
       }
     } else if (block.type === 'quote') {
       if (currentSection) {
@@ -191,6 +199,24 @@ function prepareCarboneData(blocks: any[], outline: any[], title: string) {
           currentSection.quotes = [];
         }
         currentSection.quotes.push(block.content);
+        // Add quote to raw content
+        currentSection.rawContent = (currentSection.rawContent || '') + `> ${block.content}\n`;
+      }
+    } else if (block.type === 'image') {
+      if (currentSection) {
+        currentSection.rawContent = (currentSection.rawContent || '') + `[图片: ${block.content}]`;
+      }
+    } else if (block.type === 'code') {
+      if (currentSection) {
+        currentSection.rawContent = (currentSection.rawContent || '') + `\`\`\`\n${block.content}\n\`\`\``;
+      }
+    } else if (block.type === 'divider') {
+      if (currentSection) {
+        currentSection.rawContent = (currentSection.rawContent || '') + '---\n';
+      }
+    } else if (block.type === 'callout') {
+      if (currentSection) {
+        currentSection.rawContent = (currentSection.rawContent || '') + `[提示: ${block.content}]`;
       }
     }
   });
@@ -210,5 +236,7 @@ function prepareCarboneData(blocks: any[], outline: any[], title: string) {
       title: item.title,
       level: item.level,
     })),
+    // Full content as HTML for templates that want to preserve formatting
+    htmlContent: blocksToHtml(blocks),
   };
 }
