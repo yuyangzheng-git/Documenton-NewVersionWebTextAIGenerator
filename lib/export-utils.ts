@@ -14,6 +14,7 @@ import {
   TableRow,
   TableCell,
   WidthType,
+  PageNumber,
 } from 'docx';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -412,7 +413,7 @@ function processInlineElements(
 
 // Create header based on template configuration
 function createHeader(template: WordTemplate): { default: Header } | undefined {
-  if (!template.header.text) return undefined;
+  if (!template.header.text && !template.header.backgroundColor) return undefined;
 
   const alignment =
     template.header.alignment === 'left'
@@ -421,24 +422,31 @@ function createHeader(template: WordTemplate): { default: Header } | undefined {
         ? AlignmentType.RIGHT
         : AlignmentType.CENTER;
 
+  // Create table for header background
+  const headerChildren = [];
+  if (template.header.text) {
+    headerChildren.push(
+      new Paragraph({
+        alignment,
+        children: [
+          new TextRun({
+            text: template.header.text,
+            bold: true,
+            size: convertMillimetersToTwip(template.header.fontSize * 0.35),
+            color: template.header.textColor.replace('#', ''),
+          }),
+        ],
+        spacing: {
+          after: convertMillimetersToTwip(0),
+          before: convertMillimetersToTwip(0),
+        },
+      })
+    );
+  }
+
   return {
     default: new Header({
-      children: [
-        new Paragraph({
-          alignment,
-          children: [
-            new TextRun({
-              text: template.header.text,
-              bold: true,
-              size: convertMillimetersToTwip(template.header.fontSize * 0.35),
-              color: template.header.textColor.replace('#', ''),
-            }),
-          ],
-          spacing: {
-            after: convertMillimetersToTwip(2),
-          },
-        }),
-      ],
+      children: headerChildren.length > 0 ? headerChildren : [],
     }),
   };
 }
@@ -452,15 +460,52 @@ function createFooter(template: WordTemplate): { default: Footer } | undefined {
         ? AlignmentType.RIGHT
         : AlignmentType.CENTER;
 
-  const footerText = template.footer.text.replace('{page}', '');
+  // Process footer text and replace page number placeholder
+  let footerText = template.footer.text;
+  const showPageNumber = template.footer.showPageNumber !== false;
 
-  const children: TextRun[] = [
-    new TextRun({
-      text: footerText,
-      size: convertMillimetersToTwip(template.footer.fontSize * 0.35),
-      color: template.footer.textColor.replace('#', ''),
-    }),
-  ];
+  const children: TextRun[] = [];
+
+  if (footerText && footerText.includes('{page}')) {
+    const parts = footerText.split('{page}');
+    if (parts[0]) {
+      children.push(
+        new TextRun({
+          text: parts[0],
+          size: convertMillimetersToTwip(template.footer.fontSize * 0.35),
+          color: template.footer.textColor.replace('#', ''),
+        })
+      );
+    }
+    if (showPageNumber) {
+      children.push(
+        new TextRun({
+          children: [PageNumber.CURRENT],
+          size: convertMillimetersToTwip(template.footer.fontSize * 0.35),
+          color: template.footer.textColor.replace('#', ''),
+        })
+      );
+    }
+    if (parts[1]) {
+      children.push(
+        new TextRun({
+          text: parts[1],
+          size: convertMillimetersToTwip(template.footer.fontSize * 0.35),
+          color: template.footer.textColor.replace('#', ''),
+        })
+      );
+    }
+  } else if (footerText) {
+    children.push(
+      new TextRun({
+        text: footerText,
+        size: convertMillimetersToTwip(template.footer.fontSize * 0.35),
+        color: template.footer.textColor.replace('#', ''),
+      })
+    );
+  }
+
+  if (children.length === 0) return undefined;
 
   return {
     default: new Footer({
@@ -469,7 +514,8 @@ function createFooter(template: WordTemplate): { default: Footer } | undefined {
           alignment,
           children,
           spacing: {
-            before: convertMillimetersToTwip(2),
+            before: convertMillimetersToTwip(0),
+            after: convertMillimetersToTwip(0),
           },
         }),
       ],

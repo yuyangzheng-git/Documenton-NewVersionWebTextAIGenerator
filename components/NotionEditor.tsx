@@ -212,7 +212,6 @@ export function NotionEditor({ blocks, setBlocks }: NotionEditorProps) {
             onUpdate={updateBlock}
             onDelete={deleteBlock}
             onAdd={addBlock}
-            number={getBlockNumber(index)}
           />
         ))}
       </SortableContext>

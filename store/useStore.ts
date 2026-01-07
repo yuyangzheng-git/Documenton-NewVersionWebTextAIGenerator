@@ -27,6 +27,10 @@ interface DocumentStore {
   // Config
   apiKey: string;
   setApiKey: (key: string) => void;
+  apiUrl: string;
+  setApiUrl: (url: string) => void;
+  chapterApiKey: string;
+  setChapterApiKey: (key: string) => void;
 
   // Export
   documentTitle: string;
@@ -34,31 +38,48 @@ interface DocumentStore {
 }
 
 // Generate numbering for outline items (1, 1.1, 1.1.1, 2, 2.1, 2.1.1, etc.)
+// Also removes any existing numbering prefixes from titles
 function generateNumbers(items: OutlineItem[]): OutlineItem[] {
   let level1Counter = 0;
   let level2Counter = 0;
 
   return items.map(item => {
+    // Remove existing numbering prefix from title (e.g., "1. Introduction" -> "Introduction")
+    let cleanTitle = item.title;
+    if (item.level === 1) {
+      cleanTitle = item.title.replace(/^\d+\.\s*/, '').replace(/^\d+\s*/, '');
+    } else if (item.level === 2) {
+      cleanTitle = item.title.replace(/^\d+\.\d+\.\s*/, '').replace(/^\d+\.\d+\s*/, '');
+    } else if (item.level === 3) {
+      cleanTitle = item.title.replace(/^\d+\.\d+\.\d+\.\s*/, '').replace(/^\d+\.\d+\.\d+\s*/, '');
+    }
+
     if (item.level === 1) {
       level1Counter += 1;
       level2Counter = 0;
       return {
         ...item,
+        title: cleanTitle,
         number: level1Counter.toString()
       };
     } else if (item.level === 2) {
       level2Counter += 1;
       return {
         ...item,
+        title: cleanTitle,
         number: `${level1Counter}.${level2Counter}`
       };
     } else if (item.level === 3) {
       return {
         ...item,
+        title: cleanTitle,
         number: `${level1Counter}.${level2Counter}.1`
       };
     }
-    return item;
+    return {
+      ...item,
+      title: cleanTitle
+    };
   });
 }
 
@@ -103,8 +124,12 @@ export const useStore = create<DocumentStore>((set) => ({
     }),
   isGenerating: false,
   setIsGenerating: (generating) => set({ isGenerating: generating }),
-  apiKey: '',
+  apiKey: 'app-yIhd9xD2SHZ6e9BNTYSWEfYD',
   setApiKey: (key) => set({ apiKey: key }),
+  apiUrl: 'http://10.23.22.37/v1',
+  setApiUrl: (url) => set({ apiUrl: url }),
+  chapterApiKey: 'app-uywTCwFI5u9iCRGdGrCzhoSY',
+  setChapterApiKey: (key) => set({ chapterApiKey: key }),
   documentTitle: 'Untitled Document',
   setDocumentTitle: (title) => set({ documentTitle: title }),
 }));

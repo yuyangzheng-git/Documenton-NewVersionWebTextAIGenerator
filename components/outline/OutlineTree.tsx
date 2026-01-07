@@ -11,9 +11,10 @@ interface OutlineTreeProps {
     onUpdate: (id: string, updates: Partial<OutlineItem>) => void;
     onDelete: (id: string) => void;
     onReorder: (items: OutlineItem[]) => void;
+    onGenerateChapter?: (id: string) => void;
 }
 
-export function OutlineTree({ items, onUpdate, onDelete, onReorder }: OutlineTreeProps) {
+export function OutlineTree({ items, onUpdate, onDelete, onReorder, onGenerateChapter }: OutlineTreeProps) {
     const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
 
     const handleToggleExpand = (id: string) => {
@@ -75,6 +76,7 @@ export function OutlineTree({ items, onUpdate, onDelete, onReorder }: OutlineTre
                                     onDelete={onDelete}
                                     onToggleExpand={handleToggleExpand}
                                     isExpanded={isExpanded}
+                                    onGenerateChapter={onGenerateChapter}
                                 />
                                 {isExpanded && level2Items.length > 0 && (
                                     <div>
@@ -84,6 +86,7 @@ export function OutlineTree({ items, onUpdate, onDelete, onReorder }: OutlineTre
                                                 item={level2Item}
                                                 onUpdate={onUpdate}
                                                 onDelete={onDelete}
+                                                onGenerateChapter={onGenerateChapter}
                                             />
                                         ))}
                                     </div>

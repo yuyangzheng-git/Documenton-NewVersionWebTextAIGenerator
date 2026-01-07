@@ -14,8 +14,9 @@ export default function Home() {
   const [showSettings, setShowSettings] = useState(false);
   const [apiKey, setApiKey] = useState('');
   const [apiUrl, setApiUrl] = useState('');
+  const [chapterApiKey, setChapterApiKey] = useState('');
   const [lastEnterTime, setLastEnterTime] = useState(0);
-  const { setDocumentTitle, apiKey: storedApiKey, setApiKey: saveApiKey, apiUrl: storedApiUrl, setApiUrl: saveApiUrl } = useStore();
+  const { setDocumentTitle, apiKey: storedApiKey, setApiKey: saveApiKey, apiUrl: storedApiUrl, setApiUrl: saveApiUrl, chapterApiKey: storedChapterApiKey, setChapterApiKey: saveChapterApiKey } = useStore();
 
   useEffect(() => {
     if (storedApiKey) {
@@ -24,7 +25,10 @@ export default function Home() {
     if (storedApiUrl) {
       setApiUrl(storedApiUrl);
     }
-  }, [storedApiKey, storedApiUrl]);
+    if (storedChapterApiKey) {
+      setChapterApiKey(storedChapterApiKey);
+    }
+  }, [storedApiKey, storedApiUrl, storedChapterApiKey]);
 
   const handleQuickAction = async (actionId: string) => {
     setIsGenerating(true);
@@ -385,12 +389,31 @@ export default function Home() {
               </div>
               <div style={{ marginBottom: '16px' }}>
                 <label style={{ display: 'block', fontSize: '14px', marginBottom: '8px', color: 'rgba(55, 53, 47, 0.65)' }}>
-                  Workflow API Key
+                  Workflow API Key (大纲生成)
                 </label>
                 <input
                   type="password"
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
+                  placeholder="app-xxxxxxxxxxxxxxxxxxx"
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    border: '1px solid rgba(55, 53, 47, 0.09)',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    color: 'rgba(55, 53, 47, 1)',
+                  }}
+                />
+              </div>
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '14px', marginBottom: '8px', color: 'rgba(55, 53, 47, 0.65)' }}>
+                  Chapter API Key (正文生成)
+                </label>
+                <input
+                  type="password"
+                  value={chapterApiKey}
+                  onChange={(e) => setChapterApiKey(e.target.value)}
                   placeholder="app-xxxxxxxxxxxxxxxxxxx"
                   style={{
                     width: '100%',
@@ -420,6 +443,7 @@ export default function Home() {
                   onClick={() => {
                     saveApiKey(apiKey);
                     saveApiUrl(apiUrl);
+                    saveChapterApiKey(chapterApiKey);
                     setShowSettings(false);
                   }}
                   style={{

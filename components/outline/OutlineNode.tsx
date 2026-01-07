@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { GripVertical, Pencil, Check, X, ChevronDown, ChevronRight } from 'lucide-react';
+import { GripVertical, Pencil, Check, X, ChevronDown, ChevronRight, Play, RefreshCw } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { OutlineItem } from '@/store/useStore';
@@ -13,6 +13,7 @@ interface OutlineNodeProps {
     onToggleExpand?: (id: string) => void;
     isExpanded?: boolean;
     isDragging?: boolean;
+    onGenerateChapter?: (id: string) => void;
 }
 
 export function OutlineNode({
@@ -22,6 +23,7 @@ export function OutlineNode({
     onToggleExpand,
     isExpanded = true,
     isDragging = false,
+    onGenerateChapter,
 }: OutlineNodeProps) {
     const [isEditing, setIsEditing] = useState(false);
     const [editValue, setEditValue] = useState(item.title);
@@ -252,6 +254,37 @@ export function OutlineNode({
                     </span>
                 )}
 
+                {/* Generate Button */}
+                {onGenerateChapter && (
+                    <button
+                        onClick={() => onGenerateChapter(item.id)}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: '24px',
+                            height: '24px',
+                            marginLeft: '8px',
+                            background: 'transparent',
+                            border: 'none',
+                            cursor: 'pointer',
+                            color: item.status === 'generating' ? '#2383E2' : 'rgba(55, 53, 47, 0.4)',
+                            padding: 0,
+                            transition: 'transform 200ms ease-in-out',
+                            flexShrink: 0,
+                            ...(item.status === 'generating' && { animation: 'spin 1s linear infinite' }),
+                        }}
+                        disabled={item.status === 'generating'}
+                        className="generate-button"
+                    >
+                        {item.status === 'generating' ? (
+                            <RefreshCw style={{ width: '14px', height: '14px' }} />
+                        ) : (
+                            <Play style={{ width: '14px', height: '14px' }} />
+                        )}
+                    </button>
+                )}
+
                 {/* Edit Button */}
                 {!isEditing && (
                     <button
@@ -280,8 +313,13 @@ export function OutlineNode({
             </div>
 
             <style>{`
-        .outline-node:hover .edit-button {
+        .outline-node:hover .edit-button,
+        .outline-node:hover .generate-button {
           opacity: 1;
+        }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
         }
       `}</style>
         </div>

@@ -9,7 +9,7 @@ import { TextSelectionToolbar } from '@/components/TextSelectionToolbar';
 import { NotionEditor, NotionBlock } from '@/components/NotionEditor';
 import { ChevronLeft, Palette, Download, FileText } from 'lucide-react';
 import { WORD_TEMPLATES } from '@/lib/word-templates';
-import { exportToDocx } from '@/lib/export-utils';
+import { exportWithCarbone } from '@/lib/export-carbone';
 
 export default function WordEditorPage() {
   const router = useRouter();
@@ -92,7 +92,7 @@ export default function WordEditorPage() {
     }
   }, [outline, router]);
 
-  const handleExport = () => {
+  const handleExport = async () => {
     const template = WORD_TEMPLATES.find((t) => t.id === selectedTemplate) || WORD_TEMPLATES[0];
 
     // Convert blocks to HTML string
@@ -125,7 +125,8 @@ export default function WordEditorPage() {
       })
       .join('');
 
-    exportToDocx(htmlContent, documentTitle, template);
+    // Try to use template file with Carbone, fallback to programmatic export
+    await exportWithCarbone(htmlContent, documentTitle, template);
   };
 
   const currentTemplate = WORD_TEMPLATES.find((t) => t.id === selectedTemplate) || WORD_TEMPLATES[0];

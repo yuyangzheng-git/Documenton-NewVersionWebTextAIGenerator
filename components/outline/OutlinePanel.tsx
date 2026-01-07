@@ -2,15 +2,81 @@
 
 import { useStore } from '@/store/useStore';
 import { OutlineTree } from './OutlineTree';
-import { X, FileText } from 'lucide-react';
+import { X, FileText, Wand2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { generateSectionWithWorker, getDifyAppParameters } from '@/lib/dify-api';
 
 interface OutlinePanelProps {
     onClose?: () => void;
     show?: boolean;
+    documentTopic?: string;
 }
 
-export function OutlinePanel({ onClose, show = true }: OutlinePanelProps) {
-    const { outline, updateItem, deleteItem, reorderItems } = useStore();
+export function OutlinePanel({ onClose, show = true, documentTopic = '' }: OutlinePanelProps) {
+    const { outline, updateItem, deleteItem, reorderItems, chapterApiKey } = useStore();
+    const [isGenerating, setIsGenerating] = useState(false);
+
+    // Fetch chapter writing bot parameters on mount
+    useEffect(() => {
+        if (chapterApiKey) {
+            getDifyAppParameters(chapterApiKey)
+                .then(params => {
+                    console.log('Chapter bot parameters:', params);
+                })
+                .catch(err => {
+                    console.error('Failed to get chapter bot parameters:', err);
+                });
+        }
+    }, [chapterApiKey]);
+
+    const handleGenerateChapter = async (itemId: string) => {
+        const item = outline.find(i => i.id === itemId);
+        if (!item) return;
+
+        try {
+            setIsGenerating(true);
+            updateItem(itemId, { status: 'generating', content: '' });
+
+            // Build full outline as string
+            const fullOutline = outline.map(i => `${i.number ? i.number + ' ' : ''}${i.title}`).join('\n');
+
+            console.log('Generating chapter for:', item.title);
+            console.log('Document topic:', documentTopic);
+            console.log('Full outline:', fullOutline);
+            console.log('Using API key:', chapterApiKey);
+
+            let accumulatedContent = '';
+
+            await generateSectionWithWorker(
+                chapterApiKey,
+                item.title,
+                documentTopic,
+                fullOutline,
+                (text: string) => {
+                    accumulatedContent += text;
+                    console.log('Received chunk:', text.substring(0, 50) + '...');
+                    // Real-time update of content in outline
+                    updateItem(itemId, { content: accumulatedContent });
+                },
+                () => {
+                    updateItem(itemId, { status: 'completed' });
+                    setIsGenerating(false);
+                    console.log('Chapter generation completed');
+                },
+                (error: Error) => {
+                    console.error('生成章节失败:', error);
+                    updateItem(itemId, { status: 'pending' });
+                    setIsGenerating(false);
+                    alert(`生成失败: ${error.message}`);
+                }
+            );
+        } catch (error) {
+            console.error('生成章节失败:', error);
+            updateItem(itemId, { status: 'pending' });
+            setIsGenerating(false);
+            alert(`生成失败: ${error instanceof Error ? error.message : '未知错误'}`);
+        }
+    };
 
     if (!show) return null;
 
@@ -42,7 +108,7 @@ export function OutlinePanel({ onClose, show = true }: OutlinePanelProps) {
                 }}
             >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <FileText style={{ width: '20px', height: '20px', color: 'rgba(55, 53, 47, 0.65)' }} />
+                    <Wand2 style={{ width: '20px', height: '20px', color: 'rgba(55, 53, 47, 0.65)' }} />
                     <span style={{ fontSize: '15px', fontWeight: 600, color: 'rgba(55, 53, 47, 1)' }}>
                         文档大纲
                     </span>
@@ -107,6 +173,7 @@ export function OutlinePanel({ onClose, show = true }: OutlinePanelProps) {
                         onUpdate={updateItem}
                         onDelete={deleteItem}
                         onReorder={reorderItems}
+                        onGenerateChapter={handleGenerateChapter}
                     />
                 )}
             </div>
