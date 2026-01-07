@@ -24,7 +24,7 @@ export async function exportToDocx(
   htmlContent: string,
   title: string,
   template: WordTemplate
-) {
+): Promise<Document> {
   try {
     // Parse HTML content and convert to paragraphs
     const children = await parseHtmlContent(htmlContent, template);
@@ -62,6 +62,22 @@ export async function exportToDocx(
         },
       ],
     });
+
+    return doc;
+  } catch (error) {
+    console.error('DOCX export error:', error);
+    throw new Error('Failed to export DOCX. Please try again.');
+  }
+}
+
+// Export and download DOCX directly (for client-side use)
+export async function exportAndDownloadDocx(
+  htmlContent: string,
+  title: string,
+  template: WordTemplate
+) {
+  try {
+    const doc = await exportToDocx(htmlContent, title, template);
 
     // Generate and download
     const blob = await Packer.toBlob(doc);

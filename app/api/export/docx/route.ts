@@ -1,116 +1,179 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Packer } from 'docx';
+import { WORD_TEMPLATES } from '@/lib/word-templates';
+import { exportToDocx } from '@/lib/export-utils';
 // @ts-ignore - carbone doesn't have TypeScript definitions
 import carbone from 'carbone';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { htmlContent, title, templateData, templateBase64 } = body;
+    const { outline, blocks, documentTitle, templateId, customTemplateBase64 } = body;
 
-    if (!htmlContent || !title) {
+    if (!blocks || blocks.length === 0) {
       return NextResponse.json(
-        { error: 'Missing required fields: htmlContent and title' },
+        { error: 'No content to export' },
         { status: 400 }
       );
     }
 
-    // Parse HTML to plain text
-    const content = parseHtmlToText(htmlContent);
-    const date = new Date().toLocaleDateString('zh-CN');
-    const year = new Date().getFullYear();
+    // Convert blocks to HTML for docx library
+    const htmlContent = blocksToHtml(blocks);
+    const template = WORD_TEMPLATES.find((t) => t.id === templateId) || WORD_TEMPLATES[0];
 
-    // Template data object
-    const data = {
-      title,
-      content,
-      date,
-      year,
-      today: new Date().toISOString().split('T')[0],
-      ...templateData,
-    };
+    let buffer: Buffer;
 
-    // Prepare template buffer
-    let templateBuffer: Buffer;
-    if (templateBase64) {
-      // Decode base64 template
-      templateBuffer = Buffer.from(templateBase64, 'base64');
+    if (customTemplateBase64) {
+      // Use Carbone with custom template
+      const data = prepareCarboneData(blocks, outline, documentTitle);
+      const templateBuffer = Buffer.from(customTemplateBase64, 'base64');
+
+      buffer = await new Promise<Buffer>((resolve, reject) => {
+        carbone.render(
+          templateBuffer,
+          data,
+          { language: 'zh-CN' },
+          (err: any, result: Buffer) => {
+            if (err) {
+              reject(err);
+            } else {
+              resolve(result);
+            }
+          }
+        );
+      });
     } else {
-      // Use default simple template
-      templateBuffer = Buffer.from('', 'utf-8');
+      // Use docx library for built-in templates
+      const doc = await exportToDocx(htmlContent, documentTitle || '文档', template);
+      buffer = await Packer.toBuffer(doc);
     }
 
-    // Render template using Carbone
-    const result = await new Promise<Buffer>((resolve, reject) => {
-      carbone.render(
-        templateBuffer,
-        data,
-        { language: 'zh-CN' },
-        (err: any, result: Buffer) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve(result);
-          }
-        }
-      );
-    });
-
     // Return as blob
-    return new NextResponse(result, {
+    const fileName = (documentTitle || 'document').replace(/\s+/g, '_');
+    return new NextResponse(buffer as any, {
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'Content-Disposition': `attachment; filename="${encodeURIComponent(title.replace(/\s+/g, '_'))}.docx"`,
+        'Content-Disposition': `attachment; filename="${encodeURIComponent(fileName)}.docx"`,
       },
     });
   } catch (error) {
-    console.error('Carbone export error:', error);
+    console.error('Export error:', error);
     return NextResponse.json(
-      { error: 'Failed to export document' },
+      { error: 'Failed to export document', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
 }
 
-// Parse HTML content to plain text with basic formatting
-function parseHtmlToText(htmlContent: string): string {
-  const tempDiv = document.createElement('div');
-  tempDiv.innerHTML = htmlContent;
+// Convert blocks to HTML string
+function blocksToHtml(blocks: any[]): string {
+  return blocks
+    .map((block) => {
+      switch (block.type) {
+        case 'h1':
+          return `<h1>${block.content}</h1>`;
+        case 'h2':
+          return `<h2>${block.content}</h2>`;
+        case 'h3':
+          return `<h3>${block.content}</h3>`;
+        case 'bullet':
+          return `<ul><li>${block.content}</li></ul>`;
+        case 'numbered':
+          return `<ol><li>${block.content}</li></ol>`;
+        case 'quote':
+          return `<blockquote>${block.content}</blockquote>`;
+        case 'divider':
+          return '<hr>';
+        case 'code':
+          return `<pre><code>${block.content}</code></pre>`;
+        case 'image':
+          return block.content ? `<img src="${block.content}" alt="图片" />` : '';
+        case 'callout':
+          return `<div style="background-color: rgba(35, 131, 226, 0.08); padding: 12px 16px; border-radius: 4px; border-left: 3px solid #2383E2;">${block.content}</div>`;
+        default:
+          return block.content ? `<p>${block.content}</p>` : '';
+      }
+    })
+    .join('');
+}
 
-  let text = '';
+// Prepare data for Carbone template rendering
+function prepareCarboneData(blocks: any[], outline: any[], title: string) {
+  const date = new Date().toLocaleDateString('zh-CN');
+  const year = new Date().getFullYear();
 
-  Array.from(tempDiv.children).forEach((child) => {
-    const tagName = child.tagName.toLowerCase();
-    const content = child.textContent || '';
+  // Convert blocks to structured content
+  const sections: Array<{
+    heading: string;
+    level: number;
+    content: string;
+    paragraphs: string[];
+    lists?: Array<{ type: string; items: string[] }>;
+    quotes?: string[];
+  }> = [];
+  let currentSection: {
+    heading: string;
+    level: number;
+    content: string;
+    paragraphs: string[];
+    lists?: Array<{ type: string; items: string[] }>;
+    quotes?: string[];
+  } | null = null;
 
-    switch (tagName) {
-      case 'h1':
-        text += `${content}\n`;
-        break;
-      case 'h2':
-        text += `${content}\n`;
-        break;
-      case 'h3':
-        text += `${content}\n`;
-        break;
-      case 'p':
-        if (content.trim()) {
-          text += `${content}\n`;
+  blocks.forEach((block) => {
+    if (block.type === 'h1' || block.type === 'h2' || block.type === 'h3') {
+      if (currentSection) {
+        sections.push(currentSection);
+      }
+      currentSection = {
+        heading: block.content,
+        level: parseInt(block.type.replace('h', '')),
+        content: '',
+        paragraphs: [],
+      };
+    } else if (block.type === 'paragraph' || block.type === 'text') {
+      if (currentSection) {
+        currentSection.paragraphs.push(block.content);
+      } else {
+        if (!sections[0]) {
+          sections.push({ heading: '', level: 1, content: '', paragraphs: [] });
         }
-        break;
-      case 'ul':
-      case 'ol':
-        const items = Array.from(child.querySelectorAll('li'));
-        items.forEach((li) => {
-          text += `• ${li.textContent}\n`;
+        sections[0].paragraphs.push(block.content);
+      }
+    } else if (block.type === 'bullet' || block.type === 'numbered') {
+      if (currentSection) {
+        if (!currentSection.lists) {
+          currentSection.lists = [];
+        }
+        currentSection.lists.push({
+          type: block.type,
+          items: [block.content],
         });
-        text += '\n';
-        break;
-      default:
-        if (content.trim()) {
-          text += `${content}\n`;
+      }
+    } else if (block.type === 'quote') {
+      if (currentSection) {
+        if (!currentSection.quotes) {
+          currentSection.quotes = [];
         }
+        currentSection.quotes.push(block.content);
+      }
     }
   });
 
-  return text.trim();
+  if (currentSection) {
+    sections.push(currentSection);
+  }
+
+  return {
+    title,
+    date,
+    year,
+    today: new Date().toISOString().split('T')[0],
+    sections,
+    outline: outline.map((item) => ({
+      number: item.number,
+      title: item.title,
+      level: item.level,
+    })),
+  };
 }

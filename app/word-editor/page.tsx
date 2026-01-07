@@ -7,9 +7,8 @@ import { OutlinePanel } from '@/components/outline/OutlinePanel';
 import { AIChat } from '@/components/AIChat';
 import { TextSelectionToolbar } from '@/components/TextSelectionToolbar';
 import { NotionEditor, NotionBlock } from '@/components/NotionEditor';
-import { ChevronLeft, Palette, Download, FileText } from 'lucide-react';
+import { ChevronLeft, Palette, Download, FileText, Upload } from 'lucide-react';
 import { WORD_TEMPLATES } from '@/lib/word-templates';
-import { exportWithCarbone } from '@/lib/export-carbone';
 
 export default function WordEditorPage() {
   const router = useRouter();
@@ -19,6 +18,9 @@ export default function WordEditorPage() {
   const [showOutlinePanel, setShowOutlinePanel] = useState(true);
   const [blocks, setBlocks] = useState<NotionBlock[]>([]);
   const [documentTopic, setDocumentTopic] = useState('');
+  const [customTemplateBase64, setCustomTemplateBase64] = useState<string | null>(null);
+  const [customTemplateName, setCustomTemplateName] = useState<string | null>(null);
+  const [showCustomTemplate, setShowCustomTemplate] = useState(false);
 
   // Get document topic from URL or first outline item
   useEffect(() => {
@@ -93,40 +95,71 @@ export default function WordEditorPage() {
   }, [outline, router]);
 
   const handleExport = async () => {
-    const template = WORD_TEMPLATES.find((t) => t.id === selectedTemplate) || WORD_TEMPLATES[0];
+    try {
+      const response = await fetch('/api/export/docx', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          outline,
+          blocks,
+          documentTitle,
+          templateId: selectedTemplate,
+          customTemplateBase64: showCustomTemplate ? customTemplateBase64 : null,
+        }),
+      });
 
-    // Convert blocks to HTML string
-    const htmlContent = blocks
-      .map((block) => {
-        switch (block.type) {
-          case 'h1':
-            return `<h1>${block.content}</h1>`;
-          case 'h2':
-            return `<h2>${block.content}</h2>`;
-          case 'h3':
-            return `<h3>${block.content}</h3>`;
-          case 'bullet':
-            return `<ul><li>${block.content}</li></ul>`;
-          case 'numbered':
-            return `<ol><li>${block.content}</li></ol>`;
-          case 'quote':
-            return `<blockquote>${block.content}</blockquote>`;
-          case 'divider':
-            return '<hr>';
-          case 'code':
-            return `<pre><code>${block.content}</code></pre>`;
-          case 'image':
-            return block.content ? `<img src="${block.content}" alt="图片" />` : '';
-          case 'callout':
-            return `<div style="background-color: rgba(35, 131, 226, 0.08); padding: 12px 16px; border-radius: 4px; border-left: 3px solid #2383E2;">${block.content}</div>`;
-          default:
-            return `<p>${block.content}</p>`;
-        }
-      })
-      .join('');
+      if (!response.ok) {
+        throw new Error('导出失败');
+      }
 
-    // Try to use template file with Carbone, fallback to programmatic export
-    await exportWithCarbone(htmlContent, documentTitle, template);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${documentTitle || 'document'}.docx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Export error:', error);
+      alert('导出文档失败，请重试');
+    }
+  };
+
+  const handleTemplateUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.docx')) {
+      alert('请上传 .docx 格式的 Word 文档');
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append('template', file);
+
+      const response = await fetch('/api/template/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('模板上传失败');
+      }
+
+      const result = await response.json();
+      setCustomTemplateBase64(result.templateBase64);
+      setCustomTemplateName(result.templateName);
+      setShowCustomTemplate(true);
+      alert('模板上传成功！');
+    } catch (error) {
+      console.error('Template upload error:', error);
+      alert('模板上传失败，请重试');
+    }
   };
 
   const currentTemplate = WORD_TEMPLATES.find((t) => t.id === selectedTemplate) || WORD_TEMPLATES[0];
@@ -297,12 +330,75 @@ export default function WordEditorPage() {
           }}
         >
           <div style={{ padding: '16px 24px', maxWidth: '1168px', margin: '0 auto' }}>
+            {/* Custom Template Section */}
+            <div style={{ marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid rgba(55, 53, 47, 0.09)' }}>
+              <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px', color: 'rgba(55, 53, 47, 1)' }}>
+                自定义模板
+              </div>
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                {customTemplateName ? (
+                  <div
+                    onClick={() => {
+                      setShowCustomTemplate(true);
+                      setShowTemplateSelector(false);
+                    }}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: showCustomTemplate ? 'rgba(35, 131, 226, 0.1)' : 'rgba(0, 0, 0, 0.04)',
+                      borderRadius: '8px',
+                      fontSize: '13px',
+                      color: 'rgba(55, 53, 47, 1)',
+                      cursor: 'pointer',
+                      border: showCustomTemplate ? '2px solid #2383E2' : '1px solid transparent',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                    }}
+                  >
+                    <FileText style={{ width: '16px', height: '16px' }} />
+                    <span>{customTemplateName}</span>
+                  </div>
+                ) : null}
+                <label
+                  style={{
+                    padding: '8px 16px',
+                    backgroundColor: 'rgba(35, 131, 226, 0.08)',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    color: '#2383E2',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    transition: 'background 20ms ease-in',
+                  }}
+                >
+                  <input
+                    type="file"
+                    accept=".docx"
+                    onChange={handleTemplateUpload}
+                    style={{ display: 'none' }}
+                  />
+                  <Upload style={{ width: '16px', height: '16px' }} />
+                  <span>上传模板</span>
+                </label>
+                <span style={{ fontSize: '12px', color: 'rgba(55, 53, 47, 0.5)' }}>
+                  支持 .docx 格式的 Word 模板
+                </span>
+              </div>
+            </div>
+
+            {/* Built-in Templates */}
+            <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px', color: 'rgba(55, 53, 47, 1)' }}>
+              内置模板
+            </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px' }}>
               {WORD_TEMPLATES.map((template) => (
                 <button
                   key={template.id}
                   onClick={() => {
                     setSelectedTemplate(template.id);
+                    setShowCustomTemplate(false);
                     setShowTemplateSelector(false);
                   }}
                   style={{
@@ -317,8 +413,8 @@ export default function WordEditorPage() {
                     borderRadius: '16px',
                     whiteSpace: 'nowrap',
                     color: 'rgba(55, 53, 47, 1)',
-                    backgroundColor: selectedTemplate === template.id ? 'rgba(35, 131, 226, 0.08)' : 'rgba(0, 0, 0, 0.02)',
-                    border: selectedTemplate === template.id ? '1px solid rgba(35, 131, 226, 0.3)' : '1px solid transparent',
+                    backgroundColor: selectedTemplate === template.id && !showCustomTemplate ? 'rgba(35, 131, 226, 0.08)' : 'rgba(0, 0, 0, 0.02)',
+                    border: selectedTemplate === template.id && !showCustomTemplate ? '1px solid rgba(35, 131, 226, 0.3)' : '1px solid transparent',
                     flexBasis: 0,
                     flexGrow: 1,
                     textAlign: 'left',
