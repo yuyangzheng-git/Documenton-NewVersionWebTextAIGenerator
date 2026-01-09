@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { AIPlatform } from '@/lib/ai/types';
 
 export interface OutlineItem {
   id: string;
@@ -24,13 +25,33 @@ interface DocumentStore {
   isGenerating: boolean;
   setIsGenerating: (generating: boolean) => void;
 
-  // Config
+  // AI Platform Configuration
+  aiPlatform: AIPlatform;
+  setAIPlatform: (platform: AIPlatform) => void;
+
+  // Dify Config
   apiKey: string;
   setApiKey: (key: string) => void;
   apiUrl: string;
   setApiUrl: (url: string) => void;
   chapterApiKey: string;
   setChapterApiKey: (key: string) => void;
+  chatApiKey: string;
+  setChatApiKey: (key: string) => void;
+
+  // OpenAI Config
+  openaiApiKey: string;
+  setOpenaiApiKey: (key: string) => void;
+  openaiModel: string;
+  setOpenaiModel: (model: string) => void;
+  openaiBaseUrl: string;
+  setOpenaiBaseUrl: (url: string) => void;
+
+  // LangChain Config
+  langchainApiKey: string;
+  setLangchainApiKey: (key: string) => void;
+  langchainModel: string;
+  setLangchainModel: (model: string) => void;
 
   // Export
   documentTitle: string;
@@ -124,12 +145,36 @@ export const useStore = create<DocumentStore>((set) => ({
     }),
   isGenerating: false,
   setIsGenerating: (generating) => set({ isGenerating: generating }),
+
+  // AI Platform Configuration
+  aiPlatform: 'dify',
+  setAIPlatform: (platform) => set({ aiPlatform: platform }),
+
+  // Dify Config
   apiKey: process.env.NEXT_PUBLIC_DIFY_PLANNER_API_KEY || '',
   setApiKey: (key) => set({ apiKey: key }),
   apiUrl: process.env.NEXT_PUBLIC_DIFY_API_URL || '',
   setApiUrl: (url) => set({ apiUrl: url }),
   chapterApiKey: process.env.NEXT_PUBLIC_DIFY_CHAPTER_API_KEY || '',
   setChapterApiKey: (key) => set({ chapterApiKey: key }),
+  chatApiKey: process.env.NEXT_PUBLIC_DIFY_CHAT_API_KEY || '',
+  setChatApiKey: (key) => set({ chatApiKey: key }),
+
+  // OpenAI Config
+  openaiApiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY || '',
+  setOpenaiApiKey: (key) => set({ openaiApiKey: key }),
+  openaiModel: process.env.NEXT_PUBLIC_OPENAI_MODEL || 'gpt-4',
+  setOpenaiModel: (model) => set({ openaiModel: model }),
+  openaiBaseUrl: process.env.NEXT_PUBLIC_OPENAI_BASE_URL || 'https://api.openai.com/v1',
+  setOpenaiBaseUrl: (url) => set({ openaiBaseUrl: url }),
+
+  // LangChain Config
+  langchainApiKey: process.env.NEXT_PUBLIC_LANGCHAIN_API_KEY || '',
+  setLangchainApiKey: (key) => set({ langchainApiKey: key }),
+  langchainModel: process.env.NEXT_PUBLIC_LANGCHAIN_MODEL || 'gpt-4',
+  setLangchainModel: (model) => set({ langchainModel: model }),
+
+  // Export
   documentTitle: 'Untitled Document',
   setDocumentTitle: (title) => set({ documentTitle: title }),
 }));
