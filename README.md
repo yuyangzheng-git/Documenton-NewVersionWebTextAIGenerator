@@ -33,6 +33,23 @@ Document AI Generator 是一个基于人工智能的文档写作助手，能够�
 - **📊 实时大纲** - 右侧大纲面板，实时查看和编辑文档结构
 - **🖱️ 拖拽排序** - 支持大纲章节的拖拽排序
 - **⚡ 流式生成** - 实时显示生成内容，体验流畅
+- **🌐 多平台支持** - 支持 Dify、OpenAI、LangChain 等多个 AI 平台
+
+### 🛠️ AI 平台配置
+
+本项目支持多个 AI 平台，详细配置方法请查看 [AI_PLATFORMS.md](./AI_PLATFORMS.md)
+
+| 平台 | 说明 | 文档 |
+|------|------|------|
+| **Dify** | 开源 AI 应用开发平台 | [配置指南](./AI_PLATFORMS.md#2-using-dify) |
+| **OpenAI** | 官方 OpenAI API | [配置指南](./AI_PLATFORMS.md#3-using-openai) |
+| **LangChain** | LLM 应用开发框架 | [配置指南](./AI_PLATFORMS.md#4-using-langchain) |
+
+**快速配置：**
+1. 复制 `.env.example` 为 `.env.local`
+2. 在设置中选择 AI 平台（Dify / OpenAI / LangChain）
+3. 填写对应的 API Key
+4. 保存并重启开发服务器
 
 ### 🚀 快速开始
 
@@ -210,6 +227,23 @@ Document AI Generator is an AI-powered document writing assistant that helps use
 - **📊 Live Outline** - Right-side outline panel for real-time viewing and editing
 - **🖱️ Drag & Drop** - Drag and drop support for outline chapter reordering
 - **⚡ Streaming Generation** - Real-time content display for smooth experience
+- **🌐 Multi-Platform Support** - Support for Dify, OpenAI, LangChain, and more
+
+### 🛠️ AI Platform Configuration
+
+This project supports multiple AI platforms. For detailed configuration, see [AI_PLATFORMS.md](./AI_PLATFORMS.md)
+
+| Platform | Description | Docs |
+|----------|-------------|------|
+| **Dify** | Open-source AI application development platform | [Setup Guide](./AI_PLATFORMS.md#2-using-dify) |
+| **OpenAI** | Official OpenAI API | [Setup Guide](./AI_PLATFORMS.md#3-using-openai) |
+| **LangChain** | Framework for developing LLM applications | [Setup Guide](./AI_PLATFORMS.md#4-using-langchain) |
+
+**Quick Setup:**
+1. Copy `.env.example` to `.env.local`
+2. Select AI platform in settings (Dify / OpenAI / LangChain)
+3. Fill in the corresponding API Key
+4. Save and restart the development server
 
 ### 🚀 Quick Start
 
