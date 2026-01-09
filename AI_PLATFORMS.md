@@ -46,7 +46,7 @@ Create or update your `.env.local` file:
 # Dify Configuration
 NEXT_PUBLIC_DIFY_PLANNER_API_KEY=your_planner_app_key
 NEXT_PUBLIC_DIFY_CHAPTER_API_KEY=your_chapter_app_key
-NEXT_PUBLIC_DIFY_API_URL=http://10.23.22.37/v1
+NEXT_PUBLIC_DIFY_API_URL=http://your-dify-instance/v1
 NEXT_PUBLIC_DIFY_CHAT_API_KEY=your_chat_app_key
 
 # OpenAI Configuration
