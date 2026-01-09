@@ -74,7 +74,7 @@ NEXT_PUBLIC_DIFY_PLANNER_API_KEY=your_planner_app_key_here
 NEXT_PUBLIC_DIFY_CHAPTER_API_KEY=your_chapter_writer_app_key_here
 
 # Dify API Base URL
-NEXT_PUBLIC_DIFY_API_URL=http://10.23.22.37/v1
+NEXT_PUBLIC_DIFY_API_URL=http://your-dify-instance/v1
 
 # Dify AI Chat App API Key (用于悬浮聊天窗口)
 NEXT_PUBLIC_DIFY_CHAT_API_KEY=your_chat_app_key_here
@@ -251,7 +251,7 @@ NEXT_PUBLIC_DIFY_PLANNER_API_KEY=your_planner_app_key_here
 NEXT_PUBLIC_DIFY_CHAPTER_API_KEY=your_chapter_writer_app_key_here
 
 # Dify API Base URL
-NEXT_PUBLIC_DIFY_API_URL=http://10.23.22.37/v1
+NEXT_PUBLIC_DIFY_API_URL=http://your-dify-instance/v1
 
 # Dify AI Chat App API Key (for the floating chat window)
 NEXT_PUBLIC_DIFY_CHAT_API_KEY=your_chat_app_key_here

@@ -6,7 +6,7 @@ export async function POST(request: NextRequest) {
     const { message, history, appKey } = body;
 
     // 调用 Dify API (流式响应)
-    const difyResponse = await fetch('http://10.23.22.37/v1/chat-messages', {
+    const difyResponse = await fetch(`${process.env.NEXT_PUBLIC_DIFY_API_URL || 'http://your-dify-instance/v1'}/chat-messages`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${appKey}`,

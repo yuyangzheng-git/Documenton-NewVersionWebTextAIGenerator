@@ -372,7 +372,7 @@ export default function Home() {
                   type="text"
                   value={apiUrl}
                   onChange={(e) => setApiUrl(e.target.value)}
-                  placeholder="http://10.23.22.37/v1"
+                  placeholder="http://your-dify-instance/v1"
                   style={{
                     width: '100%',
                     padding: '10px',
@@ -384,7 +384,7 @@ export default function Home() {
                   }}
                 />
                 <div style={{ fontSize: '12px', color: 'rgba(55, 53, 47, 0.45)' }}>
-                  Dify API 基础 URL,例如: http://10.23.22.37/v1
+                  Dify API 基础 URL,例如: http://your-dify-instance/v1
                 </div>
               </div>
               <div style={{ marginBottom: '16px' }}>

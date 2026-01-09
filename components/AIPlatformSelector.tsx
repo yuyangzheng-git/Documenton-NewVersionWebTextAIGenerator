@@ -271,7 +271,7 @@ export function AIPlatformSelector() {
                   type="text"
                   value={apiUrl}
                   onChange={(e) => setApiUrl(e.target.value)}
-                  placeholder="http://10.23.22.37/v1"
+                  placeholder="http://your-dify-instance/v1"
                   style={{
                     width: '100%',
                     padding: '10px 12px',

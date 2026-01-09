@@ -1,7 +1,7 @@
 
 // Dify Workflow API integration
 // Default URL, can be overridden via getDifyApiBaseUrl()
-const DEFAULT_DIFY_API_BASE_URL = 'http://10.23.22.37/v1';
+const DEFAULT_DIFY_API_BASE_URL = 'http://your-dify-instance/v1';
 
 /**
  * Get Dify API base URL from store or use default
