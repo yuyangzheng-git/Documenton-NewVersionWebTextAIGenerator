@@ -5,6 +5,7 @@ import { OutlineTree } from './OutlineTree';
 import { X, FileText, Wand2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { generateSectionWithWorker, getDifyAppParameters } from '@/lib/dify-api';
+import { OutlineItem } from '@/store/useStore';
 
 interface OutlinePanelProps {
     onClose?: () => void;
@@ -33,6 +34,18 @@ export function OutlinePanel({ onClose, show = true, documentTopic = '' }: Outli
         const item = outline.find(i => i.id === itemId);
         if (!item) return;
 
+        // Check if this item has children (next item has higher level)
+        const itemIndex = outline.findIndex(i => i.id === itemId);
+        const hasNextItemAsChild = itemIndex + 1 < outline.length &&
+                                 outline[itemIndex + 1].level > item.level;
+
+        // If item has children, generate all child sections recursively
+        if (hasNextItemAsChild) {
+            await generateAllChildren(itemId);
+            return;
+        }
+
+        // Otherwise, generate this single chapter
         try {
             setIsGenerating(true);
             updateItem(itemId, { status: 'generating', content: '' });
@@ -76,6 +89,74 @@ export function OutlinePanel({ onClose, show = true, documentTopic = '' }: Outli
             setIsGenerating(false);
             alert(`生成失败: ${error instanceof Error ? error.message : '未知错误'}`);
         }
+    };
+
+    // Generate all child sections recursively
+    const generateAllChildren = async (parentId: string) => {
+        const parentIndex = outline.findIndex(i => i.id === parentId);
+        if (parentIndex === -1) return;
+
+        const parentLevel = outline[parentIndex].level;
+
+        // Find all child sections (items with higher level until next sibling or lower level)
+        const childItems: OutlineItem[] = [];
+        for (let i = parentIndex + 1; i < outline.length; i++) {
+            const currentItem = outline[i];
+            if (currentItem.level > parentLevel) {
+                childItems.push(currentItem);
+            } else {
+                // Found next sibling or parent, stop
+                break;
+            }
+        }
+
+        console.log(`Found ${childItems.length} child sections to generate for ${outline[parentIndex].title}`);
+
+        // Generate each child section sequentially
+        for (const childItem of childItems) {
+            if (childItem.content) {
+                console.log(`Skipping ${childItem.title} - already has content`);
+                continue;
+            }
+
+            try {
+                setIsGenerating(true);
+                updateItem(childItem.id, { status: 'generating', content: '' });
+
+                const fullOutline = outline.map(i => `${i.number ? i.number + ' ' : ''}${i.title}`).join('\n');
+
+                console.log('Generating chapter for:', childItem.title);
+
+                let accumulatedContent = '';
+
+                await generateSectionWithWorker(
+                    chapterApiKey,
+                    childItem.title,
+                    documentTopic,
+                    fullOutline,
+                    (text: string) => {
+                        accumulatedContent += text;
+                        updateItem(childItem.id, { content: accumulatedContent });
+                    },
+                    () => {
+                        updateItem(childItem.id, { status: 'completed' });
+                        console.log('Chapter generation completed:', childItem.title);
+                    },
+                    (error: Error) => {
+                        console.error('生成章节失败:', error);
+                        updateItem(childItem.id, { status: 'pending' });
+                        alert(`生成失败: ${childItem.title} - ${error.message}`);
+                    }
+                );
+            } catch (error) {
+                console.error('生成章节失败:', error);
+                updateItem(childItem.id, { status: 'pending' });
+                alert(`生成失败: ${childItem.title} - ${error instanceof Error ? error.message : '未知错误'}`);
+            }
+        }
+
+        setIsGenerating(false);
+        console.log('All child chapters generation completed');
     };
 
     if (!show) return null;

@@ -1,0 +1,169 @@
+{
+  "planner_workflow": {
+    "name": "文档大纲生成器",
+    "description": "根据主题生成文档大纲",
+    "version": "1.0",
+    "variables": {
+      "topic": {
+        "type": "string",
+        "required": true,
+        "label": "文档主题"
+      },
+      "style": {
+        "type": "string",
+        "required": false,
+        "default": "专业严肃",
+        "label": "写作风格",
+        "options": ["专业严肃", "通俗易懂", "学术研究"]
+      },
+      "files": {
+        "type": "array",
+        "required": false,
+        "label": "参考文件"
+      }
+    },
+    "nodes": {
+      "llm_planner": {
+        "type": "llm",
+        "model": {
+          "provider": "openai",
+          "name": "gpt-4",
+          "mode": "chat",
+          "completion_params": {
+            "temperature": 0.3,
+            "max_tokens": 4000
+          }
+        },
+        "system_prompt": "你是一位专业的文档结构规划专家。你的任务是根据用户提供的主题,创建一个完整、专业、逻辑清晰的大纲。\n\n## 输出要求\n\n1. **输出格式**: 必须是有效的 JSON 数组\n2. **不包含任何其他文本**: 只输出 JSON,不要解释、不要 markdown 代码块\n3. **结构规范**:\n   - 数组中每个元素代表一个章节\n   - 每个元素包含: id, title, level, content\n   - level: 1 = 一级标题, 2 = 二级标题, 3 = 三级标题\n   - id: 唯一标识符 (如 \"1\", \"1.1\", \"1.1.1\")\n\n## JSON 格式示例\n\n[\n  {\n    \"id\": \"1\",\n    \"title\": \"项目背景\",\n    \"level\": 1,\n    \"content\": \"概述项目的背景信息和重要性\"\n  }\n]\n\n## 重要提示\n\n- 不要在 JSON 前后添加任何文字说明\n- 不要使用 markdown 的代码块标记 (```json, ```)\n- 确保 JSON 格式完全正确,可以被程序直接解析\n- id 必须是唯一且具有层级关系",
+        "user_prompt_template": "请为主题 \"{{topic}}\" 生成一个专业的文档大纲。\n\n写作风格: {{style}}\n\n{{#files}}\n参考文件已提供,请参考这些内容。\n{{/files}}",
+        "output_variable": "Construction",
+        "output_type": "string"
+      }
+    }
+  },
+  "worker_workflow": {
+    "name": "章节内容生成器",
+    "description": "根据章节标题生成内容",
+    "version": "1.0",
+    "response_mode": "streaming",
+    "variables": {
+      "context_summary": {
+        "type": "string",
+        "required": true,
+        "label": "上下文摘要",
+        "max_length": 48
+      },
+      "document_topic": {
+        "type": "string",
+        "required": true,
+        "label": "文档主题"
+      },
+      "section_title": {
+        "type": "string",
+        "required": true,
+        "label": "章节标题"
+      },
+      "full_outline": {
+        "type": "string",
+        "required": true,
+        "label": "完整大纲"
+      },
+      "files": {
+        "type": "array",
+        "required": false,
+        "label": "参考文件"
+      }
+    },
+    "nodes": {
+      "llm_worker": {
+        "type": "llm",
+        "model": {
+          "provider": "openai",
+          "name": "gpt-4",
+          "mode": "chat",
+          "completion_params": {
+            "temperature": 0.7,
+            "max_tokens": 8000
+          }
+        },
+        "system_prompt": "你是一位专业的文档写作助手。你的任务是根据提供的大纲和章节信息,撰写高质量的专业文档内容。\n\n## 写作规范\n\n### 内容要求\n\n1. **结构清晰**: 段落分明,逻辑连贯\n2. **专业准确**: 使用准确的专业术语和表达\n3. **详实具体**: 提供具体的数据、案例和说明\n4. **自然流畅**: 语言自然,避免重复和生硬表达\n\n### 格式要求\n\n- **不使用 Markdown 格式符号**: 不要使用 `#`, `**`, `*`, `-` 等 Markdown 符号\n- **使用中文标点**: 使用中文全角标点符号\n- **段落分明**: 每段之间空一行\n- **段落长度**: 每段建议 50-200 字,避免过长段落\n\n### 禁止事项\n\n- ❌ 不要在输出中包含任何思考过程\n- ❌ 不要包含大纲或结构说明\n- ❌ 不要使用 Markdown 格式 (如 **加粗**, ## 标题)\n- ❌ 不要包含\"好的\"、\"以下是我生成的内容\"等开场白\n- ❌ 不要重复章节标题\n\n### 输出内容\n\n直接输出章节正文内容,从第一个段落开始,不需要任何前导文字。\n\n## 上下文理解\n\n- `document_topic`: 了解文档的整体主题,确保内容一致性\n- `section_title`: 当前要写的章节,确保内容聚焦\n- `full_outline`: 了解文档整体结构,确保内容衔接自然\n\n## 质量标准\n\n1. **准确性**: 信息准确,无错误\n2. **完整性**: 内容完整,覆盖要点\n3. **连贯性**: 段落之间逻辑连贯\n4. **专业性**: 使用专业术语,表达规范\n5. **可读性**: 语言流畅,易于理解",
+        "user_prompt_template": "请为章节 \"{{section_title}}\" 撰写内容。\n\n文档主题: {{document_topic}}\n\n完整大纲:\n{{full_outline}}\n\n{{#files}}\n参考文件已提供,请参考这些内容来丰富章节内容。\n{{/files}}\n\n要求:\n- 直接输出正文内容,不要包含任何思考过程\n- 不要使用 Markdown 格式符号\n- 使用中文标点符号\n- 段落分明,逻辑连贯\n- 内容详实具体",
+        "output_variable": "text",
+        "output_type": "string"
+      }
+    }
+  },
+  "code_node_examples": {
+    "json_cleaner": {
+      "name": "JSON 清理器",
+      "language": "python3.10",
+      "code": "import json\nimport re\n\ndef main(args):\n    \"\"\"\n    清理并验证大纲 JSON 输出\n    \"\"\"\n    # 获取输入\n    text = args.get('text', '')\n    output = args.get('output', '')\n    result = args.get('result', '')\n    \n    content = output or text or result or ''\n    \n    # 移除 markdown 代码块\n    content = content.replace('```json', '').replace('```', '').strip()\n    \n    # 查找完整 JSON 数组\n    json_pattern = r'\\[.*?\\]'\n    matches = re.findall(json_pattern, content, re.DOTALL)\n    \n    if matches:\n        final_json = matches[-1]  # 使用最后一个\n    else:\n        final_json = content\n    \n    # 解析 JSON\n    try:\n        parsed = json.loads(final_json)\n        \n        if not isinstance(parsed, list):\n            parsed = [parsed]\n            \n        validated = []\n        for item in parsed:\n            if isinstance(item, dict):\n                validated.append({\n                    'id': item.get('id', ''),\n                    'title': item.get('title', ''),\n                    'level': item.get('level', 1),\n                    'content': item.get('content', '')\n                })\n        \n        return {\n            'status': 'success',\n            'outline': validated,\n            'count': len(validated)\n        }\n    except json.JSONDecodeError as e:\n        return {\n            'status': 'error',\n            'error': f'JSON 解析失败: {str(e)}',\n            'raw_content': content[:500]\n        }",
+      "input_variables": {
+        "text": "{{#llm_planner.outputs#text}}",
+        "output": "{{#llm_planner.outputs#output}}",
+        "result": "{{#llm_planner.outputs#result}}"
+      }
+    },
+    "text_optimizer": {
+      "name": "文本优化器",
+      "language": "python3.10",
+      "code": "def main(args):\n    \"\"\"\n    优化生成的文本内容\n    \"\"\"\n    text = args.get('text', '')\n    \n    # 统一标点\n    text = text.replace(',', '，').replace(';', '；').replace(':', '：')\n    \n    # 移除多余空行\n    lines = [line.strip() for line in text.split('\\n') if line.strip()]\n    text = '\\n\\n'.join(lines)\n    \n    return {\n        'optimized_text': text,\n        'paragraph_count': len(lines),\n        'char_count': len(text)\n    }",
+      "input_variables": {
+        "text": "{{#llm_worker.outputs#text}}"
+      }
+    },
+    "text_cleaner_worker": {
+      "name": "Worker 文本清理器",
+      "description": "清理 LLM 输出的思考过程,只保留实际内容\n\n使用说明:\n1. 将此代码复制到 Dify 的 Code 节点\n2. 在 Code 节点添加输入变量 `text`\n3. 将 LLM 节点的 `text` 输出连接到 Code 节点的 `text` 输入",
+      "language": "python3.10",
+      "code": "import re\n\ndef main(**args):\n    \"\"\"\n    清理 Worker LLM 的输出,移除思考过程和开场白\n    只保留实际的文档内容\n    \"\"\"\n    # 获取输入文本\n    text = args.get('text', '')\n    \n    # 处理输入,确保是字符串\n    if text is None:\n        text = ''\n    elif not isinstance(text, str):\n        text = str(text)\n    \n    content = text\n    \n    if not content:\n        return {\n            'status': 'error',\n            'error': '输入为空',\n            'content': ''\n        }\n    \n    # 1. 移除章节标题(如果重复)\n    # 移除以数字+点开头的标题行 (如 \"1.1 当前安全运营面临的挑战\")\n    lines = content.split('\\n')\n    cleaned_lines = []\n    \n    for line in lines:\n        stripped = line.strip()\n        # 跳过看起来像章节标题的行\n        if re.match(r'^\\d+\\.\\d+\\s+', stripped):\n            continue\n        # 跳过空行\n        if not stripped:\n            continue\n        cleaned_lines.append(stripped)\n    \n    # 2. 重新组合文本\n    cleaned_text = '\\n\\n'.join(cleaned_lines)\n    \n    # 3. 移除可能的 markdown 格式符号\n    cleaned_text = cleaned_text.replace('**', '').replace('*', '')\n    cleaned_text = re.sub(r'^#+\\s*', '', cleaned_text, flags=re.MULTILINE)\n    \n    # 4. 清理多余空格\n    cleaned_text = re.sub(r'\\n{3,}', '\\n\\n', cleaned_text)\n    \n    return {\n        'status': 'success',\n        'content': cleaned_text,\n        'original_length': len(content),\n        'cleaned_length': len(cleaned_text),\n        'paragraph_count': len(cleaned_lines)\n    }",
+      "input_variables": {
+        "text": "String 类型,连接 LLM 节点的 text 输出"
+      }
+    }
+  },
+  "llm_prompts": {
+    "planner": {
+      "short": "生成文档大纲,JSON 格式,无 markdown",
+      "detailed": "你是一位专业的文档结构规划专家。根据主题生成大纲,输出必须是纯 JSON 数组,包含 id, title, level, content 字段。"
+    },
+    "worker": {
+      "short": "撰写章节内容,无 markdown 格式",
+      "detailed": "你是一位专业的文档写作助手。根据章节标题撰写内容,直接输出正文,不要使用任何 Markdown 格式符号。"
+    }
+  },
+  "testing_cases": {
+    "planner_test": {
+      "name": "大纲生成测试",
+      "input": {
+        "topic": "AI XDR 解决方案",
+        "style": "专业严肃"
+      },
+      "expected_output_format": "JSON array with objects containing id, title, level, content"
+    },
+    "worker_test": {
+      "name": "内容生成测试",
+      "input": {
+        "section_title": "1.1 当前安全运营面临的挑战",
+        "document_topic": "AI XDR 解决方案",
+        "full_outline": "[{\"id\":\"1\",\"title\":\"项目背景\",\"level\":1,\"content\":\"...\"}]",
+        "context_summary": "AI XDR 安全方案"
+      },
+      "expected_output": "Pure text without markdown symbols"
+    }
+  },
+  "common_issues": {
+    "markdown_in_output": {
+      "symptom": "LLM 输出包含 Markdown 格式符号",
+      "solution": "在系统提示词中明确禁止使用 Markdown,并在提示词中多次强调"
+    },
+    "json_parsing_failed": {
+      "symptom": "大纲 JSON 无法解析",
+      "solution": "添加代码节点清理输出,或优化系统提示词强调纯 JSON 输出"
+    },
+    "content_too_short": {
+      "symptom": "生成的内容过于简短",
+      "solution": "增加 max_tokens,或在提示词中要求更详细的内容"
+    }
+  }
+}

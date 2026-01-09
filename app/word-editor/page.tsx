@@ -34,6 +34,15 @@ export default function WordEditorPage() {
     console.log('Rewrite text:', text);
   };
 
+  const handleRewriteSection = (sectionId: string, newContent: string) => {
+    setBlocks(prev => prev.map(block => {
+      if (block.id === `content-${sectionId}`) {
+        return { ...block, content: newContent };
+      }
+      return block;
+    }));
+  };
+
   const handleFormatText = (text: string, format: { bold?: boolean; italic?: boolean; size?: number }) => {
     // Find the block containing the text and update it with formatting
     setBlocks(prev => prev.map(block => {
@@ -51,7 +60,7 @@ export default function WordEditorPage() {
   // Convert outline to Notion blocks
   useEffect(() => {
     const notionBlocks: NotionBlock[] = [];
-    outline.forEach((item) => {
+    outline.forEach((item, index) => {
       // Add heading block with auto-generated number
       const titleWithNumber = item.number ? `${item.number} ${item.title}` : item.title;
       notionBlocks.push({
@@ -73,8 +82,14 @@ export default function WordEditorPage() {
         });
       }
 
+      // Check if this level 1 item has children (has 1.1, 1.2, etc.)
+      // If it has children, don't add placeholder
+      const hasNextItemAsChild = index + 1 < outline.length &&
+                                 outline[index + 1].level > item.level;
+
       // Add placeholder paragraph after each heading for easy editing
-      if (!item.content) {
+      // Only if no content AND doesn't have child sections
+      if (!item.content && !hasNextItemAsChild) {
         notionBlocks.push({
           id: `placeholder-${item.id}`,
           type: 'paragraph',
@@ -157,7 +172,7 @@ export default function WordEditorPage() {
       setCustomTemplateId(result.templateId);
       setCustomTemplateName(result.templateName);
       setShowCustomTemplate(true);
-      alert('模板上传成功！模板ID: ' + result.templateId);
+      alert('模板上传成功！');
     } catch (error) {
       console.error('Template upload error:', error);
       alert('模板上传失败：' + (error instanceof Error ? error.message : '请重试'));
@@ -385,7 +400,7 @@ export default function WordEditorPage() {
                   <span>上传模板</span>
                 </label>
                 <span style={{ fontSize: '12px', color: 'rgba(55, 53, 47, 0.5)' }}>
-                  支持 .docx 格式的 Word 模板
+                  支持 .docx 格式 • 本地存储 • 无需联网
                 </span>
               </div>
             </div>
@@ -537,7 +552,11 @@ export default function WordEditorPage() {
       <TextSelectionToolbar onRewrite={handleRewriteText} onFormat={handleFormatText} />
 
       {/* AI Chat */}
-      <AIChat />
+      <AIChat
+        onRewriteSection={handleRewriteSection}
+        blocks={blocks}
+        outline={outline}
+      />
 
       <style>{`
         @keyframes fadeIn {

@@ -2,10 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Packer } from 'docx';
 import { WORD_TEMPLATES } from '@/lib/word-templates';
 import { exportToDocx } from '@/lib/export-utils';
-
-// Carbone API configuration
-const CARBONE_API_URL = 'https://api.carbone.io';
-const CARBONE_API_TOKEN = process.env.CARBONE_API_TOKEN || 'test_YOUR_TOKEN_HERE';
+import { renderTemplate } from '@/lib/template-parser';
+import { loadTemplate } from '@/lib/template-storage';
 
 export async function POST(request: NextRequest) {
   try {
@@ -21,18 +19,15 @@ export async function POST(request: NextRequest) {
 
     let buffer: Buffer;
 
-    if (customTemplateId && CARBONE_API_TOKEN !== 'test_YOUR_TOKEN_HERE') {
-      // Use Carbone API with custom template
-      buffer = await exportWithCarboneApi(blocks, outline, documentTitle, customTemplateId);
+    if (customTemplateId) {
+      // 使用上传的自定义模板
+      buffer = await exportWithLocalTemplate(blocks, outline, documentTitle, customTemplateId);
     } else {
-      // Use docx library for built-in templates
-      const htmlContent = blocksToHtml(blocks);
-      const template = WORD_TEMPLATES.find((t) => t.id === templateId) || WORD_TEMPLATES[0];
-      const doc = await exportToDocx(htmlContent, documentTitle || '文档', template);
-      buffer = await Packer.toBuffer(doc);
+      // 使用内置模板(使用本地模板文件)
+      buffer = await exportWithBuiltinTemplate(blocks, outline, documentTitle, templateId);
     }
 
-    // Return as blob
+    // 返回为 blob
     const fileName = (documentTitle || 'document').replace(/\s+/g, '_');
     return new NextResponse(buffer as any, {
       headers: {
@@ -49,55 +44,123 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Export using Carbone API
-async function exportWithCarboneApi(
+/**
+ * 使用内置模板导出
+ */
+async function exportWithBuiltinTemplate(
   blocks: any[],
   outline: any[],
   title: string,
   templateId: string
 ): Promise<Buffer> {
-  // Prepare data for template rendering
-  const data = prepareCarboneData(blocks, outline, title);
+  const template = WORD_TEMPLATES.find((t) => t.id === templateId) || WORD_TEMPLATES[0];
 
-  // Render report using Carbone API
-  const response = await fetch(`${CARBONE_API_URL}/render/${templateId}`, {
-    method: 'POST',
-    headers: {
-      'carbone-version': '4',
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${CARBONE_API_TOKEN}`,
-    },
-    body: JSON.stringify({ data }),
+  // 准备模板数据
+  const data = prepareTemplateData(blocks, outline, title);
+
+  // 创建简单的 Word 模板
+  const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Header, Footer } = await import('docx');
+
+  const doc = new Document({
+    sections: [{
+      properties: {
+        page: {
+          margin: {
+            top: 1440, // 25.4mm in twips
+            bottom: 1440,
+            left: 1440,
+            right: 1440,
+          },
+        },
+      },
+      headers: template.header?.text ? {
+        default: new Header({
+          children: [
+            new Paragraph({
+              text: template.header.text,
+              alignment: template.header.alignment === 'left' ? AlignmentType.LEFT :
+                        template.header.alignment === 'right' ? AlignmentType.RIGHT :
+                        AlignmentType.CENTER,
+              bold: true,
+            }),
+          ],
+        }),
+      } : undefined,
+      footers: {
+        default: new Footer({
+          children: [
+            new Paragraph({
+              text: template.footer?.text || '',
+              alignment: template.footer?.alignment === 'left' ? AlignmentType.LEFT :
+                        template.footer?.alignment === 'right' ? AlignmentType.RIGHT :
+                        AlignmentType.CENTER,
+            }),
+          ],
+        }),
+      },
+      children: [
+        // 标题
+        new Paragraph({
+          text: title,
+          heading: HeadingLevel.HEADING_1,
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 400 },
+        }),
+        // 日期
+        new Paragraph({
+          text: data.date,
+          alignment: AlignmentType.CENTER,
+          spacing: { after: 400 },
+        }),
+        // 内容
+        ...blocks.map(block => {
+          if (block.type.startsWith('h')) {
+            const level = block.type === 'h1' ? HeadingLevel.HEADING_1 :
+                         block.type === 'h2' ? HeadingLevel.HEADING_2 :
+                         HeadingLevel.HEADING_3;
+            return new Paragraph({
+              text: block.content,
+              heading: level,
+              spacing: { before: 200, after: 100 },
+            });
+          } else if (block.content) {
+            return new Paragraph({
+              text: block.content,
+              spacing: { after: 200 },
+            });
+          }
+          return null;
+        }).filter((block): block is Paragraph => block !== null),
+      ],
+    }],
   });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('Carbone render error:', errorText);
-    throw new Error(`Carbone API error: ${response.status} - ${errorText}`);
+  return await Packer.toBuffer(doc);
+}
+
+/**
+ * 使用本地模板导出
+ * 完全本地化,不依赖外部 API
+ */
+async function exportWithLocalTemplate(
+  blocks: any[],
+  outline: any[],
+  title: string,
+  templateId: string
+): Promise<Buffer> {
+  // 加载模板
+  const templateBuffer = await loadTemplate(templateId);
+  if (!templateBuffer) {
+    throw new Error(`Template not found: ${templateId}`);
   }
 
-  const result = await response.json();
+  // 准备数据
+  const data = prepareTemplateData(blocks, outline, title);
 
-  if (!result.success) {
-    throw new Error('Carbone API returned error');
-  }
+  // 使用 docxtemplater 渲染模板
+  const buffer = renderTemplate(templateBuffer, data);
 
-  const renderId = result.data.renderId;
-
-  // Download the rendered document
-  const downloadResponse = await fetch(`${CARBONE_API_URL}/render/${renderId}`, {
-    method: 'GET',
-    headers: {
-      'carbone-version': '4',
-    },
-  });
-
-  if (!downloadResponse.ok) {
-    throw new Error('Failed to download rendered document');
-  }
-
-  const arrayBuffer = await downloadResponse.arrayBuffer();
-  return Buffer.from(arrayBuffer);
+  return buffer;
 }
 
 // Convert blocks to HTML string
@@ -132,10 +195,10 @@ function blocksToHtml(blocks: any[]): string {
     .join('');
 }
 
-// Prepare data for Carbone template rendering
-function prepareCarboneData(blocks: any[], outline: any[], title: string) {
+// Prepare data for template rendering
+function prepareTemplateData(blocks: any[], outline: any[], title: string) {
   const date = new Date().toLocaleDateString('zh-CN');
-  const year = new Date().getFullYear();
+  const year = String(new Date().getFullYear());
 
   // Convert blocks to structured content with full formatting
   const sections: Array<{

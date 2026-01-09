@@ -77,6 +77,7 @@ export function OutlineTree({ items, onUpdate, onDelete, onReorder, onGenerateCh
                                     onToggleExpand={handleToggleExpand}
                                     isExpanded={isExpanded}
                                     onGenerateChapter={onGenerateChapter}
+                                    hasChildren={level2Items.length > 0}
                                 />
                                 {isExpanded && level2Items.length > 0 && (
                                     <div>

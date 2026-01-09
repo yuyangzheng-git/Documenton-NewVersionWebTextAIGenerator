@@ -14,6 +14,7 @@ interface OutlineNodeProps {
     isExpanded?: boolean;
     isDragging?: boolean;
     onGenerateChapter?: (id: string) => void;
+    hasChildren?: boolean; // Whether this item has child sections
 }
 
 export function OutlineNode({
@@ -24,6 +25,7 @@ export function OutlineNode({
     isExpanded = true,
     isDragging = false,
     onGenerateChapter,
+    hasChildren = false,
 }: OutlineNodeProps) {
     const [isEditing, setIsEditing] = useState(false);
     const [editValue, setEditValue] = useState(item.title);
@@ -276,6 +278,7 @@ export function OutlineNode({
                         }}
                         disabled={item.status === 'generating'}
                         className="generate-button"
+                        title={hasChildren ? '生成所有子章节' : '生成此章节'}
                     >
                         {item.status === 'generating' ? (
                             <RefreshCw style={{ width: '14px', height: '14px' }} />

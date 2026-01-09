@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { saveTemplate } from '@/lib/template-storage';
+import { extractTemplatePlaceholders } from '@/lib/template-parser';
 
-// Carbone API configuration
-const CARBONE_API_URL = 'https://api.carbone.io';
-const CARBONE_API_TOKEN = process.env.CARBONE_API_TOKEN || 'test_YOUR_TOKEN_HERE';
-
+/**
+ * 上传自定义模板到本地存储
+ * 不依赖外部 API,完全本地化实现
+ */
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData();
@@ -16,7 +18,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if it's a Word document
+    // 检查是否为 Word 文档
     if (!file.name.endsWith('.docx')) {
       return NextResponse.json(
         { error: 'Template must be a .docx file' },
@@ -24,54 +26,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if Carbone API token is configured
-    if (!CARBONE_API_TOKEN || CARBONE_API_TOKEN === 'test_YOUR_TOKEN_HERE') {
-      return NextResponse.json(
-        { 
-          error: 'Carbone API token not configured',
-          message: 'Please set CARBONE_API_TOKEN in environment variables'
-        },
-        { status: 500 }
-      );
-    }
+    // 读取文件内容
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
 
-    // Prepare form data for Carbone API
-    const carboneFormData = new FormData();
-    carboneFormData.append('template', file);
+    // 提取模板占位符
+    const placeholders = extractTemplatePlaceholders(buffer);
 
-    // Upload template to Carbone API
-    const response = await fetch(`${CARBONE_API_URL}/template`, {
-      method: 'POST',
-      headers: {
-        'carbone-version': '4',
-        'Authorization': `Bearer ${CARBONE_API_TOKEN}`,
-      },
-      body: carboneFormData,
-    });
+    // 保存到本地存储
+    const savedTemplate = await saveTemplate(buffer, file.name);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Carbone API error:', errorText);
-      return NextResponse.json(
-        { error: 'Failed to upload template to Carbone API', details: errorText },
-        { status: response.status }
-      );
-    }
-
-    const result = await response.json();
-
-    if (!result.success) {
-      return NextResponse.json(
-        { error: 'Carbone API returned error', details: result },
-        { status: 500 }
-      );
-    }
-
-    // Return template ID from Carbone
+    // 返回模板信息
     return NextResponse.json({
       success: true,
-      templateId: result.data.templateId,
-      templateName: file.name,
+      templateId: savedTemplate.id,
+      templateName: savedTemplate.name,
+      originalName: file.name,
+      fileSize: savedTemplate.fileSize,
+      placeholders,
+      message: 'Template uploaded successfully to local storage',
     });
   } catch (error) {
     console.error('Template upload error:', error);

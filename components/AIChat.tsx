@@ -3,6 +3,14 @@
 import { useState, useRef, useEffect } from 'react';
 import { MessageSquare, Send, X, Minus, Maximize2, Loader2 } from 'lucide-react';
 
+interface NotionBlock {
+  id: string;
+  type: string;
+  content: string;
+  properties?: any;
+  children?: NotionBlock[];
+}
+
 interface Message {
   role: 'user' | 'assistant';
   content: string;
@@ -10,15 +18,48 @@ interface Message {
 
 interface AIChatProps {
   onRewriteText?: (text: string) => void;
+  onRewriteSection?: (sectionId: string, newContent: string) => void;
+  blocks?: NotionBlock[];
+  outline?: any[];
 }
 
-export function AIChat({ onRewriteText }: AIChatProps) {
+export function AIChat({ onRewriteText, onRewriteSection, blocks, outline }: AIChatProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [currentAssistantMessage, setCurrentAssistantMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // 解析用户输入中的章节指令
+  const parseRewriteCommand = (text: string): { command: string; sectionId?: string } | null => {
+    const rewriteRegex = /帮我重写\s*(\d+(?:\.\d+)*)/i;
+    const match = text.match(rewriteRegex);
+
+    if (match) {
+      const sectionNumber = match[1];
+      // 查找对应的章节
+      const section = outline?.find((item: any) => item.id === sectionNumber || item.id?.startsWith(sectionNumber));
+
+      if (section) {
+        return {
+          command: `重写章节 ${sectionNumber}`,
+          sectionId: section.id,
+        };
+      }
+    }
+
+    return null;
+  };
+
+  // 获取章节当前内容
+  const getSectionContent = (sectionId: string): string => {
+    const headingBlock = blocks?.find(b => b.id === `heading-${sectionId}`);
+    const contentBlock = blocks?.find(b => b.id === `content-${sectionId}`);
+
+    return contentBlock?.content || '';
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -35,16 +76,100 @@ export function AIChat({ onRewriteText }: AIChatProps) {
     setMessages(prev => [...prev, userMessage]);
     setInput('');
     setIsLoading(true);
+    setCurrentAssistantMessage('');
 
-    // Simulate AI response (replace with actual API call)
-    setTimeout(() => {
+    // 检查是否是重写章节的命令
+    const rewriteCommand = parseRewriteCommand(userMessage.content);
+
+    try {
+      let prompt = userMessage.content;
+      let sectionContext = '';
+
+      // 如果是重写章节命令,获取当前内容
+      if (rewriteCommand && rewriteCommand.sectionId) {
+        const currentContent = getSectionContent(rewriteCommand.sectionId);
+        const section = outline?.find((item: any) => item.id === rewriteCommand.sectionId);
+
+        sectionContext = `
+章节: ${section?.title}
+当前内容: ${currentContent || '(空)'}
+
+请根据用户的要求重写这个章节,保持专业风格,内容详实具体。
+        `;
+
+        prompt = `请重写以上章节`;
+      }
+
+      const response = await fetch('/api/ai/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: sectionContext ? sectionContext : prompt,
+          history: messages,
+          appKey: process.env.NEXT_PUBLIC_DIFY_CHAT_API_KEY || '',
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: '未知错误' }));
+        console.error('API 请求失败:', response.status, errorData);
+        throw new Error(`API 请求失败: ${errorData.error || response.statusText}`);
+      }
+
+      // 处理流式响应
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let fullContent = '';
+
+      if (reader) {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value);
+          const lines = chunk.split('\n');
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              try {
+                const data = JSON.parse(line.slice(6));
+                if (data.content) {
+                  fullContent += data.content;
+                  setCurrentAssistantMessage(data.fullContent || fullContent);
+                }
+              } catch (e) {
+                // 忽略解析错误
+              }
+            }
+          }
+        }
+      }
+
+      // 保存完整消息
       const aiMessage: Message = {
         role: 'assistant',
-        content: `I understand you want: "${userMessage.content}". This is a simulated response. Connect to an actual AI API to get real responses.`
+        content: fullContent || '抱歉，我无法回答这个问题。',
       };
       setMessages(prev => [...prev, aiMessage]);
+      setCurrentAssistantMessage('');
+
+      // 如果是重写章节命令,调用回调更新内容
+      if (rewriteCommand && rewriteCommand.sectionId && onRewriteSection) {
+        onRewriteSection(rewriteCommand.sectionId, fullContent);
+      }
+    } catch (error) {
+      console.error('AI chat error:', error);
+      const errorMessage: Message = {
+        role: 'assistant',
+        content: error instanceof Error ? error.message : '抱歉，连接 AI 服务失败，请稍后重试。',
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
       setIsLoading(false);
-    }, 1000);
+      setCurrentAssistantMessage('');
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -206,11 +331,43 @@ export function AIChat({ onRewriteText }: AIChatProps) {
                       ? '#2383E2'
                       : 'rgba(55, 53, 47, 0.06)',
                   color: msg.role === 'user' ? 'white' : 'rgba(55, 53, 47, 1)',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
                 }}
               >
                 {msg.content}
               </div>
             ))}
+
+            {/* 流式显示当前正在生成的消息 */}
+            {currentAssistantMessage && (
+              <div
+                style={{
+                  maxWidth: '80%',
+                  padding: '10px 14px',
+                  borderRadius: '12px',
+                  fontSize: '14px',
+                  lineHeight: 1.5,
+                  alignSelf: 'flex-start',
+                  backgroundColor: 'rgba(55, 53, 47, 0.06)',
+                  color: 'rgba(55, 53, 47, 1)',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                }}
+              >
+                {currentAssistantMessage}
+                <span
+                  style={{
+                    display: 'inline-block',
+                    width: '6px',
+                    height: '14px',
+                    backgroundColor: '#2383E2',
+                    marginLeft: '2px',
+                    animation: 'blink 1s infinite',
+                  }}
+                />
+              </div>
+            )}
 
             {isLoading && (
               <div
@@ -306,6 +463,14 @@ export function AIChat({ onRewriteText }: AIChatProps) {
           to {
             opacity: 1;
             transform: translateY(0);
+          }
+        }
+        @keyframes blink {
+          0%, 100% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0;
           }
         }
       `}</style>
