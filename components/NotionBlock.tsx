@@ -14,6 +14,7 @@ import {
   Plus,
   GripVertical,
   CheckCircle2,
+  Copy,
 } from 'lucide-react';
 
 export type BlockType =
@@ -222,6 +223,26 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
 
   const handleFocus = () => {
     setEditContent(block.content);
+  };
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(editContent || block.content);
+      // Optional: Show visual feedback
+      const originalText = block.content;
+      setEditContent('已复制!');
+      setTimeout(() => {
+        setEditContent(originalText);
+      }, 1000);
+    } catch (err) {
+      console.error('复制失败:', err);
+      // Fallback for older browsers
+      const textarea = editorRef.current;
+      if (textarea) {
+        textarea.select();
+        document.execCommand('copy');
+      }
+    }
   };
 
   const handleTypeChange = (type: BlockType) => {
@@ -728,29 +749,55 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
 
         {/* 添加按钮 */}
         {isHovered && (
-          <button
-            onClick={() => onAdd(block.id, 0, 'paragraph')}
-            style={{
-              position: 'absolute',
-              right: '-32px',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '20px',
-              height: '20px',
-              padding: 0,
-              borderRadius: '50%',
-              backgroundColor: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              transition: 'opacity 20ms ease-in',
-              opacity: 1
-            }}
-          >
-            <Plus style={{ width: '16px', height: '16px', color: 'rgba(55, 53, 47, 0.4)' }} />
-          </button>
+          <>
+            <button
+              onClick={handleCopy}
+              style={{
+                position: 'absolute',
+                right: '-32px',
+                top: '50%',
+                transform: 'translateY(-50%) translateY(-14px)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '20px',
+                height: '20px',
+                padding: 0,
+                borderRadius: '50%',
+                backgroundColor: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'opacity 20ms ease-in',
+                opacity: 1
+              }}
+              title="复制"
+            >
+              <Copy style={{ width: '16px', height: '16px', color: 'rgba(55, 53, 47, 0.4)' }} />
+            </button>
+            <button
+              onClick={() => onAdd(block.id, 0, 'paragraph')}
+              style={{
+                position: 'absolute',
+                right: '-32px',
+                top: '50%',
+                transform: 'translateY(-50%) translateY(14px)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '20px',
+                height: '20px',
+                padding: 0,
+                borderRadius: '50%',
+                backgroundColor: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'opacity 20ms ease-in',
+                opacity: 1
+              }}
+            >
+              <Plus style={{ width: '16px', height: '16px', color: 'rgba(55, 53, 47, 0.4)' }} />
+            </button>
+          </>
         )}
       </div>
     </div>
