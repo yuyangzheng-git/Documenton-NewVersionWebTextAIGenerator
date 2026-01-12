@@ -31,10 +31,8 @@ export default function WordEditorPage() {
     // If updating requirements block, sync to outline
     if (id.startsWith('requirements-')) {
       const outlineItemId = id.replace('requirements-', '');
-      if (updates.content) {
-        // Remove the prefix if present
-        const requirements = updates.content.replace(/^📝 章节要求：/, '');
-        updateItem(outlineItemId, { requirements });
+      if (updates.content !== undefined) {
+        updateItem(outlineItemId, { requirements: updates.content });
       }
     }
 
@@ -96,12 +94,13 @@ export default function WordEditorPage() {
         children: [],
       });
 
-      // Add requirements block (灰色提示框) if exists
+      // Add requirements block as regular paragraph if exists
+      // 直接作为正文内容显示在章节标题下面
       if (item.requirements) {
         notionBlocks.push({
           id: `requirements-${item.id}`,
-          type: 'callout',
-          content: `📝 章节要求：${item.requirements}`,
+          type: 'paragraph',
+          content: item.requirements,
           properties: {},
           children: [],
         });
@@ -125,7 +124,7 @@ export default function WordEditorPage() {
 
       // Add placeholder paragraph after each heading for easy editing
       // Only if no content AND doesn't have child sections
-      if (!item.content && !hasNextItemAsChild) {
+      if (!item.content && !item.requirements && !hasNextItemAsChild) {
         notionBlocks.push({
           id: `placeholder-${item.id}`,
           type: 'paragraph',
