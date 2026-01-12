@@ -12,7 +12,7 @@ import { WORD_TEMPLATES } from '@/lib/word-templates';
 
 export default function WordEditorPage() {
   const router = useRouter();
-  const { outline, documentTitle, setDocumentTitle } = useStore();
+  const { outline, documentTitle, setDocumentTitle, updateItem } = useStore();
   const [selectedTemplate, setSelectedTemplate] = useState('simple-white');
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   const [showOutlinePanel, setShowOutlinePanel] = useState(true);
@@ -21,6 +21,31 @@ export default function WordEditorPage() {
   const [customTemplateId, setCustomTemplateId] = useState<string | null>(null);
   const [customTemplateName, setCustomTemplateName] = useState<string | null>(null);
   const [showCustomTemplate, setShowCustomTemplate] = useState(false);
+
+  // Handle block updates and sync with outline
+  const handleBlockUpdate = (id: string, updates: Partial<NotionBlock>) => {
+    setBlocks(prev => prev.map(block =>
+      block.id === id ? { ...block, ...updates } : block
+    ));
+
+    // If updating requirements block, sync to outline
+    if (id.startsWith('requirements-')) {
+      const outlineItemId = id.replace('requirements-', '');
+      if (updates.content) {
+        // Remove the prefix if present
+        const requirements = updates.content.replace(/^📝 章节要求：/, '');
+        updateItem(outlineItemId, { requirements });
+      }
+    }
+
+    // If updating content block, sync to outline
+    if (id.startsWith('content-')) {
+      const outlineItemId = id.replace('content-', '');
+      if (updates.content !== undefined) {
+        updateItem(outlineItemId, { content: updates.content });
+      }
+    }
+  };
 
   // Get document topic from URL or first outline item
   useEffect(() => {
@@ -70,6 +95,17 @@ export default function WordEditorPage() {
         properties: {},
         children: [],
       });
+
+      // Add requirements block (灰色提示框) if exists
+      if (item.requirements) {
+        notionBlocks.push({
+          id: `requirements-${item.id}`,
+          type: 'callout',
+          content: `📝 章节要求：${item.requirements}`,
+          properties: {},
+          children: [],
+        });
+      }
 
       // Add content block if exists
       if (item.content) {
@@ -517,7 +553,14 @@ export default function WordEditorPage() {
               ) : (
                 <NotionEditor
                   blocks={blocks}
-                  setBlocks={setBlocks}
+                  setBlocks={(updater) => {
+                    if (typeof updater === 'function') {
+                      setBlocks(updater);
+                    } else {
+                      setBlocks(updater);
+                    }
+                  }}
+                  onBlockUpdate={handleBlockUpdate}
                   documentTitle={documentTitle}
                 />
               )}

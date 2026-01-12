@@ -30,6 +30,7 @@ export interface GenerateContentOptions {
   sectionTitle: string;
   documentTopic: string;
   fullOutline: string;
+  requirements?: string;
   temperature?: number;
   maxTokens?: number;
 }

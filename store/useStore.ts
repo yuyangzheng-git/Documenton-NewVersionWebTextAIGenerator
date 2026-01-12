@@ -7,6 +7,7 @@ export interface OutlineItem {
   level: 1 | 2 | 3;
   status: 'idle' | 'generating' | 'completed' | 'pending';
   content?: string;
+  requirements?: string; // 章节要求/内容要点
   number?: string; // Auto-generated numbering like "1", "1.1", "2", "2.1"
 }
 

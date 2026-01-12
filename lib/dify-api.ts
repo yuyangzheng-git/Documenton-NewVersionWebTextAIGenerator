@@ -23,6 +23,8 @@ export interface DifyOutlineItem {
   id: string;
   title: string;
   level: number;
+  content?: string;
+  requirements?: string;
   children?: DifyOutlineItem[];
 }
 
@@ -315,6 +317,7 @@ export async function generateSectionWithWorker(
   sectionTitle: string,
   documentTopic: string,
   fullOutline: string,
+  requirements?: string,
   onChunk: (text: string) => void,
   onComplete: () => void,
   onError?: (error: Error) => void,
@@ -334,6 +337,7 @@ export async function generateSectionWithWorker(
         document_topic: documentTopic,
         section_title: sectionTitle,
         full_outline: fullOutline,
+        requirements: requirements || '',
       },
       response_mode: 'streaming',
       user: 'user-' + Date.now(),

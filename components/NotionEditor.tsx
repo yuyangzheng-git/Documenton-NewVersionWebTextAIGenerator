@@ -22,10 +22,11 @@ export interface NotionBlock {
 interface NotionEditorProps {
   blocks: NotionBlock[];
   setBlocks: React.Dispatch<React.SetStateAction<NotionBlock[]>>;
+  onBlockUpdate?: (id: string, updates: Partial<NotionBlock>) => void;
   documentTitle?: string;
 }
 
-export function NotionEditor({ blocks, setBlocks }: NotionEditorProps) {
+export function NotionEditor({ blocks, setBlocks, onBlockUpdate }: NotionEditorProps) {
   // Calculate block numbers (1, 1.1, 1.2, 2, 2.1, etc.)
   const getBlockNumber = (index: number): string | undefined => {
     const block = blocks[index];
@@ -156,6 +157,8 @@ export function NotionEditor({ blocks, setBlocks }: NotionEditorProps) {
         return block;
       })
     );
+    // Also notify parent component
+    onBlockUpdate?.(id, updates);
   };
 
   const deleteBlock = (id: string) => {

@@ -46,6 +46,7 @@ export class DifyProvider implements AIProvider {
       options.sectionTitle,
       options.documentTopic,
       options.fullOutline,
+      options.requirements,
       (text: string) => {
         onChunk?.({ text, done: false });
       },

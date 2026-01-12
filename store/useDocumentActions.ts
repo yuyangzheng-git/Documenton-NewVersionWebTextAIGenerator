@@ -15,6 +15,7 @@ export const generateOutline = async (prompt: string) => {
       title: item.title,
       level: item.level as 1 | 2,
       status: 'pending' as const,
+      requirements: item.requirements,
     }));
 
     useStore.getState().setOutline(outlineWithStatus);
@@ -36,5 +37,5 @@ export const generateContent = async (
   const outline = useStore.getState().outline;
   const fullOutline = outline.map((block) => `${'  '.repeat(block.level - 1)}- ${block.title}`).join('\n');
 
-  await generateSectionWithWorker(apiKey, item.title, documentTitle, fullOutline, onChunk, onComplete);
+  await generateSectionWithWorker(apiKey, item.title, documentTitle, fullOutline, item.requirements, onChunk, onComplete);
 };
