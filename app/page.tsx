@@ -13,6 +13,7 @@ export default function Home() {
   const [showQuickStart, setShowQuickStart] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [isComposing, setIsComposing] = useState(false); // 输入法状态
   const [apiKey, setApiKey] = useState('');
   const [apiUrl, setApiUrl] = useState('');
   const [chapterApiKey, setChapterApiKey] = useState('');
@@ -1439,7 +1440,12 @@ export default function Home() {
                           const text = e.currentTarget.textContent || '';
                           setPrompt(text);
                         }}
+                        onCompositionStart={() => setIsComposing(true)}
+                        onCompositionEnd={() => setIsComposing(false)}
                         onKeyDown={(e) => {
+                          // 如果正在使用输入法，Enter 键用于确认输入，不触发生成
+                          if (isComposing) return;
+                          // 普通情况下，Enter 键触发生成
                           if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault();
                             handleGenerate();
