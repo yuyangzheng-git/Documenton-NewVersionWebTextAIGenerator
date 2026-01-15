@@ -1,296 +1,348 @@
-# AI Platform Integration Guide
+# AI 平台配置指南
 
-This document explains how to integrate and use different AI platforms with Document AI Generator.
+本文档介绍如何配置和项目支持的所有主流 AI 平台。
 
-## Supported Platforms
+## 支持的平台
 
-- **Dify** - Open-source AI application development platform
-- **OpenAI** - Official OpenAI API (GPT-4, GPT-3.5 Turbo, etc.)
-- **LangChain** - Framework for developing applications with LLMs
-- **Custom** - Implement your own AI provider
+| 平台 | 提供商 | 状态 | 说明 |
+|------|---------|------|------|
+| **Dify** | Dify | ✅ 已支持 | 开源 AI 应用开发平台 |
+| **OpenAI** | OpenAI | ✅ 已支持 | GPT-4, GPT-3.5 等模型 |
+| **Gemini** | Google | ✅ 已支持 | Google Gemini 系列模型 |
+| **Kimi** | Moonshot AI | ✅ 已支持 | 月之暗面 Kimi 模型 |
+| **Qwen** | 阿里云 | ✅ 已支持 | 通义千问系列模型 |
+| **LangChain** | LangChain | ✅ 已支持 | LLM 应用开发框架 |
+| **DeepSeek** | DeepSeek | ✅ 新增 | DeepSeek 开源模型 |
+| **Claude** | Anthropic | ✅ 新增 | Claude 3.5 系列 |
+| **Groq** | Groq | ✅ 新增 | 超快速推理引擎 |
+| **Cohere** | Cohere | ✅ 新增 | Command 系列模型 |
+| **Wenxin** | 百度 | ✅ 新增 | 文心一言 (ERNIE) |
+| **Zhipu** | 智谱 AI | ✅ 新增 | ChatGLM 系列 |
 
-## Architecture
+---
 
-The project uses a unified AI provider interface (`AIProvider`) that abstracts away the differences between platforms.
+## 1. DeepSeek 配置
 
-```
-┌─────────────────────────────────────┐
-│   Application Components            │
-│   (Editor, Chat, Outline Panel)  │
-└────────────┬──────────────────────┘
-             │
-             ▼
-┌─────────────────────────────────────┐
-│   Provider Factory                │
-│   createAIProvider(platform)       │
-└────────────┬──────────────────────┘
-             │
-      ┌──────┼──────┐
-      ▼      ▼      ▼
-   ┌────┐ ┌─────┐ ┌──────────┐
-   │Dify│ │OpenAI│ │LangChain│
-   └────┘ └─────┘ └──────────┘
-```
+### 获取 API Key
 
-## Setup
+1. 访问 [DeepSeek 开放平台](https://platform.deepseek.com/)
+2. 注册并登录账号
+3. 在控制台获取 API Key
 
-### 1. Environment Variables
-
-Create or update your `.env.local` file:
+### 环境变量配置
 
 ```env
-# ============================================
-# AI Platform Configuration
-# ============================================
-
-# Dify Configuration
-NEXT_PUBLIC_DIFY_PLANNER_API_KEY=your_planner_app_key
-NEXT_PUBLIC_DIFY_CHAPTER_API_KEY=your_chapter_app_key
-NEXT_PUBLIC_DIFY_API_URL=http://your-dify-instance/v1
-NEXT_PUBLIC_DIFY_CHAT_API_KEY=your_chat_app_key
-
-# OpenAI Configuration
-NEXT_PUBLIC_OPENAI_API_KEY=sk-your_openai_api_key
-NEXT_PUBLIC_OPENAI_MODEL=gpt-4
-NEXT_PUBLIC_OPENAI_BASE_URL=https://api.openai.com/v1
-
-# LangChain Configuration
-NEXT_PUBLIC_LANGCHAIN_API_KEY=sk-your_api_key
-NEXT_PUBLIC_LANGCHAIN_MODEL=gpt-4
+NEXT_PUBLIC_DEEPSEEK_API_KEY=your_deepseek_api_key_here
+NEXT_PUBLIC_DEEPSEEK_MODEL=deepseek-chat
+NEXT_PUBLIC_DEEPSEEK_BASE_URL=https://api.deepseek.com
 ```
 
-### 2. Using Dify
+### 支持的模型
 
-Dify is a powerful open-source platform for building AI applications.
+- `deepseek-chat` - 通用对话模型
+- `deepseek-coder` - 代码专用模型
 
-**Setup:**
-1. Go to [Dify](https://cloud.dify.ai/) or self-host Dify
-2. Create a Workflow app for outline generation
-3. Create a Chat app for chapter writing
-4. Get API keys from app settings
+### API 特性
 
-**Configuration:**
+- OpenAI 兼容接口
+- 支持流式输出
+- 长上下文支持 (128K)
+
+---
+
+## 2. Claude (Anthropic) 配置
+
+### 获取 API Key
+
+1. 访问 [Anthropic Console](https://console.anthropic.com/)
+2. 注册并登录账号
+3. 在 API Keys 页面创建新的 API Key
+
+### 环境变量配置
+
+```env
+NEXT_PUBLIC_CLAUDE_API_KEY=your_claude_api_key_here
+NEXT_PUBLIC_CLAUDE_MODEL=claude-3-5-sonnet-20241022
+NEXT_PUBLIC_CLAUDE_BASE_URL=https://api.anthropic.com
+```
+
+### 支持的模型
+
+- `claude-3-5-sonnet-20241022` - 最强性能模型
+- `claude-3-5-haiku-20241022` - 快速响应模型
+- `claude-3-opus-20240229` - 高质量模型
+
+### API 特性
+
+- Claude 3.5 系列，性能卓越
+- 长上下文窗口 (200K)
+- 强大的代码生成能力
+- 流式输出支持
+
+---
+
+## 3. Groq 配置
+
+### 获取 API Key
+
+1. 访问 [Groq Console](https://console.groq.com/)
+2. 注册并登录账号
+3. 在 API Keys 页面创建新的 API Key
+
+### 环境变量配置
+
+```env
+NEXT_PUBLIC_GROQ_API_KEY=your_groq_api_key_here
+NEXT_PUBLIC_GROQ_MODEL=llama-3.3-70b-versatile
+NEXT_PUBLIC_GROQ_BASE_URL=https://api.groq.com/openai/v1
+```
+
+### 支持的模型
+
+- `llama-3.3-70b-versatile` - Llama 3.3 70B (推荐)
+- `llama-3.1-70b-versatile` - Llama 3.1 70B
+- `mixtral-8x7b-32768` - Mixtral 8x7B
+- `gemma-7b-it` - Google Gemma 7B
+
+### API 特性
+
+- **超快速推理** (LPU 引擎)
+- OpenAI 兼容接口
+- 超低延迟
+- 流式输出
+
+---
+
+## 4. Cohere 配置
+
+### 获取 API Key
+
+1. 访问 [Cohere Dashboard](https://dashboard.cohere.com/)
+2. 注册并登录账号
+3. 在 API Keys 页面创建新的 API Key
+
+### 环境变量配置
+
+```env
+NEXT_PUBLIC_COHERE_API_KEY=your_cohere_api_key_here
+NEXT_PUBLIC_COHERE_MODEL=command-r-plus
+NEXT_PUBLIC_COHERE_BASE_URL=https://api.cohere.ai/v1
+```
+
+### 支持的模型
+
+- `command-r-plus` - 最强模型
+- `command-r` - 平衡模型
+- `command` - 快速模型
+
+### API 特性
+
+- 企业级 LLM
+- 128K 上下文窗口
+- RAG 原生支持
+- 工具调用能力
+
+---
+
+## 5. Wenxin (百度文心一言) 配置
+
+### 获取 API Key
+
+1. 访问 [百度智能云控制台](https://cloud.baidu.com/)
+2. 开通千帆大模型平台服务
+3. 创建应用并获取 API Key 和 Secret Key
+
+### 环境变量配置
+
+```env
+# 格式: {API Key}#{Secret Key}
+NEXT_PUBLIC_WENXIN_API_KEY=your_api_key#your_secret_key
+NEXT_PUBLIC_WENXIN_MODEL=ernie-4.0-8k
+NEXT_PUBLIC_WENXIN_BASE_URL=https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop
+```
+
+### 支持的模型
+
+- `ernie-4.0-8k` - ERNIE 4.0 (推荐)
+- `ernie-3.5-8k` - ERNIE 3.5
+- `ernie-speed-128k` - 快速模型
+- `ernie-turbo-8k` - 高速模型
+
+### API 特性
+
+- 中文优化
+- 百度生态整合
+- 文档理解能力
+- 流式输出
+
+---
+
+## 6. Zhipu (智谱 GLM) 配置
+
+### 获取 API Key
+
+1. 访问 [智谱AI开放平台](https://open.bigmodel.cn/)
+2. 注册并登录账号
+3. 在 API Keys 页面创建新的 API Key
+
+### 环境变量配置
+
+```env
+# 格式: {id}.{secret}
+NEXT_PUBLIC_ZHIPU_API_KEY=your_id.your_secret
+NEXT_PUBLIC_ZHIPU_MODEL=glm-4-plus
+NEXT_PUBLIC_ZHIPU_BASE_URL=https://open.bigmodel.cn/api/paas/v4
+```
+
+### 支持的模型
+
+- `glm-4-plus` - 最强模型 (推荐)
+- `glm-4` - 通用模型
+- `glm-4-flash` - 快速模型
+- `glm-3-turbo` - 高速模型
+
+### API 特性
+
+- 中文能力强
+- ChatGLM 系列
+- 128K 上下文
+- 流式输出
+
+---
+
+## 如何切换 AI 平台
+
+### 通过设置界面
+
+1. 打开应用
+2. 点击右上角"设置"按钮
+3. 在"AI 平台"下拉菜单中选择目标平台
+4. 填写相应的 API Key
+5. 保存配置
+
+### 通过环境变量
+
+编辑 `.env.local` 文件：
+
+```env
+# 设置默认平台
+NEXT_PUBLIC_DEFAULT_AI_PLATFORM=deepseek
+
+# 配置对应平台的 API Key
+NEXT_PUBLIC_DEEPSEEK_API_KEY=your_api_key
+```
+
+---
+
+## 模型选择建议
+
+### 根据场景选择
+
+| 场景 | 推荐平台 | 推荐模型 | 说明 |
+|------|----------|----------|------|
+| **超低延迟** | Groq | llama-3.3-70b-versatile | LPU 引擎，响应极快 |
+| **高质量中文** | Zhipu | glm-4-plus | ChatGLM 系列，中文优化 |
+| **企业级应用** | Cohere | command-r-plus | 稳定可靠，API 限流宽松 |
+| **代码生成** | DeepSeek | deepseek-coder | 开源模型，代码能力强 |
+| **综合最强** | Claude | claude-3-5-sonnet | 性能卓越，多模态 |
+| **文档写作** | Qwen | qwen-plus | 通义千问，适合中文写作 |
+| **通用对话** | OpenAI | gpt-4o | GPT 系列，稳定可靠 |
+
+### 根据成本选择
+
+| 成本考虑 | 推荐平台 | 说明 |
+|---------|----------|------|
+| **低成本** | DeepSeek, Groq | 价格便宜，性能出色 |
+| **中等成本** | Qwen, Zhipu | 性价比高 |
+| **不差钱** | Claude, OpenAI | 性能最强 |
+
+---
+
+## 常见问题
+
+### Q: 如何测试 API Key 是否有效？
+
+在应用的设置界面中，每个平台都有"测试连接"按钮，点击即可测试。
+
+### Q: 支持自定义 Base URL 吗？
+
+是的，所有平台都支持自定义 Base URL，用于：
+- 使用代理服务
+- 自建 API 服务
+- 企业内网部署
+
+### Q: 流式输出有什么优势？
+
+- 实时显示生成内容
+- 更好的用户体验
+- 避免长时间等待
+- 可以提前停止生成
+
+### Q: 如何处理 API 限流？
+
+- 使用不同的平台分散请求
+- 调整温度和最大 token 数
+- 使用更快的模型（如 Groq）
+- 实现请求队列
+
+---
+
+## API 调用示例
+
+### 创建提供商实例
+
 ```typescript
-const config = {
-  platform: 'dify',
-  apiKey: 'app-xxxxxxxxxxxxxx',
-  baseUrl: 'http://your-dify-instance/v1',
-};
+import { createAIProvider } from './lib/ai/provider-factory';
+
+// 创建 DeepSeek 提供商
+const provider = createAIProvider('deepseek');
+
+// 创建 Claude 提供商
+const claudeProvider = createAIProvider('claude');
+
+// 创建 Groq 提供商
+const groqProvider = createAIProvider('groq');
 ```
 
-### 3. Using OpenAI
-
-Direct integration with OpenAI's official API.
-
-**Setup:**
-1. Get API key from [platform.openai.com](https://platform.openai.com/api-keys)
-2. Configure the model (gpt-4, gpt-3.5-turbo, etc.)
-3. Optionally set a custom base URL for proxies
-
-**Configuration:**
-```typescript
-const config = {
-  platform: 'openai',
-  apiKey: 'sk-xxxxxxxxxxxxxx',
-  model: 'gpt-4',
-  baseUrl: 'https://api.openai.com/v1',
-};
-```
-
-**Supported Models:**
-- GPT-4
-- GPT-4 Turbo
-- GPT-3.5 Turbo
-- GPT-3.5 Turbo 16k
-
-### 4. Using LangChain
-
-LangChain provides a framework for building applications with LLMs.
-
-**Setup:**
-1. Install required packages:
-```bash
-npm install @langchain/core @langchain/openai
-```
-
-2. Configure API key (typically an OpenAI API key):
-```typescript
-const config = {
-  platform: 'langchain',
-  apiKey: 'sk-xxxxxxxxxxxxxx',
-  model: 'gpt-4',
-};
-```
-
-**Advanced Usage:**
-LangChain allows you to:
-- Chain multiple prompts together
-- Add memory to conversations
-- Use vector databases for RAG
-- Integrate with external tools
-
-### 5. Custom Provider
-
-You can implement your own AI provider by extending the `AIProvider` interface.
+### 生成大纲
 
 ```typescript
-import { AIProvider, AIConfig, GenerateOutlineOptions, GenerateContentOptions, StreamChunk } from '@/lib/ai/types';
-
-class CustomProvider implements AIProvider {
-  async generateOutline(options: GenerateOutlineOptions, config: AIConfig) {
-    // Your implementation
-  }
-
-  async generateContent(
-    options: GenerateContentOptions,
-    config: AIConfig,
-    onChunk?: (chunk: StreamChunk) => void,
-    onComplete?: () => void,
-    onError?: (error: Error) => void
-  ) {
-    // Your implementation
-  }
-
-  async chat(
-    messages: { role: string; content: string }[],
-    config: AIConfig,
-    onChunk?: (chunk: StreamChunk) => void,
-    onComplete?: () => void,
-    onError?: (error: Error) => void
-  ) {
-    // Your implementation
-  }
-}
-```
-
-Then register it in the factory:
-```typescript
-// lib/ai/provider-factory.ts
-export function createAIProvider(platform: AIPlatform): AIProvider {
-  switch (platform) {
-    case 'custom':
-      return new CustomProvider();
-    // ... other cases
-  }
-}
-```
-
-## API Usage
-
-### Generate Outline
-
-```typescript
-import { createAIProvider } from '@/lib/ai/provider-factory';
-
-const provider = createAIProvider('dify');
-
-const outline = await provider.generateOutline({
-  prompt: 'Write a document about AI development',
-  maxSections: 10,
-  depth: 2,
-}, config);
-```
-
-### Generate Content
-
-```typescript
-await provider.generateContent({
-  sectionTitle: 'Introduction',
-  documentTopic: 'AI Development',
-  fullOutline: '1. Introduction\n2. Background\n...',
-}, config,
-  (chunk) => {
-    console.log('Received:', chunk.text);
-  },
-  () => {
-    console.log('Complete!');
-  },
-  (error) => {
-    console.error('Error:', error);
-  }
+const outline = await provider.generateOutline(
+  { prompt: '人工智能的发展历程' },
+  { apiKey: 'your-api-key', model: 'deepseek-chat' }
 );
 ```
 
-### Chat
+### 生成内容（流式）
 
 ```typescript
-await provider.chat([
-  { role: 'user', content: 'Hello!' }
-], config,
-  (chunk) => {
-    console.log('Received:', chunk.text);
+await provider.generateContent(
+  {
+    sectionTitle: '引言',
+    documentTopic: '人工智能的发展历程',
+    fullOutline: '完整大纲...',
   },
-  () => {
-    console.log('Complete!');
-  },
-  (error) => {
-    console.error('Error:', error);
-  }
+  { apiKey: 'your-api-key', model: 'deepseek-chat' },
+  (chunk) => console.log(chunk.text),  // 实时输出
+  () => console.log('生成完成'),
+  (error) => console.error(error)
 );
 ```
 
-## Comparison
+---
 
-| Feature | Dify | OpenAI | LangChain |
-|---------|-------|--------|-----------|
-| Ease of Setup | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ |
-| Customization | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
-| Streaming | ✅ | ✅ | ✅ |
-| Free Tier | ✅ | ❌ | ❌* |
-| Self-Hosted | ✅ | ❌ | ✅ |
-| Workflow Support | ✅ | ❌ | ✅ |
+## 贡献
 
-*Depends on underlying LLM provider
+如果您想添加新的 AI 平台支持，请：
 
-## Switching Platforms
+1. 在 `lib/ai/` 目录下创建新的提供商文件
+2. 实现 `AIProvider` 接口
+3. 在 `types.ts` 中添加平台类型
+4. 在 `provider-factory.ts` 中注册新提供商
+5. 更新此文档
 
-You can switch between platforms at runtime through the settings panel or programmatically:
+---
 
-```typescript
-import { useStore } from '@/store/useStore';
+## 许可证
 
-const { setAIPlatform, setApiKey, ... } = useStore();
-
-// Switch to OpenAI
-setAIPlatform('openai');
-setApiKey('sk-xxxxxxxxxxxxxx');
-```
-
-## Troubleshooting
-
-### Dify Connection Issues
-
-- Verify the API URL is correct
-- Check that the API key is valid
-- Ensure the Dify server is accessible
-
-### OpenAI Rate Limits
-
-OpenAI has rate limits. If you encounter errors:
-- Reduce the number of concurrent requests
-- Implement exponential backoff
-- Consider upgrading your plan
-
-### LangChain Version Compatibility
-
-Make sure you're using compatible versions of LangChain packages:
-```bash
-npm list @langchain/core @langchain/openai
-```
-
-## Contributing
-
-To add support for a new AI platform:
-
-1. Create a new provider file in `lib/ai/`
-2. Implement the `AIProvider` interface
-3. Add the platform to `AIPlatform` type
-4. Update `createAIProvider` factory function
-5. Update environment variables and documentation
-6. Submit a pull request!
-
-## Resources
-
-- [Dify Documentation](https://docs.dify.ai/)
-- [OpenAI API Documentation](https://platform.openai.com/docs/api-reference)
-- [LangChain Documentation](https://js.langchain.com/)
+MIT License
