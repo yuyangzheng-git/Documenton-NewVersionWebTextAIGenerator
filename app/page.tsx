@@ -129,6 +129,9 @@ export default function Home() {
         if (!response.ok) {
           throw new Error('Qwen API 连接失败，请检查 API Key 和 Base URL');
         }
+      } else if (aiPlatform === 'deepseek' || aiPlatform === 'claude' || aiPlatform === 'groq' || aiPlatform === 'cohere' || aiPlatform === 'wenxin' || aiPlatform === 'zhipu') {
+        // For other platforms, just validate API key is present
+        throw new Error('请在设置中填写相应的 API Key 后使用');
       } else {
         throw new Error('请选择 AI 平台');
       }
@@ -347,6 +350,12 @@ export default function Home() {
                 <option value="gemini">Google Gemini</option>
                 <option value="kimi">Kimi (Moonshot AI)</option>
                 <option value="qwen">通义千问 (Qwen)</option>
+                <option value="deepseek">DeepSeek (深度求索)</option>
+                <option value="claude">Claude (Anthropic)</option>
+                <option value="groq">Groq (超快速)</option>
+                <option value="cohere">Cohere</option>
+                <option value="wenxin">百度文心一言</option>
+                <option value="zhipu">智谱 GLM</option>
               </select>
             </div>
 
@@ -779,6 +788,7 @@ export default function Home() {
                       setQwenModel(qwenModel);
                       setQwenBaseUrl(qwenBaseUrl);
                     }
+                    // Other platforms just save the platform selection
                     setShowSettings(false);
                     setConnectionTestResult(null);
                   }}
