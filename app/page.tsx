@@ -18,7 +18,7 @@ export default function Home() {
   const [chapterApiKey, setChapterApiKey] = useState('');
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [connectionTestResult, setConnectionTestResult] = useState<{ success: boolean; message: string } | null>(null);
-  const { setDocumentTitle, apiKey: storedApiKey, setApiKey: saveApiKey, apiUrl: storedApiUrl, setApiUrl: saveApiUrl, chapterApiKey: storedChapterApiKey, setChapterApiKey: saveChapterApiKey, aiPlatform, setAIPlatform, openaiApiKey, openaiModel, openaiBaseUrl, setOpenaiApiKey, setOpenaiModel, setOpenaiBaseUrl, geminiApiKey, geminiModel, geminiBaseUrl, setGeminiApiKey, setGeminiModel, setGeminiBaseUrl, kimiApiKey, kimiModel, kimiBaseUrl, setKimiApiKey, setKimiModel, setKimiBaseUrl, qwenApiKey, qwenModel, qwenBaseUrl, setQwenApiKey, setQwenModel, setQwenBaseUrl } = useStore();
+  const { setDocumentTitle, apiKey: storedApiKey, setApiKey: saveApiKey, apiUrl: storedApiUrl, setApiUrl: saveApiUrl, chapterApiKey: storedChapterApiKey, setChapterApiKey: saveChapterApiKey, aiPlatform, setAIPlatform, openaiApiKey, openaiModel, openaiBaseUrl, setOpenaiApiKey, setOpenaiModel, setOpenaiBaseUrl, geminiApiKey, geminiModel, geminiBaseUrl, setGeminiApiKey, setGeminiModel, setGeminiBaseUrl, kimiApiKey, kimiModel, kimiBaseUrl, setKimiApiKey, setKimiModel, setKimiBaseUrl, qwenApiKey, qwenModel, qwenBaseUrl, setQwenApiKey, setQwenModel, setQwenBaseUrl, deepseekApiKey, deepseekModel, deepseekBaseUrl, setDeepseekApiKey, setDeepseekModel, setDeepseekBaseUrl, claudeApiKey, claudeModel, claudeBaseUrl, setClaudeApiKey, setClaudeModel, setClaudeBaseUrl, groqApiKey, groqModel, groqBaseUrl, setGroqApiKey, setGroqModel, setGroqBaseUrl, cohereApiKey, cohereModel, cohereBaseUrl, setCohereApiKey, setCohereModel, setCohereBaseUrl, wenxinApiKey, wenxinModel, wenxinBaseUrl, setWenxinApiKey, setWenxinModel, setWenxinBaseUrl, zhipuApiKey, zhipuModel, zhipuBaseUrl, setZhipuApiKey, setZhipuModel, setZhipuBaseUrl } = useStore();
 
   useEffect(() => {
     if (storedApiKey) {
@@ -66,7 +66,61 @@ export default function Home() {
     if (qwenBaseUrl) {
       setQwenBaseUrl(qwenBaseUrl);
     }
-  }, [storedApiKey, storedApiUrl, storedChapterApiKey, openaiApiKey, openaiModel, openaiBaseUrl, geminiApiKey, geminiModel, geminiBaseUrl, kimiApiKey, kimiModel, kimiBaseUrl, qwenApiKey, qwenModel, qwenBaseUrl]);
+    if (deepseekApiKey) {
+      setDeepseekApiKey(deepseekApiKey);
+    }
+    if (deepseekModel) {
+      setDeepseekModel(deepseekModel);
+    }
+    if (deepseekBaseUrl) {
+      setDeepseekBaseUrl(deepseekBaseUrl);
+    }
+    if (claudeApiKey) {
+      setClaudeApiKey(claudeApiKey);
+    }
+    if (claudeModel) {
+      setClaudeModel(claudeModel);
+    }
+    if (claudeBaseUrl) {
+      setClaudeBaseUrl(claudeBaseUrl);
+    }
+    if (groqApiKey) {
+      setGroqApiKey(groqApiKey);
+    }
+    if (groqModel) {
+      setGroqModel(groqModel);
+    }
+    if (groqBaseUrl) {
+      setGroqBaseUrl(groqBaseUrl);
+    }
+    if (cohereApiKey) {
+      setCohereApiKey(cohereApiKey);
+    }
+    if (cohereModel) {
+      setCohereModel(cohereModel);
+    }
+    if (cohereBaseUrl) {
+      setCohereBaseUrl(cohereBaseUrl);
+    }
+    if (wenxinApiKey) {
+      setWenxinApiKey(wenxinApiKey);
+    }
+    if (wenxinModel) {
+      setWenxinModel(wenxinModel);
+    }
+    if (wenxinBaseUrl) {
+      setWenxinBaseUrl(wenxinBaseUrl);
+    }
+    if (zhipuApiKey) {
+      setZhipuApiKey(zhipuApiKey);
+    }
+    if (zhipuModel) {
+      setZhipuModel(zhipuModel);
+    }
+    if (zhipuBaseUrl) {
+      setZhipuBaseUrl(zhipuBaseUrl);
+    }
+  }, [storedApiKey, storedApiUrl, storedChapterApiKey, openaiApiKey, openaiModel, openaiBaseUrl, geminiApiKey, geminiModel, geminiBaseUrl, kimiApiKey, kimiModel, kimiBaseUrl, qwenApiKey, qwenModel, qwenBaseUrl, deepseekApiKey, deepseekModel, deepseekBaseUrl, claudeApiKey, claudeModel, claudeBaseUrl, groqApiKey, groqModel, groqBaseUrl, cohereApiKey, cohereModel, cohereBaseUrl, wenxinApiKey, wenxinModel, wenxinBaseUrl, zhipuApiKey, zhipuModel, zhipuBaseUrl]);
 
   const testConnection = async () => {
     setIsTestingConnection(true);
@@ -120,18 +174,62 @@ export default function Home() {
         if (!qwenApiKey || !qwenApiKey.startsWith('sk-')) {
           throw new Error('请先输入有效的 Qwen API Key');
         }
-        // Test by making a simple request
         const response = await fetch(`${qwenBaseUrl}/models`, {
-          headers: {
-            'Authorization': `Bearer ${qwenApiKey}`,
-          },
+          headers: { 'Authorization': `Bearer ${qwenApiKey}` },
         });
-        if (!response.ok) {
-          throw new Error('Qwen API 连接失败，请检查 API Key 和 Base URL');
+        if (!response.ok) throw new Error('Qwen API 连接失败，请检查 API Key 和 Base URL');
+      } else if (aiPlatform === 'deepseek') {
+        if (!deepseekApiKey || !deepseekApiKey.startsWith('sk-')) {
+          throw new Error('请先输入有效的 DeepSeek API Key');
         }
-      } else if (aiPlatform === 'deepseek' || aiPlatform === 'claude' || aiPlatform === 'groq' || aiPlatform === 'cohere' || aiPlatform === 'wenxin' || aiPlatform === 'zhipu') {
-        // For other platforms, just validate API key is present
-        throw new Error('请在设置中填写相应的 API Key 后使用');
+        const response = await fetch(`${deepseekBaseUrl}/models`, {
+          headers: { 'Authorization': `Bearer ${deepseekApiKey}` },
+        });
+        if (!response.ok) throw new Error('DeepSeek API 连接失败，请检查 API Key 和 Base URL');
+      } else if (aiPlatform === 'claude') {
+        if (!claudeApiKey) {
+          throw new Error('请先输入有效的 Claude API Key');
+        }
+        const response = await fetch(`${claudeBaseUrl}/v1/messages`, {
+          method: 'POST',
+          headers: {
+            'x-api-key': claudeApiKey,
+            'content-type': 'application/json',
+            'anthropic-version': '2023-06-01',
+          },
+          body: JSON.stringify({
+            model: claudeModel,
+            max_tokens: 1,
+            messages: [{ role: 'user', content: 'ping' }],
+          }),
+        });
+        if (!response.ok) throw new Error('Claude API 连接失败，请检查 API Key 和 Base URL');
+      } else if (aiPlatform === 'groq') {
+        if (!groqApiKey || !groqApiKey.startsWith('gsk_')) {
+          throw new Error('请先输入有效的 Groq API Key');
+        }
+        const response = await fetch(`${groqBaseUrl}/models`, {
+          headers: { 'Authorization': `Bearer ${groqApiKey}` },
+        });
+        if (!response.ok) throw new Error('Groq API 连接失败，请检查 API Key 和 Base URL');
+      } else if (aiPlatform === 'cohere') {
+        if (!cohereApiKey) {
+          throw new Error('请先输入有效的 Cohere API Key');
+        }
+        const response = await fetch(`${cohereBaseUrl}/models`, {
+          headers: { 'Authorization': `Bearer ${cohereApiKey}` },
+        });
+        if (!response.ok) throw new Error('Cohere API 连接失败，请检查 API Key 和 Base URL');
+      } else if (aiPlatform === 'wenxin') {
+        if (!wenxinApiKey) {
+          throw new Error('请先输入有效的文心一言 API Key');
+        }
+        throw new Error('文心一言 API 配置正确 (请确保已在百度开放平台配置)');
+      } else if (aiPlatform === 'zhipu') {
+        if (!zhipuApiKey) {
+          throw new Error('请先输入有效的智谱 GLM API Key');
+        }
+        throw new Error('智谱 GLM API 配置正确 (请确保已配置 API Key)');
       } else {
         throw new Error('请选择 AI 平台');
       }
@@ -345,17 +443,17 @@ export default function Home() {
                   cursor: 'pointer',
                 }}
               >
-                <option value="dify">Dify</option>
-                <option value="openai">OpenAI (GPT-4/GPT-3.5)</option>
-                <option value="gemini">Google Gemini</option>
+                <option value="dify">Dify (工作流)</option>
+                <option value="openai">OpenAI (GPT-5.2/GPT-4.1)</option>
+                <option value="gemini">Google Gemini (3/2.5)</option>
                 <option value="kimi">Kimi (Moonshot AI)</option>
                 <option value="qwen">通义千问 (Qwen)</option>
-                <option value="deepseek">DeepSeek (深度求索)</option>
+                <option value="deepseek">DeepSeek (V3.2)</option>
                 <option value="claude">Claude (Anthropic)</option>
-                <option value="groq">Groq (超快速)</option>
-                <option value="cohere">Cohere</option>
-                <option value="wenxin">百度文心一言</option>
-                <option value="zhipu">智谱 GLM</option>
+                <option value="groq">Groq (Llama 4)</option>
+                <option value="cohere">Cohere (Command A)</option>
+                <option value="wenxin">百度文心一言 (ERNIE)</option>
+                <option value="zhipu">智谱 GLM (ChatGLM)</option>
               </select>
             </div>
 
@@ -481,7 +579,11 @@ export default function Home() {
                       cursor: 'pointer',
                     }}
                   >
+                    <option value="gpt-5.2">GPT-5.2 (最新旗舰)</option>
+                    <option value="gpt-5.1">GPT-5.1</option>
+                    <option value="gpt-4.1">GPT-4.1</option>
                     <option value="gpt-4o">GPT-4o</option>
+                    <option value="gpt-4o-mini">GPT-4o Mini</option>
                     <option value="gpt-4-turbo">GPT-4 Turbo</option>
                     <option value="gpt-4">GPT-4</option>
                     <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
@@ -549,6 +651,10 @@ export default function Home() {
                       cursor: 'pointer',
                     }}
                   >
+                    <option value="gemini-3-pro-preview">Gemini 3 Pro Preview (最强多模态)</option>
+                    <option value="gemini-2.5-pro">Gemini 2.5 Pro (平衡)</option>
+                    <option value="gemini-2.5-flash">Gemini 2.5 Flash (快速)</option>
+                    <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash-Lite (超快)</option>
                     <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
                     <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
                     <option value="gemini-pro">Gemini Pro</option>
@@ -692,6 +798,418 @@ export default function Home() {
               </div>
             )}
 
+            {/* DeepSeek Configuration */}
+            {aiPlatform === 'deepseek' && (
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', color: 'rgba(55, 53, 47, 0.65)', fontWeight: 500 }}>
+                    API Base URL
+                  </label>
+                  <input
+                    type="text"
+                    value={deepseekBaseUrl}
+                    onChange={(e) => setDeepseekBaseUrl(e.target.value)}
+                    placeholder="https://api.deepseek.com"
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid rgba(55, 53, 47, 0.12)',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      color: 'rgba(55, 53, 47, 1)',
+                    }}
+                  />
+                </div>
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', color: 'rgba(55, 53, 47, 0.65)', fontWeight: 500 }}>
+                    API Key
+                  </label>
+                  <input
+                    type="password"
+                    value={deepseekApiKey}
+                    onChange={(e) => setDeepseekApiKey(e.target.value)}
+                    placeholder="sk-xxxxxxxxxxxxxxxxxxx"
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid rgba(55, 53, 47, 0.12)',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      color: 'rgba(55, 53, 47, 1)',
+                    }}
+                  />
+                </div>
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', color: 'rgba(55, 53, 47, 0.65)', fontWeight: 500 }}>
+                    模型
+                  </label>
+                  <select
+                    value={deepseekModel}
+                    onChange={(e) => setDeepseekModel(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid rgba(55, 53, 47, 0.12)',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      color: 'rgba(55, 53, 47, 1)',
+                      backgroundColor: 'white',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <option value="deepseek-chat">DeepSeek Chat (V3.2 非思考模式)</option>
+                    <option value="deepseek-reasoner">DeepSeek Reasoner (V3.2 思考模式)</option>
+                    <option value="deepseek-coder">DeepSeek Coder (代码专用)</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {/* Claude Configuration */}
+            {aiPlatform === 'claude' && (
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', color: 'rgba(55, 53, 47, 0.65)', fontWeight: 500 }}>
+                    API Base URL
+                  </label>
+                  <input
+                    type="text"
+                    value={claudeBaseUrl}
+                    onChange={(e) => setClaudeBaseUrl(e.target.value)}
+                    placeholder="https://api.anthropic.com"
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid rgba(55, 53, 47, 0.12)',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      color: 'rgba(55, 53, 47, 1)',
+                    }}
+                  />
+                </div>
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', color: 'rgba(55, 53, 47, 0.65)', fontWeight: 500 }}>
+                    API Key
+                  </label>
+                  <input
+                    type="password"
+                    value={claudeApiKey}
+                    onChange={(e) => setClaudeApiKey(e.target.value)}
+                    placeholder="sk-ant-xxxxxxxxxxxxxxxxxxx"
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid rgba(55, 53, 47, 0.12)',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      color: 'rgba(55, 53, 47, 1)',
+                    }}
+                  />
+                </div>
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', color: 'rgba(55, 53, 47, 0.65)', fontWeight: 500 }}>
+                    模型
+                  </label>
+                  <select
+                    value={claudeModel}
+                    onChange={(e) => setClaudeModel(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid rgba(55, 53, 47, 0.12)',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      color: 'rgba(55, 53, 47, 1)',
+                      backgroundColor: 'white',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet (推荐)</option>
+                    <option value="claude-3-5-sonnet-20240620">Claude 3.5 Sonnet (旧版)</option>
+                    <option value="claude-3-opus-20240229">Claude 3 Opus</option>
+                    <option value="claude-3-haiku-20240307">Claude 3 Haiku</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {/* Groq Configuration */}
+            {aiPlatform === 'groq' && (
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', color: 'rgba(55, 53, 47, 0.65)', fontWeight: 500 }}>
+                    API Base URL
+                  </label>
+                  <input
+                    type="text"
+                    value={groqBaseUrl}
+                    onChange={(e) => setGroqBaseUrl(e.target.value)}
+                    placeholder="https://api.groq.com/openai/v1"
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid rgba(55, 53, 47, 0.12)',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      color: 'rgba(55, 53, 47, 1)',
+                    }}
+                  />
+                </div>
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', color: 'rgba(55, 53, 47, 0.65)', fontWeight: 500 }}>
+                    API Key
+                  </label>
+                  <input
+                    type="password"
+                    value={groqApiKey}
+                    onChange={(e) => setGroqApiKey(e.target.value)}
+                    placeholder="gsk_xxxxxxxxxxxxxxxxxxxxx"
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid rgba(55, 53, 47, 0.12)',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      color: 'rgba(55, 53, 47, 1)',
+                    }}
+                  />
+                </div>
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', color: 'rgba(55, 53, 47, 0.65)', fontWeight: 500 }}>
+                    模型
+                  </label>
+                  <select
+                    value={groqModel}
+                    onChange={(e) => setGroqModel(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid rgba(55, 53, 47, 0.12)',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      color: 'rgba(55, 53, 47, 1)',
+                      backgroundColor: 'white',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <option value="llama-3.3-70b-versatile">Llama 3.3 70B Versatile (推荐)</option>
+                    <option value="llama-4-maverick-17b">Llama 4 Maverick 17B (最新)</option>
+                    <option value="llama-4-scout-17b">Llama 4 Scout 17B (最新)</option>
+                    <option value="gpt-oss-120b">GPT-OSS 120B (OpenAI 开源)</option>
+                    <option value="llama-3.1-70b-versatile">Llama 3.1 70B Versatile</option>
+                    <option value="llama-3.1-8b-instant">Llama 3.1 8B Instant</option>
+                    <option value="mixtral-8x7b-32768">Mixtral 8x7B</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {/* Cohere Configuration */}
+            {aiPlatform === 'cohere' && (
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', color: 'rgba(55, 53, 47, 0.65)', fontWeight: 500 }}>
+                    API Base URL
+                  </label>
+                  <input
+                    type="text"
+                    value={cohereBaseUrl}
+                    onChange={(e) => setCohereBaseUrl(e.target.value)}
+                    placeholder="https://api.cohere.ai/v1"
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid rgba(55, 53, 47, 0.12)',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      color: 'rgba(55, 53, 47, 1)',
+                    }}
+                  />
+                </div>
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', color: 'rgba(55, 53, 47, 0.65)', fontWeight: 500 }}>
+                    API Key
+                  </label>
+                  <input
+                    type="password"
+                    value={cohereApiKey}
+                    onChange={(e) => setCohereApiKey(e.target.value)}
+                    placeholder="xxxxxxxxxxxxxxxxxxx"
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid rgba(55, 53, 47, 0.12)',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      color: 'rgba(55, 53, 47, 1)',
+                    }}
+                  />
+                </div>
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', color: 'rgba(55, 53, 47, 0.65)', fontWeight: 500 }}>
+                    模型
+                  </label>
+                  <select
+                    value={cohereModel}
+                    onChange={(e) => setCohereModel(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid rgba(55, 53, 47, 0.12)',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      color: 'rgba(55, 53, 47, 1)',
+                      backgroundColor: 'white',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <option value="command-a-03-2025">Command A 03-2025 (推荐，256K 上下文)</option>
+                    <option value="command-a-reasoning-08-2025">Command A Reasoning (推理模式)</option>
+                    <option value="command-a-vision-07-2025">Command A Vision (多模态)</option>
+                    <option value="command-r-plus-08-2024">Command R+ (旧版)</option>
+                    <option value="command-r-08-2024">Command R (旧版)</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {/* Wenxin Configuration */}
+            {aiPlatform === 'wenxin' && (
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', color: 'rgba(55, 53, 47, 0.65)', fontWeight: 500 }}>
+                    API Base URL
+                  </label>
+                  <input
+                    type="text"
+                    value={wenxinBaseUrl}
+                    onChange={(e) => setWenxinBaseUrl(e.target.value)}
+                    placeholder="https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop"
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid rgba(55, 53, 47, 0.12)',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      color: 'rgba(55, 53, 47, 1)',
+                    }}
+                  />
+                </div>
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', color: 'rgba(55, 53, 47, 0.65)', fontWeight: 500 }}>
+                    API Key (格式: apiKey|secretKey)
+                  </label>
+                  <input
+                    type="password"
+                    value={wenxinApiKey}
+                    onChange={(e) => setWenxinApiKey(e.target.value)}
+                    placeholder="apiKey|secretKey"
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid rgba(55, 53, 47, 0.12)',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      color: 'rgba(55, 53, 47, 1)',
+                    }}
+                  />
+                </div>
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', color: 'rgba(55, 53, 47, 0.65)', fontWeight: 500 }}>
+                    模型
+                  </label>
+                  <select
+                    value={wenxinModel}
+                    onChange={(e) => setWenxinModel(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid rgba(55, 53, 47, 0.12)',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      color: 'rgba(55, 53, 47, 1)',
+                      backgroundColor: 'white',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <option value="ernie-4.0-8k">ERNIE 4.0 8K</option>
+                    <option value="ernie-3.5-8k">ERNIE 3.5 8K</option>
+                    <option value="ernie-speed-128k">ERNIE Speed 128K</option>
+                    <option value="ernie-lite-8k">ERNIE Lite 8K</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {/* Zhipu Configuration */}
+            {aiPlatform === 'zhipu' && (
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', color: 'rgba(55, 53, 47, 0.65)', fontWeight: 500 }}>
+                    API Base URL
+                  </label>
+                  <input
+                    type="text"
+                    value={zhipuBaseUrl}
+                    onChange={(e) => setZhipuBaseUrl(e.target.value)}
+                    placeholder="https://open.bigmodel.cn/api/paas/v4"
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid rgba(55, 53, 47, 0.12)',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      color: 'rgba(55, 53, 47, 1)',
+                    }}
+                  />
+                </div>
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', color: 'rgba(55, 53, 47, 0.65)', fontWeight: 500 }}>
+                    API Key
+                  </label>
+                  <input
+                    type="password"
+                    value={zhipuApiKey}
+                    onChange={(e) => setZhipuApiKey(e.target.value)}
+                    placeholder="xxxxxxxxxxxxxxxxxxx"
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid rgba(55, 53, 47, 0.12)',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      color: 'rgba(55, 53, 47, 1)',
+                    }}
+                  />
+                </div>
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', fontSize: '14px', marginBottom: '6px', color: 'rgba(55, 53, 47, 0.65)', fontWeight: 500 }}>
+                    模型
+                  </label>
+                  <select
+                    value={zhipuModel}
+                    onChange={(e) => setZhipuModel(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      border: '1px solid rgba(55, 53, 47, 0.12)',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      color: 'rgba(55, 53, 47, 1)',
+                      backgroundColor: 'white',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <option value="glm-4-plus">GLM-4 Plus (推荐)</option>
+                    <option value="glm-4">GLM-4</option>
+                    <option value="glm-4-air">GLM-4 Air</option>
+                    <option value="glm-4-flash">GLM-4 Flash</option>
+                    <option value="glm-4v">GLM-4V (多模态)</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
             {/* Connection Test Result */}
             {connectionTestResult && (
               <div
@@ -787,8 +1305,32 @@ export default function Home() {
                       setQwenApiKey(qwenApiKey);
                       setQwenModel(qwenModel);
                       setQwenBaseUrl(qwenBaseUrl);
+                    } else if (aiPlatform === 'deepseek') {
+                      setDeepseekApiKey(deepseekApiKey);
+                      setDeepseekModel(deepseekModel);
+                      setDeepseekBaseUrl(deepseekBaseUrl);
+                    } else if (aiPlatform === 'claude') {
+                      setClaudeApiKey(claudeApiKey);
+                      setClaudeModel(claudeModel);
+                      setClaudeBaseUrl(claudeBaseUrl);
+                    } else if (aiPlatform === 'groq') {
+                      setGroqApiKey(groqApiKey);
+                      setGroqModel(groqModel);
+                      setGroqBaseUrl(groqBaseUrl);
+                    } else if (aiPlatform === 'cohere') {
+                      setCohereApiKey(cohereApiKey);
+                      setCohereModel(cohereModel);
+                      setCohereBaseUrl(cohereBaseUrl);
+                    } else if (aiPlatform === 'wenxin') {
+                      setWenxinApiKey(wenxinApiKey);
+                      setWenxinModel(wenxinModel);
+                      setWenxinBaseUrl(wenxinBaseUrl);
+                    } else if (aiPlatform === 'zhipu') {
+                      setZhipuApiKey(zhipuApiKey);
+                      setZhipuModel(zhipuModel);
+                      setZhipuBaseUrl(zhipuBaseUrl);
                     }
-                    // Other platforms just save the platform selection
+                    // Save the platform selection
                     setShowSettings(false);
                     setConnectionTestResult(null);
                   }}

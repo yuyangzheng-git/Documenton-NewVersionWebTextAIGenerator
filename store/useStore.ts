@@ -73,6 +73,54 @@ interface DocumentStore {
   qwenBaseUrl: string;
   setQwenBaseUrl: (url: string) => void;
 
+  // DeepSeek Config
+  deepseekApiKey: string;
+  setDeepseekApiKey: (key: string) => void;
+  deepseekModel: string;
+  setDeepseekModel: (model: string) => void;
+  deepseekBaseUrl: string;
+  setDeepseekBaseUrl: (url: string) => void;
+
+  // Claude Config
+  claudeApiKey: string;
+  setClaudeApiKey: (key: string) => void;
+  claudeModel: string;
+  setClaudeModel: (model: string) => void;
+  claudeBaseUrl: string;
+  setClaudeBaseUrl: (url: string) => void;
+
+  // Groq Config
+  groqApiKey: string;
+  setGroqApiKey: (key: string) => void;
+  groqModel: string;
+  setGroqModel: (model: string) => void;
+  groqBaseUrl: string;
+  setGroqBaseUrl: (url: string) => void;
+
+  // Cohere Config
+  cohereApiKey: string;
+  setCohereApiKey: (key: string) => void;
+  cohereModel: string;
+  setCohereModel: (model: string) => void;
+  cohereBaseUrl: string;
+  setCohereBaseUrl: (url: string) => void;
+
+  // Wenxin Config
+  wenxinApiKey: string;
+  setWenxinApiKey: (key: string) => void;
+  wenxinModel: string;
+  setWenxinModel: (model: string) => void;
+  wenxinBaseUrl: string;
+  setWenxinBaseUrl: (url: string) => void;
+
+  // Zhipu Config
+  zhipuApiKey: string;
+  setZhipuApiKey: (key: string) => void;
+  zhipuModel: string;
+  setZhipuModel: (model: string) => void;
+  zhipuBaseUrl: string;
+  setZhipuBaseUrl: (url: string) => void;
+
   // LangChain Config
   langchainApiKey: string;
   setLangchainApiKey: (key: string) => void;
@@ -230,6 +278,54 @@ export const useStore = create<DocumentStore>((set) => ({
   setQwenModel: (model) => set({ qwenModel: model }),
   qwenBaseUrl: process.env.NEXT_PUBLIC_QWEN_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1',
   setQwenBaseUrl: (url) => set({ qwenBaseUrl: url }),
+
+  // DeepSeek Config
+  deepseekApiKey: process.env.NEXT_PUBLIC_DEEPSEEK_API_KEY || '',
+  setDeepseekApiKey: (key) => set({ deepseekApiKey: key }),
+  deepseekModel: process.env.NEXT_PUBLIC_DEEPSEEK_MODEL || 'deepseek-chat',
+  setDeepseekModel: (model) => set({ deepseekModel: model }),
+  deepseekBaseUrl: process.env.NEXT_PUBLIC_DEEPSEEK_BASE_URL || 'https://api.deepseek.com',
+  setDeepseekBaseUrl: (url) => set({ deepseekBaseUrl: url }),
+
+  // Claude Config
+  claudeApiKey: process.env.NEXT_PUBLIC_CLAUDE_API_KEY || '',
+  setClaudeApiKey: (key) => set({ claudeApiKey: key }),
+  claudeModel: process.env.NEXT_PUBLIC_CLAUDE_MODEL || 'claude-3-5-sonnet-20241022',
+  setClaudeModel: (model) => set({ claudeModel: model }),
+  claudeBaseUrl: process.env.NEXT_PUBLIC_CLAUDE_BASE_URL || 'https://api.anthropic.com',
+  setClaudeBaseUrl: (url) => set({ claudeBaseUrl: url }),
+
+  // Groq Config
+  groqApiKey: process.env.NEXT_PUBLIC_GROQ_API_KEY || '',
+  setGroqApiKey: (key) => set({ groqApiKey: key }),
+  groqModel: process.env.NEXT_PUBLIC_GROQ_MODEL || 'llama-3.3-70b-versatile',
+  setGroqModel: (model) => set({ groqModel: model }),
+  groqBaseUrl: process.env.NEXT_PUBLIC_GROQ_BASE_URL || 'https://api.groq.com/openai/v1',
+  setGroqBaseUrl: (url) => set({ groqBaseUrl: url }),
+
+  // Cohere Config
+  cohereApiKey: process.env.NEXT_PUBLIC_COHERE_API_KEY || '',
+  setCohereApiKey: (key) => set({ cohereApiKey: key }),
+  cohereModel: process.env.NEXT_PUBLIC_COHERE_MODEL || 'command-a-03-2025',
+  setCohereModel: (model) => set({ cohereModel: model }),
+  cohereBaseUrl: process.env.NEXT_PUBLIC_COHERE_BASE_URL || 'https://api.cohere.ai/v1',
+  setCohereBaseUrl: (url) => set({ cohereBaseUrl: url }),
+
+  // Wenxin Config
+  wenxinApiKey: process.env.NEXT_PUBLIC_WENXIN_API_KEY || '',
+  setWenxinApiKey: (key) => set({ wenxinApiKey: key }),
+  wenxinModel: process.env.NEXT_PUBLIC_WENXIN_MODEL || 'ernie-4.0-8k',
+  setWenxinModel: (model) => set({ wenxinModel: model }),
+  wenxinBaseUrl: process.env.NEXT_PUBLIC_WENXIN_BASE_URL || 'https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop',
+  setWenxinBaseUrl: (url) => set({ wenxinBaseUrl: url }),
+
+  // Zhipu Config
+  zhipuApiKey: process.env.NEXT_PUBLIC_ZHIPU_API_KEY || '',
+  setZhipuApiKey: (key) => set({ zhipuApiKey: key }),
+  zhipuModel: process.env.NEXT_PUBLIC_ZHIPU_MODEL || 'glm-4-plus',
+  setZhipuModel: (model) => set({ zhipuModel: model }),
+  zhipuBaseUrl: process.env.NEXT_PUBLIC_ZHIPU_BASE_URL || 'https://open.bigmodel.cn/api/paas/v4',
+  setZhipuBaseUrl: (url) => set({ zhipuBaseUrl: url }),
 
   // LangChain Config
   langchainApiKey: process.env.NEXT_PUBLIC_LANGCHAIN_API_KEY || '',
