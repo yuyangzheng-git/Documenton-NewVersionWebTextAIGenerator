@@ -2,7 +2,7 @@
  * AI Platform Type Definitions
  */
 
-export type AIPlatform = 'dify' | 'openai' | 'langchain' | 'custom';
+export type AIPlatform = 'dify' | 'openai' | 'gemini' | 'kimi' | 'qwen' | 'langchain' | 'custom';
 
 export interface AIConfig {
   platform: AIPlatform;

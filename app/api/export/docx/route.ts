@@ -1,16 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Packer } from 'docx';
+import { Packer, TextRun } from 'docx';
 import { WORD_TEMPLATES } from '@/lib/word-templates';
-import { exportToDocx } from '@/lib/export-utils';
 import { renderTemplate } from '@/lib/template-parser';
 import { loadTemplate } from '@/lib/template-storage';
+import {
+  Document,
+  Paragraph,
+  HeadingLevel,
+  AlignmentType,
+  Header,
+  Footer,
+} from 'docx';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { outline, blocks, documentTitle, templateId, customTemplateId } = body;
 
+    console.log('Export request:', {
+      hasBlocks: !!blocks,
+      blockCount: blocks?.length,
+      hasOutline: !!outline,
+      outlineCount: outline?.length,
+      documentTitle,
+      templateId,
+      customTemplateId,
+    });
+
     if (!blocks || blocks.length === 0) {
+      console.error('No blocks to export');
       return NextResponse.json(
         { error: 'No content to export' },
         { status: 400 }
@@ -20,12 +38,16 @@ export async function POST(request: NextRequest) {
     let buffer: Buffer;
 
     if (customTemplateId) {
+      console.log('Using custom template:', customTemplateId);
       // 使用上传的自定义模板
       buffer = await exportWithLocalTemplate(blocks, outline, documentTitle, customTemplateId);
     } else {
+      console.log('Using builtin template:', templateId);
       // 使用内置模板(使用本地模板文件)
       buffer = await exportWithBuiltinTemplate(blocks, outline, documentTitle, templateId);
     }
+
+    console.log('Export successful, buffer size:', buffer.length);
 
     // 返回为 blob
     const fileName = (documentTitle || 'document').replace(/\s+/g, '_');
@@ -58,9 +80,6 @@ async function exportWithBuiltinTemplate(
   // 准备模板数据
   const data = prepareTemplateData(blocks, outline, title);
 
-  // 创建简单的 Word 模板
-  const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, Header, Footer } = await import('docx');
-
   const doc = new Document({
     sections: [{
       properties: {
@@ -81,7 +100,6 @@ async function exportWithBuiltinTemplate(
               alignment: template.header.alignment === 'left' ? AlignmentType.LEFT :
                         template.header.alignment === 'right' ? AlignmentType.RIGHT :
                         AlignmentType.CENTER,
-              bold: true,
             }),
           ],
         }),
@@ -101,14 +119,25 @@ async function exportWithBuiltinTemplate(
       children: [
         // 标题
         new Paragraph({
-          text: title,
+          children: [
+            new TextRun({
+              text: title,
+              bold: true,
+              size: 32,
+            }),
+          ],
           heading: HeadingLevel.HEADING_1,
           alignment: AlignmentType.CENTER,
           spacing: { after: 400 },
         }),
         // 日期
         new Paragraph({
-          text: data.date,
+          children: [
+            new TextRun({
+              text: data.date,
+              size: 24,
+            }),
+          ],
           alignment: AlignmentType.CENTER,
           spacing: { after: 400 },
         }),
@@ -119,18 +148,27 @@ async function exportWithBuiltinTemplate(
                          block.type === 'h2' ? HeadingLevel.HEADING_2 :
                          HeadingLevel.HEADING_3;
             return new Paragraph({
-              text: block.content,
+              children: [
+                new TextRun({
+                  text: block.content,
+                  bold: true,
+                }),
+              ],
               heading: level,
               spacing: { before: 200, after: 100 },
             });
           } else if (block.content) {
             return new Paragraph({
-              text: block.content,
+              children: [
+                new TextRun({
+                  text: block.content,
+                }),
+              ],
               spacing: { after: 200 },
             });
           }
           return null;
-        }).filter((block): block is Paragraph => block !== null),
+        }).filter((block): block is any => block !== null),
       ],
     }],
   });
@@ -288,18 +326,135 @@ function prepareTemplateData(blocks: any[], outline: any[], title: string) {
     sections.push(currentSection);
   }
 
+  // 将 outline 组织为 chapters 结构，支持 d.chapters[i].title, d.chapters[i].sections[j].subtitle 等格式
+  const chapters: Array<{
+    title: string;
+    number: string;
+    level: number;
+    sections: Array<{
+      subtitle: string;
+      paragraphs: Array<{ text: string; index: number }>;
+    }>;
+  }> = [];
+
+  let currentChapter: typeof chapters[0] | null = null;
+  let currentSection2: typeof chapters[0]['sections'][0] | null = null;
+
+  // 先按照层级组织
+  outline.forEach((item) => {
+    if (item.level === 1) {
+      // 一级标题作为章节
+      if (currentChapter) {
+        if (currentSection2) {
+          currentChapter.sections.push(currentSection2);
+          currentSection2 = null;
+        }
+        chapters.push(currentChapter);
+      }
+      currentChapter = {
+        title: item.title,
+        number: item.number || '',
+        level: 1,
+        sections: [],
+      };
+    } else if (item.level === 2) {
+      // 二级标题作为节
+      if (currentChapter) {
+        if (currentSection2) {
+          currentChapter.sections.push(currentSection2);
+        }
+        currentSection2 = {
+          subtitle: item.title,
+          paragraphs: [],
+        };
+        // 查找该节对应的段落
+        const itemBlocks = blocks.filter(b =>
+          b.id.startsWith(`heading-${item.id}`) ||
+          b.id.startsWith(`content-${item.id}`)
+        );
+        itemBlocks.forEach(block => {
+          if (block.type === 'paragraph' || block.type === 'text') {
+            currentSection2?.paragraphs.push({ text: block.content, index: currentSection2?.paragraphs.length || 0 });
+          }
+        });
+      }
+    }
+  });
+
+  // 添加最后一个章节
+  if (currentChapter) {
+    if (currentSection2) {
+      (currentChapter as any).sections.push(currentSection2);
+    }
+    chapters.push(currentChapter);
+  }
+
+  // 如果没有 chapters，从 sections 转换
+  if (chapters.length === 0 && sections.length > 0) {
+    // 将 sections 映射为 chapters 格式（向后兼容）
+    chapters.push({
+      title: title,
+      number: '1',
+      level: 1,
+      sections: sections.map(sec => ({
+        subtitle: sec.heading || '章节',
+        paragraphs: sec.paragraphs.map((p, idx) => ({ text: p, index: idx })),
+      })),
+    });
+  }
+
+  // 创建文档信息对象
+  const doc_info = {
+    project_name: title,
+    creation_date: date,
+    year: year,
+    today: new Date().toISOString().split('T')[0],
+    chapter_count: chapters.length,
+    total_sections: chapters.reduce((sum, ch) => sum + ch.sections.length, 0),
+    total_paragraphs: chapters.reduce((sum, ch) =>
+      sum + ch.sections.reduce((s, sec) => s + sec.paragraphs.length, 0), 0
+    ),
+    author: '',
+    version: '1.0',
+  };
+
+  // 添加辅助变量，方便在模板中直接访问特定元素
+  const helpers = {
+    first_chapter: chapters.length > 0 ? chapters[0] : null,
+    last_chapter: chapters.length > 0 ? chapters[chapters.length - 1] : null,
+    chapter_count: chapters.length,
+  };
+
   return {
+    d: {  // 使用 d 作为根对象，支持 d.chapters[i].xxx 格式
+      doc_info,
+      title,
+      date,
+      year,
+      today: new Date().toISOString().split('T')[0],
+      chapters,
+      helpers,
+      // 保持向后兼容
+      sections,
+      outline: outline.map((item) => ({
+        number: item.number,
+        title: item.title,
+        level: item.level,
+      })),
+      htmlContent: blocksToHtml(blocks),
+    },
+    // 同时提供根级别属性（向后兼容）
     title,
     date,
     year,
     today: new Date().toISOString().split('T')[0],
     sections,
+    chapters,
     outline: outline.map((item) => ({
       number: item.number,
       title: item.title,
       level: item.level,
     })),
-    // Full content as HTML for templates that want to preserve formatting
     htmlContent: blocksToHtml(blocks),
   };
 }

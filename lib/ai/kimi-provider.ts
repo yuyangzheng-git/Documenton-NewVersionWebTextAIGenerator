@@ -1,6 +1,6 @@
 /**
- * LangChain Provider Implementation
- * Note: This is a simplified implementation. For production use, install @langchain/core and @langchain/openai
+ * Kimi Provider Implementation (Moonshot AI)
+ * Supports moonshot-v1-8k, moonshot-v1-32k, moonshot-v1-128k, etc.
  */
 
 import {
@@ -12,9 +12,15 @@ import {
   StreamChunk
 } from './types';
 
-export class LangChainProvider implements AIProvider {
+export class KimiProvider implements AIProvider {
+  private baseURL: string;
+
+  constructor(baseURL: string = 'https://api.moonshot.cn/v1') {
+    this.baseURL = baseURL;
+  }
+
   /**
-   * Generate document outline using LangChain
+   * Generate document outline using Kimi
    */
   async generateOutline(
     options: GenerateOutlineOptions,
@@ -64,42 +70,43 @@ export class LangChainProvider implements AIProvider {
 请直接输出 JSON 数组，不要包含任何其他文字。`;
 
     try {
-      // Use OpenAI API directly (LangChain abstracts this, but we'll use direct API for simplicity)
-      const response = await fetch(`${config.baseUrl || 'https://api.openai.com/v1'}/chat/completions`, {
+      const response = await fetch(`${config.baseUrl || this.baseURL}/chat/completions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${config.apiKey}`,
         },
         body: JSON.stringify({
-          model: config.model || 'gpt-4',
+          model: config.model || 'moonshot-v1-128k',
           messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: `Create an outline for: ${prompt}` }
+            { role: 'system', content: systemPrompt }
           ],
           temperature: config.temperature || 0.7,
-          max_tokens: config.maxTokens || 2000,
+          max_tokens: config.maxTokens || 4096,
         }),
       });
 
       if (!response.ok) {
         const error = await response.text();
-        throw new Error(`LangChain/OpenAI API error: ${response.status} - ${error}`);
+        throw new Error(`Kimi API error: ${response.status} - ${error}`);
       }
 
       const data = await response.json();
-      const content = data.choices[0]?.message?.content || '{}';
+      let content = data.choices?.[0]?.message?.content || '{}';
+
+      // Clean up the content (remove markdown code blocks if present)
+      content = content.replace(/```json/g, '').replace(/```/g, '').trim();
 
       // Parse JSON response
       const result = JSON.parse(content);
 
-      if (!result.outline || !Array.isArray(result.outline)) {
-        throw new Error('Invalid response format');
+      if (!Array.isArray(result)) {
+        throw new Error('Invalid response format from Kimi: expected array');
       }
 
-      return result.outline;
+      return result;
     } catch (error) {
-      console.error('LangChain outline generation error:', error);
+      console.error('Kimi outline generation error:', error);
       throw error;
     }
   }
@@ -148,28 +155,29 @@ ${requirements}
 开始撰写内容：`;
 
     try {
-      const response = await fetch(`${config.baseUrl || 'https://api.openai.com/v1'}/chat/completions`, {
+      const response = await fetch(`${config.baseUrl || this.baseURL}/chat/completions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${config.apiKey}`,
         },
         body: JSON.stringify({
-          model: config.model || 'gpt-4',
+          model: config.model || 'moonshot-v1-128k',
           messages: [
             { role: 'system', content: systemPrompt }
           ],
           temperature: config.temperature || 0.7,
-          max_tokens: config.maxTokens || 2000,
+          max_tokens: config.maxTokens || 8192,
           stream: true,
         }),
       });
 
       if (!response.ok) {
         const error = await response.text();
-        throw new Error(`LangChain API error: ${response.status} - ${error}`);
+        throw new Error(`Kimi API error: ${response.status} - ${error}`);
       }
 
+      // Handle streaming response
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
 
@@ -217,7 +225,7 @@ ${requirements}
         }
       }
     } catch (error) {
-      console.error('LangChain content generation error:', error);
+      console.error('Kimi content generation error:', error);
       onError?.(error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
@@ -254,27 +262,27 @@ ${requirements}
 - 不要使用英文标点`;
 
     try {
-      const response = await fetch(`${config.baseUrl || 'https://api.openai.com/v1'}/chat/completions`, {
+      const response = await fetch(`${config.baseUrl || this.baseURL}/chat/completions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${config.apiKey}`,
         },
         body: JSON.stringify({
-          model: config.model || 'gpt-4',
+          model: config.model || 'moonshot-v1-128k',
           messages: [
             { role: 'system', content: systemPrompt },
             ...messages
           ],
           temperature: config.temperature || 0.7,
-          max_tokens: config.maxTokens || 2000,
+          max_tokens: config.maxTokens || 8192,
           stream: true,
         }),
       });
 
       if (!response.ok) {
         const error = await response.text();
-        throw new Error(`LangChain API error: ${response.status} - ${error}`);
+        throw new Error(`Kimi API error: ${response.status} - ${error}`);
       }
 
       const reader = response.body?.getReader();
@@ -324,7 +332,7 @@ ${requirements}
         }
       }
     } catch (error) {
-      console.error('LangChain chat error:', error);
+      console.error('Kimi chat error:', error);
       onError?.(error instanceof Error ? error : new Error(String(error)));
       throw error;
     }

@@ -9,6 +9,7 @@ export interface OutlineItem {
   content?: string;
   requirements?: string; // 章节要求/内容要点
   number?: string; // Auto-generated numbering like "1", "1.1", "2", "2.1"
+  paragraphs?: string[]; // 分段后的段落列表
 }
 
 interface DocumentStore {
@@ -48,6 +49,30 @@ interface DocumentStore {
   openaiBaseUrl: string;
   setOpenaiBaseUrl: (url: string) => void;
 
+  // Gemini Config
+  geminiApiKey: string;
+  setGeminiApiKey: (key: string) => void;
+  geminiModel: string;
+  setGeminiModel: (model: string) => void;
+  geminiBaseUrl: string;
+  setGeminiBaseUrl: (url: string) => void;
+
+  // Kimi Config
+  kimiApiKey: string;
+  setKimiApiKey: (key: string) => void;
+  kimiModel: string;
+  setKimiModel: (model: string) => void;
+  kimiBaseUrl: string;
+  setKimiBaseUrl: (url: string) => void;
+
+  // Qwen Config
+  qwenApiKey: string;
+  setQwenApiKey: (key: string) => void;
+  qwenModel: string;
+  setQwenModel: (model: string) => void;
+  qwenBaseUrl: string;
+  setQwenBaseUrl: (url: string) => void;
+
   // LangChain Config
   langchainApiKey: string;
   setLangchainApiKey: (key: string) => void;
@@ -61,11 +86,24 @@ interface DocumentStore {
 
 // Generate numbering for outline items (1, 1.1, 1.1.1, 2, 2.1, 2.1.1, etc.)
 // Also removes any existing numbering prefixes from titles
+// Also removes duplicate items by id to avoid React key conflicts
 function generateNumbers(items: OutlineItem[]): OutlineItem[] {
+  // Deduplicate items by id first to avoid React key conflicts
+  const seenIds = new Set<string>();
+  const uniqueItems: OutlineItem[] = [];
+  items.forEach((item) => {
+    if (!seenIds.has(item.id)) {
+      seenIds.add(item.id);
+      uniqueItems.push(item);
+    } else {
+      console.warn('Removing duplicate outline item:', item.id, item.title);
+    }
+  });
+
   let level1Counter = 0;
   let level2Counter = 0;
 
-  return items.map(item => {
+  return uniqueItems.map(item => {
     // Remove existing numbering prefix from title (e.g., "1. Introduction" -> "Introduction")
     let cleanTitle = item.title;
     if (item.level === 1) {
@@ -164,10 +202,34 @@ export const useStore = create<DocumentStore>((set) => ({
   // OpenAI Config
   openaiApiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY || '',
   setOpenaiApiKey: (key) => set({ openaiApiKey: key }),
-  openaiModel: process.env.NEXT_PUBLIC_OPENAI_MODEL || 'gpt-4',
+  openaiModel: process.env.NEXT_PUBLIC_OPENAI_MODEL || 'gpt-4o',
   setOpenaiModel: (model) => set({ openaiModel: model }),
   openaiBaseUrl: process.env.NEXT_PUBLIC_OPENAI_BASE_URL || 'https://api.openai.com/v1',
   setOpenaiBaseUrl: (url) => set({ openaiBaseUrl: url }),
+
+  // Gemini Config
+  geminiApiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY || '',
+  setGeminiApiKey: (key) => set({ geminiApiKey: key }),
+  geminiModel: process.env.NEXT_PUBLIC_GEMINI_MODEL || 'gemini-1.5-pro',
+  setGeminiModel: (model) => set({ geminiModel: model }),
+  geminiBaseUrl: process.env.NEXT_PUBLIC_GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta',
+  setGeminiBaseUrl: (url) => set({ geminiBaseUrl: url }),
+
+  // Kimi Config
+  kimiApiKey: process.env.NEXT_PUBLIC_KIMI_API_KEY || '',
+  setKimiApiKey: (key) => set({ kimiApiKey: key }),
+  kimiModel: process.env.NEXT_PUBLIC_KIMI_MODEL || 'moonshot-v1-128k',
+  setKimiModel: (model) => set({ kimiModel: model }),
+  kimiBaseUrl: process.env.NEXT_PUBLIC_KIMI_BASE_URL || 'https://api.moonshot.cn/v1',
+  setKimiBaseUrl: (url) => set({ kimiBaseUrl: url }),
+
+  // Qwen Config
+  qwenApiKey: process.env.NEXT_PUBLIC_QWEN_API_KEY || '',
+  setQwenApiKey: (key) => set({ qwenApiKey: key }),
+  qwenModel: process.env.NEXT_PUBLIC_QWEN_MODEL || 'qwen-plus',
+  setQwenModel: (model) => set({ qwenModel: model }),
+  qwenBaseUrl: process.env.NEXT_PUBLIC_QWEN_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+  setQwenBaseUrl: (url) => set({ qwenBaseUrl: url }),
 
   // LangChain Config
   langchainApiKey: process.env.NEXT_PUBLIC_LANGCHAIN_API_KEY || '',

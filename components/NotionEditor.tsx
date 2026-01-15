@@ -138,9 +138,11 @@ export function NotionEditor({ blocks, setBlocks, onBlockUpdate }: NotionEditorP
   );
 
   const updateBlock = (id: string, updates: Partial<NotionBlock>) => {
+    console.log('NotionEditor updateBlock:', { id, updates, currentBlocks: blocks.map(b => ({ id: b.id, type: b.type, content: b.content.substring(0, 20) })) });
     setBlocks((prev) =>
       prev.map((block) => {
         if (block.id === id) {
+          console.log('NotionEditor updateBlock found block to update:', { id, oldType: block.type, newType: updates.type });
           return { ...block, ...updates };
         }
         if (block.children) {
@@ -167,10 +169,20 @@ export function NotionEditor({ blocks, setBlocks, onBlockUpdate }: NotionEditorP
 
   const addBlock = (parentId: string | null, position: number, type: BlockType, initialContent?: string): string | undefined => {
     const newBlockId = `block-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+    
+    // For paragraphs, add default indent (2 full-width spaces) only if initialContent is undefined
+    let content = initialContent !== undefined ? initialContent : '';
+    if (type === 'paragraph' && initialContent === undefined) {
+      content = '　　';
+    }
+    
+    console.log('addBlock START:', { parentId, position, type, initialContent, content, blocksLength: blocks.length });
+    console.trace('addBlock call stack');
+    
     const newBlock: NotionBlock = {
       id: newBlockId,
       type,
-      content: initialContent || '',
+      content,
       properties: {},
       children: [],
     };
@@ -179,11 +191,15 @@ export function NotionEditor({ blocks, setBlocks, onBlockUpdate }: NotionEditorP
       // Find the index of the parent block and insert after it
       const parentIndex = blocks.findIndex((b) => b.id === parentId);
       if (parentIndex !== -1) {
-        setBlocks([...blocks.slice(0, parentIndex + 1), newBlock, ...blocks.slice(parentIndex + 1)]);
+        const newBlocks = [...blocks.slice(0, parentIndex + 1), newBlock, ...blocks.slice(parentIndex + 1)];
+        console.log('addBlock setBlocks (parentId):', { parentId, parentIndex, newBlockId, newBlockContent: newBlock.content, blocksLength: newBlocks.length });
+        setBlocks(newBlocks);
       }
     } else {
       // Insert at the specified position
-      setBlocks([...blocks.slice(0, position), newBlock, ...blocks.slice(position)]);
+      const newBlocks = [...blocks.slice(0, position), newBlock, ...blocks.slice(position)];
+      console.log('addBlock setBlocks (position):', { position, newBlockId, newBlockContent: newBlock.content, blocksLength: newBlocks.length });
+      setBlocks(newBlocks);
     }
 
     return newBlockId;

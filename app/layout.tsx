@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AI Document Generator",
-  description: "AI-powered document generator with planner-worker model",
+  title: "超长文本生成器 - AI 智能文档创作",
+  description: "通过 AI 智能生成大纲,然后逐章节撰写内容,打造高质量超长文档",
 };
 
 export default function RootLayout({

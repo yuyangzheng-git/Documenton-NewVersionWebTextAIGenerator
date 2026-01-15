@@ -24,11 +24,17 @@ export default function WordEditorPage() {
 
   // Handle block updates and sync with outline
   const handleBlockUpdate = (id: string, updates: Partial<NotionBlock>) => {
-    setBlocks(prev => prev.map(block =>
-      block.id === id ? { ...block, ...updates } : block
-    ));
+    console.log('handleBlockUpdate called:', { id, updates });
+    
+    setBlocks(prev => {
+      const newBlocks = prev.map(block =>
+        block.id === id ? { ...block, ...updates } : block
+      );
+      console.log('handleBlockUpdate blocks:', { prevLen: prev.length, newLen: newBlocks.length });
+      return newBlocks;
+    });
 
-    // If updating requirements block, sync to outline
+    // If updating requirements block, sync to outline (for level 2 items before generation)
     if (id.startsWith('requirements-')) {
       const outlineItemId = id.replace('requirements-', '');
       if (updates.content !== undefined) {
@@ -37,10 +43,36 @@ export default function WordEditorPage() {
     }
 
     // If updating content block, sync to outline
+    // Also clear requirements when content is updated (content replaces requirements)
     if (id.startsWith('content-')) {
-      const outlineItemId = id.replace('content-', '');
-      if (updates.content !== undefined) {
-        updateItem(outlineItemId, { content: updates.content });
+      // Check if this is a paragraph block (content-{itemId}-p{index})
+      const paragraphMatch = id.match(/^content-([^-]+)-p(\d+)$/);
+      if (paragraphMatch) {
+        // This is a paragraph block
+        const outlineItemId = paragraphMatch[1];
+        const paragraphIndex = parseInt(paragraphMatch[2], 10);
+
+        if (updates.content !== undefined) {
+          // Get the current outline item
+          const currentItem = outline.find(item => item.id === outlineItemId);
+          if (currentItem && currentItem.paragraphs) {
+            // Update the specific paragraph
+            const newParagraphs = [...currentItem.paragraphs];
+            newParagraphs[paragraphIndex] = updates.content;
+
+            // Recombine paragraphs into content
+            const newContent = newParagraphs.join('\n\n');
+
+            // Update outline with new paragraphs and content
+            updateItem(outlineItemId, { paragraphs: newParagraphs, content: newContent, requirements: '' });
+          }
+        }
+      } else {
+        // This is a legacy content block (single block)
+        const outlineItemId = id.replace('content-', '');
+        if (updates.content !== undefined) {
+          updateItem(outlineItemId, { content: updates.content, requirements: '' });
+        }
       }
     }
   };
@@ -58,12 +90,28 @@ export default function WordEditorPage() {
   };
 
   const handleRewriteSection = (sectionId: string, newContent: string) => {
-    setBlocks(prev => prev.map(block => {
-      if (block.id === `content-${sectionId}`) {
-        return { ...block, content: newContent };
-      }
-      return block;
-    }));
+    // Check if this is a paragraph block or main content block
+    const paragraphMatch = sectionId.match(/^content-([^-]+)-p(\d+)$/);
+    if (paragraphMatch) {
+      // This is a paragraph block
+      const outlineItemId = paragraphMatch[1];
+      const paragraphIndex = parseInt(paragraphMatch[2], 10);
+
+      setBlocks(prev => prev.map(block => {
+        if (block.id === `content-${outlineItemId}-p${paragraphIndex}`) {
+          return { ...block, content: newContent };
+        }
+        return block;
+      }));
+    } else {
+      // This is a main content block
+      setBlocks(prev => prev.map(block => {
+        if (block.id === `content-${sectionId}`) {
+          return { ...block, content: newContent };
+        }
+        return block;
+      }));
+    }
   };
 
   const handleFormatText = (text: string, format: { bold?: boolean; italic?: boolean; size?: number }) => {
@@ -82,59 +130,199 @@ export default function WordEditorPage() {
 
   // Convert outline to Notion blocks
   useEffect(() => {
+    // Check for duplicate IDs in outline and deduplicate
+    const seenIds = new Set<string>();
+    const uniqueOutline: typeof outline = [];
+    outline.forEach((item) => {
+      if (!seenIds.has(item.id)) {
+        seenIds.add(item.id);
+        uniqueOutline.push(item);
+      } else {
+        console.warn('Removing duplicate outline item:', item.id);
+      }
+    });
+
+    // Track all block IDs generated in this render to ensure uniqueness
+    const generatedBlockIds = new Set<string>();
+
     const notionBlocks: NotionBlock[] = [];
-    outline.forEach((item, index) => {
+    uniqueOutline.forEach((item, index) => {
       // Add heading block with auto-generated number
       const titleWithNumber = item.number ? `${item.number} ${item.title}` : item.title;
+      const headingBlockId = `heading-${item.id}`;
+
+      // Check for duplicate heading block ID and skip if already added
+      if (generatedBlockIds.has(headingBlockId)) {
+        console.warn('Skipping duplicate heading block:', headingBlockId);
+        return;
+      }
+      generatedBlockIds.add(headingBlockId);
+
       notionBlocks.push({
-        id: `heading-${item.id}`,
+        id: headingBlockId,
         type: item.level === 1 ? 'h1' : 'h2',
         content: titleWithNumber,
         properties: {},
         children: [],
       });
 
-      // Add requirements block as regular paragraph if exists
-      // 直接作为正文内容显示在章节标题下面
-      if (item.requirements) {
-        notionBlocks.push({
-          id: `requirements-${item.id}`,
-          type: 'paragraph',
-          content: item.requirements,
-          properties: {},
-          children: [],
-        });
+      // Only level 2 items show requirements (before content is generated)
+      // Level 1 items don't show requirements
+      if (item.level === 2 && item.requirements && !item.content) {
+        // Check if this requirements block already exists and preserve user's edits
+        const existingBlock = blocks.find(b => b.id === `requirements-${item.id}`);
+        const reqBlockId = `requirements-${item.id}`;
+
+        if (existingBlock) {
+          // Keep the existing block only if it hasn't been added yet
+          if (!generatedBlockIds.has(existingBlock.id)) {
+            notionBlocks.push(existingBlock);
+            generatedBlockIds.add(existingBlock.id);
+          }
+        } else if (!generatedBlockIds.has(reqBlockId)) {
+          notionBlocks.push({
+            id: reqBlockId,
+            type: 'paragraph',
+            content: item.requirements,
+            properties: {},
+            children: [],
+          });
+          generatedBlockIds.add(reqBlockId);
+        }
       }
 
-      // Add content block if exists
+      // Add content blocks if exists
       if (item.content) {
-        notionBlocks.push({
-          id: `content-${item.id}`,
-          type: 'paragraph',
-          content: item.content,
-          properties: {},
-          children: [],
-        });
+        // 如果有段落列表，将每个段落作为独立块显示
+        if (item.paragraphs && item.paragraphs.length > 0) {
+          item.paragraphs.forEach((paragraph, index) => {
+            const blockId = `content-${item.id}-p${index}`;
+
+            // Check for duplicate paragraph block ID
+            if (generatedBlockIds.has(blockId)) {
+              console.warn('Skipping duplicate paragraph block:', blockId);
+              return;
+            }
+
+            // Check if this block already exists to preserve user's edits
+            const existingBlock = blocks.find(b => b.id === blockId);
+            if (existingBlock) {
+              // Keep the existing block
+              notionBlocks.push(existingBlock);
+            } else {
+              notionBlocks.push({
+                id: blockId,
+                type: 'paragraph',
+                content: paragraph,
+                properties: {},
+                children: [],
+              });
+            }
+            generatedBlockIds.add(blockId);
+          });
+        } else {
+          // 如果没有段落列表，将整个内容作为一个块
+          const blockId = `content-${item.id}`;
+
+          // Check for duplicate content block ID
+          if (generatedBlockIds.has(blockId)) {
+            console.warn('Skipping duplicate content block:', blockId);
+            return;
+          }
+
+          const existingBlock = blocks.find(b => b.id === blockId);
+          if (existingBlock) {
+            notionBlocks.push(existingBlock);
+          } else {
+            notionBlocks.push({
+              id: blockId,
+              type: 'paragraph',
+              content: item.content,
+              properties: {},
+              children: [],
+            });
+          }
+          generatedBlockIds.add(blockId);
+        }
       }
 
       // Check if this level 1 item has children (has 1.1, 1.2, etc.)
       // If it has children, don't add placeholder
-      const hasNextItemAsChild = index + 1 < outline.length &&
-                                 outline[index + 1].level > item.level;
+      const hasNextItemAsChild = index + 1 < uniqueOutline.length &&
+                                 uniqueOutline[index + 1].level > item.level;
 
       // Add placeholder paragraph after each heading for easy editing
       // Only if no content AND doesn't have child sections
       if (!item.content && !item.requirements && !hasNextItemAsChild) {
-        notionBlocks.push({
-          id: `placeholder-${item.id}`,
-          type: 'paragraph',
-          content: '',
-          properties: {},
-          children: [],
-        });
+        const placeholderBlockId = `placeholder-${item.id}`;
+        if (!generatedBlockIds.has(placeholderBlockId)) {
+          notionBlocks.push({
+            id: placeholderBlockId,
+            type: 'paragraph',
+            content: '',
+            properties: {},
+            children: [],
+          });
+          generatedBlockIds.add(placeholderBlockId);
+        }
       }
     });
-    setBlocks(notionBlocks);
+
+    // Preserve user-created blocks that are not in outline
+    // These are blocks with IDs that don't match any outline item
+    const outlineItemIds = new Set([
+      ...uniqueOutline.map(item => item.id),
+      ...uniqueOutline.map(item => `requirements-${item.id}`),
+      ...uniqueOutline.flatMap(item => item.paragraphs ? item.paragraphs.map((_, idx) => `content-${item.id}-p${idx}`) : []),
+      ...uniqueOutline.map(item => `content-${item.id}`),
+      ...uniqueOutline.map(item => `placeholder-${item.id}`),
+    ]);
+
+    // Add user-created blocks that are not in outline AND not already in notionBlocks
+    const userCreatedBlocks = blocks.filter(b => !outlineItemIds.has(b.id) && !generatedBlockIds.has(b.id));
+    if (userCreatedBlocks.length > 0) {
+      console.log('Preserving user-created blocks:', userCreatedBlocks.map(b => b.id));
+      notionBlocks.push(...userCreatedBlocks);
+    }
+
+    // Only update if blocks are different to avoid unnecessary re-renders
+    const currentIds = new Set(blocks.map(b => b.id));
+    const newIds = new Set(notionBlocks.map(b => b.id));
+
+    // Check if any new blocks were added (user created them)
+    const hasNewBlocks = notionBlocks.some(b => !currentIds.has(b.id));
+
+    // Check if any blocks from current state are missing in new state
+    const hasMissingBlocks = blocks.some(b => !newIds.has(b.id));
+
+    // Also check if any user-created blocks have different types
+    const userCreatedBlocksChanged = userCreatedBlocks.some(userBlock => {
+      const matchingBlockInNotion = notionBlocks.find(nb => nb.id === userBlock.id);
+      if (matchingBlockInNotion) {
+        return matchingBlockInNotion.type !== userBlock.type || matchingBlockInNotion.content !== userBlock.content;
+      }
+      return false;
+    });
+
+    console.log('useEffect outline -> blocks:', {
+      prevLen: blocks.length,
+      newLen: notionBlocks.length,
+      hasNewBlocks,
+      hasMissingBlocks,
+      userCreatedCount: userCreatedBlocks.length,
+      userCreatedBlocksChanged,
+      newBlockIds: notionBlocks.filter(b => !currentIds.has(b.id)).map(b => b.id)
+    });
+
+    // Update if: new blocks were added OR blocks are missing (preserve user edits)
+    if (hasNewBlocks || hasMissingBlocks || userCreatedBlocksChanged) {
+      console.log('Updating blocks (preserving user edits)');
+      setBlocks(notionBlocks);
+    } else if (JSON.stringify(notionBlocks.map(b => b.id)) !== JSON.stringify(blocks.map(b => b.id))) {
+      // If only order changed, update
+      console.log('Updating blocks (order changed)');
+      setBlocks(notionBlocks);
+    }
   }, [outline]);
 
   // Redirect to home if no outline

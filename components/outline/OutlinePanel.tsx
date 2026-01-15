@@ -5,6 +5,7 @@ import { OutlineTree } from './OutlineTree';
 import { X, FileText, Wand2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { generateSectionWithWorker, getDifyAppParameters } from '@/lib/dify-api';
+import { createAIProvider } from '@/lib/ai/provider-factory';
 import { OutlineItem } from '@/store/useStore';
 
 interface OutlinePanelProps {
@@ -14,12 +15,15 @@ interface OutlinePanelProps {
 }
 
 export function OutlinePanel({ onClose, show = true, documentTopic = '' }: OutlinePanelProps) {
-    const { outline, updateItem, deleteItem, reorderItems, chapterApiKey } = useStore();
-    const [isGenerating, setIsGenerating] = useState(false);
+    const { outline, updateItem, deleteItem, reorderItems, chapterApiKey, aiPlatform,
+        openaiApiKey, openaiModel, openaiBaseUrl,
+        geminiApiKey, geminiModel, geminiBaseUrl,
+        kimiApiKey, kimiModel, kimiBaseUrl,
+        qwenApiKey, qwenModel, qwenBaseUrl } = useStore();
 
-    // Fetch chapter writing bot parameters on mount
+    // Fetch chapter writing bot parameters on mount (only for Dify)
     useEffect(() => {
-        if (chapterApiKey) {
+        if (aiPlatform === 'dify' && chapterApiKey) {
             getDifyAppParameters(chapterApiKey)
                 .then(params => {
                     console.log('Chapter bot parameters:', params);
@@ -28,7 +32,7 @@ export function OutlinePanel({ onClose, show = true, documentTopic = '' }: Outli
                     console.error('Failed to get chapter bot parameters:', err);
                 });
         }
-    }, [chapterApiKey]);
+    }, [chapterApiKey, aiPlatform]);
 
     const handleGenerateChapter = async (itemId: string) => {
         const item = outline.find(i => i.id === itemId);
@@ -56,33 +60,111 @@ export function OutlinePanel({ onClose, show = true, documentTopic = '' }: Outli
             console.log('Generating chapter for:', item.title);
             console.log('Document topic:', documentTopic);
             console.log('Full outline:', fullOutline);
-            console.log('Using API key:', chapterApiKey);
+            console.log('Requirements:', item.requirements || '(none)');
+            console.log('Using platform:', aiPlatform);
 
             let accumulatedContent = '';
+            let paragraphBuffer = '';
 
-            await generateSectionWithWorker(
-                chapterApiKey,
-                item.title,
-                documentTopic,
-                fullOutline,
-                (text: string) => {
-                    accumulatedContent += text;
-                    console.log('Received chunk:', text.substring(0, 50) + '...');
-                    // Real-time update of content in outline
-                    updateItem(itemId, { content: accumulatedContent });
-                },
-                () => {
-                    updateItem(itemId, { status: 'completed' });
-                    setIsGenerating(false);
-                    console.log('Chapter generation completed');
-                },
-                (error: Error) => {
-                    console.error('生成章节失败:', error);
-                    updateItem(itemId, { status: 'pending' });
-                    setIsGenerating(false);
-                    alert(`生成失败: ${error.message}`);
+            if (aiPlatform === 'dify') {
+                await generateSectionWithWorker(
+                    chapterApiKey,
+                    item.title,
+                    documentTopic,
+                    fullOutline,
+                    (text: string) => {
+                        accumulatedContent += text;
+                        paragraphBuffer += text;
+                        console.log('Received chunk:', text.substring(0, 50) + '...');
+                        // Real-time update of content in outline
+                        updateItem(itemId, { content: accumulatedContent });
+                    },
+                    () => {
+                        // 生成完成：将内容按段落分割为多个块
+                        const paragraphs = accumulatedContent
+                            .split(/(\n\s*\n|\n{2,})/g)
+                            .filter(p => {
+                                const trimmed = p.trim();
+                                return trimmed && !trimmed.match(/^\s*$/);
+                            })
+                            .map(p => p.replace(/\s+/g, ' ').trim());
+
+                        // 将段落列表存储在 outline item 的 metadata 中
+                        updateItem(itemId, {
+                            status: 'completed',
+                            content: accumulatedContent,
+                            paragraphs: paragraphs
+                        });
+                        setIsGenerating(false);
+                        console.log('Chapter generation completed, paragraphs:', paragraphs.length);
+                    },
+                    item.requirements,
+                    (error: Error) => {
+                        console.error('生成章节失败:', error);
+                        updateItem(itemId, { status: 'pending' });
+                        setIsGenerating(false);
+                        alert(`生成失败: ${error.message}`);
+                    }
+                );
+            } else {
+                // Use AI Provider for other platforms
+                let config: any;
+                switch (aiPlatform) {
+                    case 'openai':
+                        config = { apiKey: openaiApiKey, model: openaiModel, baseUrl: openaiBaseUrl };
+                        break;
+                    case 'gemini':
+                        config = { apiKey: geminiApiKey, model: geminiModel, baseUrl: geminiBaseUrl };
+                        break;
+                    case 'kimi':
+                        config = { apiKey: kimiApiKey, model: kimiModel, baseUrl: kimiBaseUrl };
+                        break;
+                    case 'qwen':
+                        config = { apiKey: qwenApiKey, model: qwenModel, baseUrl: qwenBaseUrl };
+                        break;
+                    default:
+                        throw new Error(`Unsupported platform: ${aiPlatform}`);
                 }
-            );
+
+                const provider = createAIProvider(aiPlatform, config.baseUrl);
+                await provider.generateContent(
+                    {
+                        sectionTitle: item.title,
+                        documentTopic: documentTopic,
+                        fullOutline: fullOutline,
+                        requirements: item.requirements,
+                    },
+                    config,
+                    (chunk) => {
+                        accumulatedContent += chunk.text;
+                        updateItem(itemId, { content: accumulatedContent });
+                    },
+                    () => {
+                        // 生成完成：将内容按段落分割为多个块
+                        const paragraphs = accumulatedContent
+                            .split(/(\n\s*\n|\n{2,})/g)
+                            .filter(p => {
+                                const trimmed = p.trim();
+                                return trimmed && !trimmed.match(/^\s*$/);
+                            })
+                            .map(p => p.replace(/\s+/g, ' ').trim());
+
+                        updateItem(itemId, {
+                            status: 'completed',
+                            content: accumulatedContent,
+                            paragraphs: paragraphs
+                        });
+                        setIsGenerating(false);
+                        console.log('Chapter generation completed, paragraphs:', paragraphs.length);
+                    },
+                    (error: Error) => {
+                        console.error('生成章节失败:', error);
+                        updateItem(itemId, { status: 'pending' });
+                        setIsGenerating(false);
+                        alert(`生成失败: ${error.message}`);
+                    }
+                );
+            }
         } catch (error) {
             console.error('生成章节失败:', error);
             updateItem(itemId, { status: 'pending' });
@@ -112,6 +194,29 @@ export function OutlinePanel({ onClose, show = true, documentTopic = '' }: Outli
 
         console.log(`Found ${childItems.length} child sections to generate for ${outline[parentIndex].title}`);
 
+        // Get provider config based on platform
+        let config: any;
+        if (aiPlatform === 'dify') {
+            config = { apiKey: chapterApiKey };
+        } else {
+            switch (aiPlatform) {
+                case 'openai':
+                    config = { apiKey: openaiApiKey, model: openaiModel, baseUrl: openaiBaseUrl };
+                    break;
+                case 'gemini':
+                    config = { apiKey: geminiApiKey, model: geminiModel, baseUrl: geminiBaseUrl };
+                    break;
+                case 'kimi':
+                    config = { apiKey: kimiApiKey, model: kimiModel, baseUrl: kimiBaseUrl };
+                    break;
+                case 'qwen':
+                    config = { apiKey: qwenApiKey, model: qwenModel, baseUrl: qwenBaseUrl };
+                    break;
+            }
+        }
+
+        const provider = aiPlatform !== 'dify' ? createAIProvider(aiPlatform, config.baseUrl) : null;
+
         // Generate each child section sequentially
         for (const childItem of childItems) {
             if (childItem.content) {
@@ -126,28 +231,81 @@ export function OutlinePanel({ onClose, show = true, documentTopic = '' }: Outli
                 const fullOutline = outline.map(i => `${i.number ? i.number + ' ' : ''}${i.title}`).join('\n');
 
                 console.log('Generating chapter for:', childItem.title);
+                console.log('Requirements:', childItem.requirements || '(none)');
 
                 let accumulatedContent = '';
 
-                await generateSectionWithWorker(
-                    chapterApiKey,
-                    childItem.title,
-                    documentTopic,
-                    fullOutline,
-                    (text: string) => {
-                        accumulatedContent += text;
-                        updateItem(childItem.id, { content: accumulatedContent });
-                    },
-                    () => {
-                        updateItem(childItem.id, { status: 'completed' });
-                        console.log('Chapter generation completed:', childItem.title);
-                    },
-                    (error: Error) => {
-                        console.error('生成章节失败:', error);
-                        updateItem(childItem.id, { status: 'pending' });
-                        alert(`生成失败: ${childItem.title} - ${error.message}`);
-                    }
-                );
+                if (aiPlatform === 'dify') {
+                    await generateSectionWithWorker(
+                        chapterApiKey,
+                        childItem.title,
+                        documentTopic,
+                        fullOutline,
+                        (text: string) => {
+                            accumulatedContent += text;
+                            updateItem(childItem.id, { content: accumulatedContent });
+                        },
+                        () => {
+                            // 生成完成：将内容按段落分割为多个块
+                            const paragraphList = accumulatedContent
+                                .split(/(\n\s*\n|\n{2,})/g)
+                                .filter(p => {
+                                    const trimmed = p.trim();
+                                    return trimmed && !trimmed.match(/^\s*$/);
+                                })
+                                .map(p => p.replace(/\s+/g, ' ').trim());
+
+                            // 将段落列表存储在 outline item 的 metadata 中
+                            updateItem(childItem.id, {
+                                status: 'completed',
+                                content: accumulatedContent,
+                                paragraphs: paragraphList
+                            });
+                            console.log('Chapter generation completed:', childItem.title, 'paragraphs:', paragraphList.length);
+                        },
+                        childItem.requirements,
+                        (error: Error) => {
+                            console.error('生成章节失败:', error);
+                            updateItem(childItem.id, { status: 'pending' });
+                            alert(`生成失败: ${childItem.title} - ${error.message}`);
+                        }
+                    );
+                } else {
+                    await provider!.generateContent(
+                        {
+                            sectionTitle: childItem.title,
+                            documentTopic: documentTopic,
+                            fullOutline: fullOutline,
+                            requirements: childItem.requirements,
+                        },
+                        config,
+                        (chunk) => {
+                            accumulatedContent += chunk.text;
+                            updateItem(childItem.id, { content: accumulatedContent });
+                        },
+                        () => {
+                            const paragraphList = accumulatedContent
+                                .split(/(\n\s*\n|\n{2,})/g)
+                                .filter(p => {
+                                    const trimmed = p.trim();
+                                    return trimmed && !trimmed.match(/^\s*$/);
+                                })
+                                .map(p => p.replace(/\s+/g, ' ').trim());
+
+                            updateItem(childItem.id, {
+                                status: 'completed',
+                                content: accumulatedContent,
+                                paragraphs: paragraphList
+                            });
+                            console.log('Chapter generation completed:', childItem.title, 'paragraphs:', paragraphList.length);
+                        },
+                        (error: Error) => {
+                            console.error('生成章节失败:', error);
+                            updateItem(childItem.id, { status: 'pending' });
+                            alert(`生成失败: ${childItem.title} - ${error.message}`);
+                        }
+                    );
+                }
             } catch (error) {
                 console.error('生成章节失败:', error);
                 updateItem(childItem.id, { status: 'pending' });

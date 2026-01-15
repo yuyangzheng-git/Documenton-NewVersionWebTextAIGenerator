@@ -131,9 +131,20 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    console.log('handleKeyDown START:', { 
+      key: e.key, 
+      code: e.code, 
+      shiftKey: e.shiftKey, 
+      ctrlKey: e.ctrlKey,
+      type: block.type,
+      blockId: block.id 
+    });
+    
     // Enter creates a new block (Notion-style)
     if (e.key === 'Enter' && !e.shiftKey) {
+      console.log('Enter detected, preventing default');
       e.preventDefault();
+      e.stopPropagation(); // Ensure event doesn't bubble
 
       const textarea = e.currentTarget;
       const cursorPosition = textarea.selectionStart;
@@ -144,13 +155,17 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
       setEditContent(beforeCursor);
 
       // Then update the parent state
+      console.log('NotionBlock handleKeyDown onUpdate (current block):', { blockId: block.id, content: beforeCursor });
       onUpdate(block.id, { content: beforeCursor });
 
       // Determine the type for the new block (Notion behavior)
       let newBlockType: BlockType = 'paragraph';
+      let initialContent: string | undefined = afterCursor;
+
       if (block.type === 'code') {
         // For code blocks, Enter creates new line in same block
         newBlockType = 'code';
+        initialContent = undefined;
       } else if (block.type === 'h1' || block.type === 'h2' || block.type === 'h3') {
         // For headings, Enter creates new paragraph
         newBlockType = 'paragraph';
@@ -170,12 +185,20 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
         // For callouts, Enter creates new callout
         newBlockType = 'callout';
       } else {
-        // For paragraphs, Enter creates new paragraph
+        // For paragraphs, Enter creates new paragraph with default indent
         newBlockType = 'paragraph';
       }
 
       // Add new block with content after cursor and get its ID
-      const newBlockId = onAdd(block.id, 0, newBlockType, afterCursor);
+      console.log('About to call onAdd:', { 
+        onAddExists: !!onAdd, 
+        newBlockType, 
+        initialContent, 
+        afterCursor,
+        blockId: block.id 
+      });
+      const newBlockId = onAdd ? onAdd(block.id, 0, newBlockType, initialContent) : undefined;
+      console.log('onAdd result:', { newBlockId });
 
       // Focus the new block after it's created
       if (newBlockId) {
@@ -184,7 +207,12 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
           const newBlockElement = document.querySelector(`[data-block-id="${newBlockId}"] textarea`) as HTMLTextAreaElement;
           if (newBlockElement) {
             newBlockElement.focus();
-            newBlockElement.setSelectionRange(0, 0);
+            // Set cursor after default indent for paragraphs with default indent
+            if (newBlockType === 'paragraph' && initialContent === undefined) {
+              newBlockElement.setSelectionRange(2, 2);
+            } else {
+              newBlockElement.setSelectionRange(0, 0);
+            }
             // Trigger auto-resize
             const resizeEvent = new Event('input', { bubbles: true });
             newBlockElement.dispatchEvent(resizeEvent);
@@ -216,6 +244,7 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
   const handleBlur = () => {
     // Only update if slash menu is not shown
     if (!showSlashMenu) {
+      console.log('NotionBlock onBlur onUpdate:', { blockId: block.id, content: editContent });
       onUpdate(block.id, { content: editContent });
     }
     setShowSlashMenu(false);
@@ -247,9 +276,14 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
 
   const handleTypeChange = (type: BlockType) => {
     // Remove the '/' from content before changing type
-    const cleanContent = editContent.replace(/^\/$/, '');
+    let cleanContent = editContent.replace(/^\/$/, '');
 
-    console.log('Changing block type:', {
+    // Add default indent when switching to paragraph if content is empty
+    if (type === 'paragraph' && cleanContent === '') {
+      cleanContent = '　　';
+    }
+
+    console.log('NotionBlock handleTypeChange:', {
       blockId: block.id,
       currentType: block.type,
       newType: type,
@@ -257,14 +291,17 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
       cleanContent
     });
 
-    // Update the block with new type
-    onUpdate(block.id, { type, content: cleanContent });
+    // Update local state immediately to ensure UI shows the change
+    setEditContent(cleanContent);
 
-    // Close the menu
+    // Close the menu immediately
     setShowSlashMenu(false);
 
-    // Update local state to match immediately
-    setEditContent(cleanContent);
+    // Force a re-render by using setTimeout
+    setTimeout(() => {
+      console.log('NotionBlock calling onUpdate with:', { type, content: cleanContent });
+      onUpdate(block.id, { type, content: cleanContent });
+    }, 0);
   };
 
   const handleMenuItemClick = (type: BlockType, e: React.MouseEvent) => {

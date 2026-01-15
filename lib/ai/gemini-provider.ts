@@ -1,6 +1,6 @@
 /**
- * LangChain Provider Implementation
- * Note: This is a simplified implementation. For production use, install @langchain/core and @langchain/openai
+ * Gemini Provider Implementation (Google)
+ * Supports gemini-pro, gemini-1.5-pro, gemini-1.5-flash, etc.
  */
 
 import {
@@ -12,15 +12,22 @@ import {
   StreamChunk
 } from './types';
 
-export class LangChainProvider implements AIProvider {
+export class GeminiProvider implements AIProvider {
+  private baseURL: string;
+
+  constructor(baseURL: string = 'https://generativelanguage.googleapis.com/v1beta') {
+    this.baseURL = baseURL;
+  }
+
   /**
-   * Generate document outline using LangChain
+   * Generate document outline using Gemini
    */
   async generateOutline(
     options: GenerateOutlineOptions,
     config: AIConfig
   ): Promise<OutlineItem[]> {
     const { prompt, maxSections = 10, depth = 2 } = options;
+    const modelName = config.model || 'gemini-1.5-pro';
 
     const systemPrompt = `你是一位专业的文档大纲生成专家。你的任务是根据用户的主题，创建结构完整、逻辑清晰的专业文档大纲。
 
@@ -64,42 +71,53 @@ export class LangChainProvider implements AIProvider {
 请直接输出 JSON 数组，不要包含任何其他文字。`;
 
     try {
-      // Use OpenAI API directly (LangChain abstracts this, but we'll use direct API for simplicity)
-      const response = await fetch(`${config.baseUrl || 'https://api.openai.com/v1'}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${config.apiKey}`,
-        },
-        body: JSON.stringify({
-          model: config.model || 'gpt-4',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: `Create an outline for: ${prompt}` }
-          ],
-          temperature: config.temperature || 0.7,
-          max_tokens: config.maxTokens || 2000,
-        }),
-      });
+      const response = await fetch(
+        `${this.baseURL}/models/${modelName}:generateContent?key=${config.apiKey}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  {
+                    text: systemPrompt
+                  }
+                ]
+              }
+            ],
+            generationConfig: {
+              temperature: config.temperature || 0.7,
+              maxOutputTokens: config.maxTokens || 4096,
+              responseMimeType: 'application/json'
+            }
+          }),
+        }
+      );
 
       if (!response.ok) {
         const error = await response.text();
-        throw new Error(`LangChain/OpenAI API error: ${response.status} - ${error}`);
+        throw new Error(`Gemini API error: ${response.status} - ${error}`);
       }
 
       const data = await response.json();
-      const content = data.choices[0]?.message?.content || '{}';
+      let content = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+
+      // Clean up the content (remove markdown code blocks if present)
+      content = content.replace(/```json/g, '').replace(/```/g, '').trim();
 
       // Parse JSON response
       const result = JSON.parse(content);
 
-      if (!result.outline || !Array.isArray(result.outline)) {
-        throw new Error('Invalid response format');
+      if (!Array.isArray(result)) {
+        throw new Error('Invalid response format from Gemini: expected array');
       }
 
-      return result.outline;
+      return result;
     } catch (error) {
-      console.error('LangChain outline generation error:', error);
+      console.error('Gemini outline generation error:', error);
       throw error;
     }
   }
@@ -115,6 +133,7 @@ export class LangChainProvider implements AIProvider {
     onError?: (error: Error) => void
   ): Promise<void> {
     const { sectionTitle, documentTopic, fullOutline, requirements } = options;
+    const modelName = config.model || 'gemini-1.5-pro';
 
     const systemPrompt = `你是一位专业的文档写作专家。你的任务是为特定章节撰写高质量的内容。
 
@@ -148,36 +167,43 @@ ${requirements}
 开始撰写内容：`;
 
     try {
-      const response = await fetch(`${config.baseUrl || 'https://api.openai.com/v1'}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${config.apiKey}`,
-        },
-        body: JSON.stringify({
-          model: config.model || 'gpt-4',
-          messages: [
-            { role: 'system', content: systemPrompt }
-          ],
-          temperature: config.temperature || 0.7,
-          max_tokens: config.maxTokens || 2000,
-          stream: true,
-        }),
-      });
+      const response = await fetch(
+        `${this.baseURL}/models/${modelName}:streamGenerateContent?key=${config.apiKey}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            contents: [
+              {
+                parts: [
+                  {
+                    text: systemPrompt
+                  }
+                ]
+              }
+            ],
+            generationConfig: {
+              temperature: config.temperature || 0.7,
+              maxOutputTokens: config.maxTokens || 8192,
+            }
+          }),
+        }
+      );
 
       if (!response.ok) {
         const error = await response.text();
-        throw new Error(`LangChain API error: ${response.status} - ${error}`);
+        throw new Error(`Gemini API error: ${response.status} - ${error}`);
       }
 
+      // Handle streaming response
       const reader = response.body?.getReader();
       const decoder = new TextDecoder();
 
       if (!reader) {
         throw new Error('Response body is not readable');
       }
-
-      let buffer = '';
 
       while (true) {
         const { done, value } = await reader.read();
@@ -188,36 +214,30 @@ ${requirements}
           return;
         }
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n').filter(line => line.trim());
 
         for (const line of lines) {
-          const trimmed = line.trim();
-          if (trimmed.startsWith('data: ')) {
-            const data = trimmed.slice(6);
+          try {
+            const data = JSON.parse(line);
+            const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
-            if (data === '[DONE]') {
+            if (text) {
+              onChunk?.({ text, done: false });
+            }
+
+            if (data.candidates?.[0]?.finishReason === 'STOP') {
               onChunk?.({ text: '', done: true });
               onComplete?.();
               return;
             }
-
-            try {
-              const parsed = JSON.parse(data);
-              const content = parsed.choices?.[0]?.delta?.content;
-
-              if (content) {
-                onChunk?.({ text: content, done: false });
-              }
-            } catch (e) {
-              // Skip invalid JSON
-            }
+          } catch (e) {
+            // Skip invalid JSON
           }
         }
       }
     } catch (error) {
-      console.error('LangChain content generation error:', error);
+      console.error('Gemini content generation error:', error);
       onError?.(error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
@@ -233,7 +253,9 @@ ${requirements}
     onComplete?: () => void,
     onError?: (error: Error) => void
   ): Promise<void> {
-    const systemPrompt = `你是一位专业的文档写作助手和智能问答专家。
+    const modelName = config.model || 'gemini-1.5-pro';
+
+    const systemMessage = `你是一位专业的文档写作助手和智能问答专家。
 
 ## 核心能力
 1. **章节重写**：根据要求提供更专业、更详实的内容
@@ -253,28 +275,39 @@ ${requirements}
 - 不要重复章节标题
 - 不要使用英文标点`;
 
+    // Convert messages to Gemini format
+    const geminiMessages = messages.map(msg => ({
+      role: msg.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: msg.content }]
+    }));
+
+    // Add system message at the beginning
+    geminiMessages.unshift({
+      role: 'user',
+      parts: [{ text: `[系统提示：${systemMessage}]` }]
+    });
+
     try {
-      const response = await fetch(`${config.baseUrl || 'https://api.openai.com/v1'}/chat/completions`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${config.apiKey}`,
-        },
-        body: JSON.stringify({
-          model: config.model || 'gpt-4',
-          messages: [
-            { role: 'system', content: systemPrompt },
-            ...messages
-          ],
-          temperature: config.temperature || 0.7,
-          max_tokens: config.maxTokens || 2000,
-          stream: true,
-        }),
-      });
+      const response = await fetch(
+        `${this.baseURL}/models/${modelName}:streamGenerateContent?key=${config.apiKey}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            contents: geminiMessages,
+            generationConfig: {
+              temperature: config.temperature || 0.7,
+              maxOutputTokens: config.maxTokens || 8192,
+            }
+          }),
+        }
+      );
 
       if (!response.ok) {
         const error = await response.text();
-        throw new Error(`LangChain API error: ${response.status} - ${error}`);
+        throw new Error(`Gemini API error: ${response.status} - ${error}`);
       }
 
       const reader = response.body?.getReader();
@@ -283,8 +316,6 @@ ${requirements}
       if (!reader) {
         throw new Error('Response body is not readable');
       }
-
-      let buffer = '';
 
       while (true) {
         const { done, value } = await reader.read();
@@ -295,36 +326,30 @@ ${requirements}
           return;
         }
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n').filter(line => line.trim());
 
         for (const line of lines) {
-          const trimmed = line.trim();
-          if (trimmed.startsWith('data: ')) {
-            const data = trimmed.slice(6);
+          try {
+            const data = JSON.parse(line);
+            const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
-            if (data === '[DONE]') {
+            if (text) {
+              onChunk?.({ text, done: false });
+            }
+
+            if (data.candidates?.[0]?.finishReason === 'STOP') {
               onChunk?.({ text: '', done: true });
               onComplete?.();
               return;
             }
-
-            try {
-              const parsed = JSON.parse(data);
-              const content = parsed.choices?.[0]?.delta?.content;
-
-              if (content) {
-                onChunk?.({ text: content, done: false });
-              }
-            } catch (e) {
-              // Skip invalid JSON
-            }
+          } catch (e) {
+            // Skip invalid JSON
           }
         }
       }
     } catch (error) {
-      console.error('LangChain chat error:', error);
+      console.error('Gemini chat error:', error);
       onError?.(error instanceof Error ? error : new Error(String(error)));
       throw error;
     }

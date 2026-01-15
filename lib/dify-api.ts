@@ -178,6 +178,22 @@ export async function generateOutlineWithPlanner(
 ): Promise<DifyOutlineItem[]> {
   try {
     const baseUrl = getDifyApiBaseUrl();
+
+    console.log('=== Dify Planner API Debug Info ===');
+    console.log('Base URL:', baseUrl);
+    console.log('API Key:', apiKey ? `${apiKey.substring(0, 10)}...` : 'NOT SET');
+    console.log('Topic:', topic);
+    console.log('Style:', style);
+    console.log('=====================================');
+
+    if (!apiKey || apiKey === 'app-xxxxxxxxxxxxxxxxxxx') {
+      throw new Error('Invalid API Key. Please check your Dify API Key configuration.');
+    }
+
+    if (baseUrl === 'http://your-dify-instance/v1') {
+      throw new Error('Invalid API URL. Please configure your Dify API Base URL in Settings.');
+    }
+
     const body: any = {
       inputs: {
         topic,
@@ -192,6 +208,8 @@ export async function generateOutlineWithPlanner(
       body.inputs.files = files;
     }
 
+    console.log('Request body:', JSON.stringify(body, null, 2));
+
     const response = await fetch(`${baseUrl}/workflows/run`, {
       method: 'POST',
       headers: {
@@ -201,8 +219,11 @@ export async function generateOutlineWithPlanner(
       body: JSON.stringify(body),
     });
 
+    console.log('Response status:', response.status, response.statusText);
+
     if (!response.ok) {
       const errorText = await response.text();
+      console.error('API Error Response:', errorText);
       throw new Error(`Planner API error: ${response.status} - ${errorText}`);
     }
 
@@ -317,14 +338,20 @@ export async function generateSectionWithWorker(
   sectionTitle: string,
   documentTopic: string,
   fullOutline: string,
-  requirements?: string,
   onChunk: (text: string) => void,
   onComplete: () => void,
+  requirements?: string,
   onError?: (error: Error) => void,
   files?: DifyFileInput[]
 ) {
   try {
     const baseUrl = getDifyApiBaseUrl();
+
+    console.log('=== Chapter Generation Debug ===');
+    console.log('Section Title:', sectionTitle);
+    console.log('Document Topic:', documentTopic);
+    console.log('Requirements:', requirements || '(none)');
+    console.log('===============================');
 
     // Build context summary from chapter information
     // Use short document topic as context_summary (max 48 chars)
@@ -436,6 +463,19 @@ export async function generateSectionWithWorker(
 export async function validateDifyWorkflowKey(apiKey: string): Promise<boolean> {
   try {
     const baseUrl = getDifyApiBaseUrl();
+
+    if (baseUrl === 'http://your-dify-instance/v1') {
+      throw new Error('Please configure API Base URL');
+    }
+
+    if (!apiKey || apiKey === 'app-xxxxxxxxxxxxxxxxxxx') {
+      throw new Error('Invalid API Key');
+    }
+
+    console.log('Validating API connection...');
+    console.log('URL:', baseUrl);
+    console.log('Key:', apiKey.substring(0, 10) + '...');
+
     // Use /info endpoint to validate API key
     const response = await fetch(`${baseUrl}/info`, {
       method: 'GET',
@@ -444,9 +484,17 @@ export async function validateDifyWorkflowKey(apiKey: string): Promise<boolean> 
       },
     });
 
+    console.log('Validation response status:', response.status);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Validation error:', errorText);
+    }
+
     return response.ok;
-  } catch {
-    return false;
+  } catch (error) {
+    console.error('Validation error:', error);
+    throw error;
   }
 }
 
