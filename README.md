@@ -121,6 +121,7 @@ State:     Zustand
 UI:        Tailwind CSS + Lucide Icons
 Export:    docx (DOCX)
 Drag:       DnD Kit
+AI:        12+ 主流 LLM 支持
 ```
 
 ---
@@ -239,14 +240,14 @@ Made with ❤️ by [yuyangzheng](https://github.com/yuyangzheng-git)
 
 **🌍 International** | **🇨🇳 Domestic (China)** | **🔓 Open Source / Fast**
 ---|---|---
-OpenAI (GPT-4o) | Qwen (Tongyi Qianwen) | DeepSeek
-Claude 3.5 (Anthropic) | Wenxin Yiyuan (ERNIE) | Groq (Llama 3.3)
-Google Gemini 2.5 | Zhipu GLM | |
-Cohere Command R | Kimi (Moonshot) | Dify
+OpenAI (GPT-5.2) | Qwen (Tongyi Qianwen) | DeepSeek (V3.2)
+Claude 3.5 (Anthropic) | Wenxin Yiyuan (ERNIE) | Groq (Llama 4)
+Google Gemini 3/2.5 | Zhipu GLM | |
+Cohere Command A | Kimi (Moonshot) | Dify
 
 </div>
 
-👉 **[📖 View Full Configuration Guide](./AI_PLATFORMS.md)**
+👉 **[📖 View Full Configuration Guide](./AI_CONFIG_GUIDE.md)**
 
 ---
 

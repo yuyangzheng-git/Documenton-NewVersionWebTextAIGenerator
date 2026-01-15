@@ -131,14 +131,14 @@ export function getProviderConfig(platform: AIPlatform): {
     case 'openai':
       return {
         apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY || '',
-        model: process.env.NEXT_PUBLIC_OPENAI_MODEL || 'gpt-4o',
+        model: process.env.NEXT_PUBLIC_OPENAI_MODEL || 'gpt-4.1',
         baseUrl: process.env.NEXT_PUBLIC_OPENAI_BASE_URL || 'https://api.openai.com/v1',
       };
 
     case 'gemini':
       return {
         apiKey: process.env.NEXT_PUBLIC_GEMINI_API_KEY || '',
-        model: process.env.NEXT_PUBLIC_GEMINI_MODEL || 'gemini-1.5-pro',
+        model: process.env.NEXT_PUBLIC_GEMINI_MODEL || 'gemini-2.5-pro',
         baseUrl: process.env.NEXT_PUBLIC_GEMINI_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta',
       };
 
@@ -186,7 +186,7 @@ export function getProviderConfig(platform: AIPlatform): {
     case 'cohere':
       return {
         apiKey: process.env.NEXT_PUBLIC_COHERE_API_KEY || '',
-        model: process.env.NEXT_PUBLIC_COHERE_MODEL || 'command-r-plus',
+        model: process.env.NEXT_PUBLIC_COHERE_MODEL || 'command-a-03-2025',
         baseUrl: process.env.NEXT_PUBLIC_COHERE_BASE_URL || 'https://api.cohere.ai/v1',
       };
 

@@ -50,15 +50,17 @@ NEXT_PUBLIC_DEEPSEEK_BASE_URL=https://api.deepseek.com
 
 ### 支持的模型
 
-- `deepseek-chat` - 通用对话模型
+- `deepseek-chat` - 通用对话模型（DeepSeek-V3.2，非思考模式）
+- `deepseek-reasoner` - 思考模型（DeepSeek-V3.2，思考模式）
 - `deepseek-coder` - 代码专用模型
 
 ### API 特性
 
 - OpenAI 兼容接口
 - 支持流式输出
-- 长上下文支持 (128K)
+- 长上下文支持 (128K+)
 - 价格极具竞争力
+- **2025 年 12 月更新至 V3.2 正式版**
 
 ---
 
@@ -230,19 +232,19 @@ NEXT_PUBLIC_ZHIPU_BASE_URL=https://open.bigmodel.cn/api/paas/v4
 |------|----------|----------|------|
 | **超低延迟** | Groq | llama-3.3-70b-versatile | LPU 引擎，响应极快 |
 | **高质量中文** | Zhipu | glm-4-plus | ChatGLM 系列，中文优化 |
-| **企业级应用** | Cohere | command-r-plus | 稳定可靠，API 限流宽松 |
-| **代码生成** | DeepSeek | deepseek-coder | 开源模型，代码能力强 |
-| **综合最强** | Claude | claude-3-5-sonnet | 性能卓越，多模态 |
-| **文档写作** | Qwen | qwen-plus | 通义千问，适合中文写作 |
-| **通用对话** | OpenAI | gpt-4o | GPT 系列，稳定可靠 |
+| **企业级应用** | Cohere | command-a-03-2025 | Command A，150% 吞吐量提升 |
+| **代码生成** | DeepSeek | deepseek-coder | DeepSeek-V3.2，开源高性能 |
+| **综合最强** | OpenAI | gpt-5.2 | GPT-5.2，最新旗舰模型 |
+| **文档写作** | Gemini | gemini-2.5-pro | 1M 上下文窗口，思维能力强 |
+| **多模态** | Claude | claude-3-5-sonnet | 性能卓越，多模态支持 |
 
 ### 根据成本选择
 
 | 成本考虑 | 推荐平台 | 说明 |
 |---------|----------|------|
-| **低成本** | DeepSeek, Groq | 价格便宜，性能出色 |
-| **中等成本** | Qwen, Zhipu | 性价比高 |
-| **不差钱** | Claude, OpenAI | 性能最强 |
+| **低成本** | DeepSeek (V3.2), Groq | DeepSeek 开源，Groq LPU 引擎 |
+| **中等成本** | Qwen, Zhipu, Gemini 2.5 | 性价比高，功能全面 |
+| **不差钱** | OpenAI GPT-5.2, Claude 3.5 | 业界最强模型 |
 
 ---
 
