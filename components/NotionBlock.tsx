@@ -15,6 +15,7 @@ import {
   GripVertical,
   CheckCircle2,
   Copy,
+  Lightbulb,
 } from 'lucide-react';
 
 export type BlockType =
@@ -29,7 +30,8 @@ export type BlockType =
   | 'quote'
   | 'divider'
   | 'callout'
-  | 'image';
+  | 'image'
+  | 'guide';
 
 export interface NotionBlock {
   id: string;
@@ -43,7 +45,7 @@ interface NotionBlockProps {
   block: NotionBlock;
   onUpdate: (id: string, updates: Partial<NotionBlock>) => void;
   onDelete: (id: string) => void;
-  onAdd: (parentId: string | null, position: number, type: BlockType, initialContent?: string) => string | undefined;
+  onAdd: (parentId: string | null, type: BlockType, initialContent?: string) => string | undefined;
   onFocusNext?: () => void;
 }
 
@@ -60,6 +62,7 @@ const BLOCK_ICONS: Record<BlockType, React.ComponentType<React.SVGProps<SVGSVGEl
   divider: Minus,
   callout: Type,
   image: ImageIcon,
+  guide: Lightbulb,
 };
 
 const BLOCK_TYPES = [
@@ -197,7 +200,7 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
         afterCursor,
         blockId: block.id 
       });
-      const newBlockId = onAdd ? onAdd(block.id, 0, newBlockType, initialContent) : undefined;
+      const newBlockId = onAdd ? onAdd(block.id, newBlockType, initialContent) : undefined;
       console.log('onAdd result:', { newBlockId });
 
       // Focus the new block after it's created
@@ -229,8 +232,52 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
       // Let the textarea handle the newline naturally
       setTimeout(() => autoResize(), 0);
     } else if (e.key === 'Backspace' && !editContent && !isDragging) {
+      // Block is empty, delete it
       e.preventDefault();
       onDelete(block.id);
+    } else if (e.key === 'Backspace' && e.currentTarget.selectionStart === 0 && !isDragging) {
+      // Cursor at the beginning of the block, merge with previous block
+      e.preventDefault();
+
+      // Find the index of current block by looking for its data attribute
+      const allBlocks = Array.from(document.querySelectorAll('[data-block-id]'));
+      const currentIndex = allBlocks.findIndex(el => el.getAttribute('data-block-id') === block.id);
+
+      if (currentIndex > 0) {
+        const previousBlockElement = allBlocks[currentIndex - 1];
+        const previousBlockId = previousBlockElement?.getAttribute('data-block-id');
+
+        if (previousBlockId) {
+          // Get the previous textarea and its content BEFORE deleting the current block
+          const prevTextarea = previousBlockElement.querySelector('textarea');
+          if (!prevTextarea) {
+            return;
+          }
+
+          // Save the previous content length BEFORE any updates
+          const prevContentLength = prevTextarea.value.length;
+
+          // Get the content to merge (current block content)
+          const currentContent = editContent || block.content;
+
+          // Delete current block
+          onDelete(block.id);
+
+          // Update the previous block content
+          const prevContent = prevTextarea.value;
+          const mergedContent = prevContent + currentContent;
+          onUpdate(previousBlockId, { content: mergedContent });
+
+          // Focus the previous block and set cursor between the two merged contents
+          setTimeout(() => {
+            prevTextarea.focus();
+            setTimeout(() => {
+              // Position cursor right after the previous block's content
+              prevTextarea.setSelectionRange(prevContentLength, prevContentLength);
+            }, 0);
+          }, 50);
+        }
+      }
     } else if (e.key === 'Escape') {
       setShowSlashMenu(false);
     } else if (e.key === '/') {
@@ -618,6 +665,70 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
             )}
           </div>
         );
+      case 'guide':
+        return (
+          <div style={{ flex: 1, marginTop: '8px', width: '100%' }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              marginBottom: '8px',
+              padding: '6px 10px',
+              backgroundColor: 'rgba(255, 193, 7, 0.1)',
+              borderRadius: '4px',
+              width: 'fit-content'
+            }}>
+              <Lightbulb style={{ width: '16px', height: '16px', color: '#FFC107' }} />
+              <span style={{
+                fontSize: '12px',
+                fontWeight: 500,
+                color: '#F57C00',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              }}>
+                写作指导
+              </span>
+            </div>
+            <textarea
+              ref={editorRef as any}
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              onFocus={handleFocus}
+              onBlur={handleBlur}
+              onKeyDown={handleKeyDown}
+              style={{
+                width: '100%',
+                padding: '12px 14px',
+                backgroundColor: 'rgba(255, 193, 7, 0.05)',
+                borderRadius: '6px',
+                border: '1px solid rgba(255, 193, 7, 0.3)',
+                fontSize: '14px',
+                lineHeight: 1.7,
+                color: 'rgba(55, 53, 47, 0.9)',
+                outline: 'none',
+                resize: 'vertical',
+                minHeight: '80px',
+                overflow: 'auto',
+                whiteSpace: 'pre-wrap',
+                wordWrap: 'break-word',
+                transition: 'border-color 150ms ease',
+              }}
+              placeholder="在此编辑本章的写作指导要求，如：重点讨论的要点、写作风格、字数要求等..."
+              rows={3}
+            />
+            <div style={{
+              marginTop: '6px',
+              fontSize: '11px',
+              color: 'rgba(55, 53, 47, 0.4)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}>
+              <span>💡</span>
+              <span>修改后点击右侧"生成"按钮，AI 将根据您的指导重新生成内容</span>
+            </div>
+          </div>
+        );
       default:
         return (
           <textarea
@@ -740,7 +851,7 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
 
               <div style={{ borderTop: '1px solid rgba(55, 53, 47, 0.09)', padding: '8px' }}>
                 <div style={{ fontSize: '11px', color: 'rgba(55, 53, 47, 0.5)', marginBottom: '4px', padding: '0 4px' }}>高级块</div>
-                {['quote', 'divider', 'callout', 'image'].map((type) => (
+                {['quote', 'divider', 'callout', 'image', 'guide'].map((type) => (
                   <button
                     key={type}
                     onClick={(e) => handleMenuItemClick(type as BlockType, e)}
@@ -776,7 +887,7 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
                         return Icon ? <Icon style={{ width: '16px', height: '16px' }} /> : null;
                       })()}
                     </span>
-                    <span>{type === 'quote' ? '引用' : type === 'divider' ? '分割线' : type === 'callout' ? '提示框' : '图片'}</span>
+                    <span>{type === 'quote' ? '引用' : type === 'divider' ? '分割线' : type === 'callout' ? '提示框' : type === 'image' ? '图片' : '写作指导'}</span>
                   </button>
                 ))}
               </div>
@@ -812,7 +923,7 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
               <Copy style={{ width: '16px', height: '16px', color: 'rgba(55, 53, 47, 0.4)' }} />
             </button>
             <button
-              onClick={() => onAdd(block.id, 0, 'paragraph')}
+              onClick={() => onAdd(block.id, 'paragraph')}
               style={{
                 position: 'absolute',
                 right: '-32px',
