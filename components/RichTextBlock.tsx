@@ -5,6 +5,7 @@ import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
+import Underline from '@tiptap/extension-underline';
 import { useEffect, useState } from 'react';
 
 export interface RichTextBlockProps {
@@ -15,6 +16,7 @@ export interface RichTextBlockProps {
   onEnter?: (isShiftKey: boolean) => void;
   onBackspaceAtStart?: () => void;
   onSlashCommand?: () => void;
+  editorRef?: React.RefObject<any>;
 }
 
 export function RichTextBlock({
@@ -25,6 +27,7 @@ export function RichTextBlock({
   onEnter,
   onBackspaceAtStart,
   onSlashCommand,
+  editorRef,
 }: RichTextBlockProps) {
   const [mounted, setMounted] = useState(false);
 
@@ -50,6 +53,7 @@ export function RichTextBlock({
         codeBlock: false,
         horizontalRule: false,
       }),
+      Underline,
       TaskList,
       TaskItem.configure({
         nested: true,
@@ -66,8 +70,37 @@ export function RichTextBlock({
         class: 'prose prose-sm max-w-none focus:outline-none',
       },
       handleKeyDown: (view, event) => {
+        // Handle keyboard shortcuts
+        // Bold: Ctrl/Cmd + B
+        if ((event.ctrlKey || event.metaKey) && event.key === 'b') {
+          event.preventDefault();
+          view.dispatch(view.state.tr);
+          // The bold toggle is handled by the browser's built-in behavior or by TipTap
+          // We let TipTap handle it by returning false
+          return false;
+        }
+
+        // Italic: Ctrl/Cmd + I
+        if ((event.ctrlKey || event.metaKey) && event.key === 'i') {
+          event.preventDefault();
+          return false;
+        }
+
+        // Underline: Ctrl/Cmd + U (if extension is available)
+        if ((event.ctrlKey || event.metaKey) && event.key === 'u') {
+          event.preventDefault();
+          return false;
+        }
+
         // Handle Enter key
         if (event.key === 'Enter') {
+          // Shift+Enter - insert a line break (use TipTap's default behavior)
+          if (event.shiftKey) {
+            // Let TipTap handle soft breaks
+            return false;
+          }
+          
+          // Enter creates a new block
           event.preventDefault();
           onEnter?.(event.shiftKey);
           return true;
@@ -115,6 +148,13 @@ export function RichTextBlock({
       });
     }
   }, [content, editor]);
+
+  // Expose editor instance through ref
+  useEffect(() => {
+    if (editor && editorRef) {
+      (editorRef as { current: any }).current = editor;
+    }
+  }, [editor, editorRef]);
 
   if (!mounted) {
     return null;
@@ -226,6 +266,16 @@ export function RichTextBlock({
 
         .ProseMirror em {
           font-style: italic;
+        }
+
+        /* Underline */
+        .ProseMirror u {
+          text-decoration: underline;
+        }
+
+        /* Strikethrough */
+        .ProseMirror s {
+          text-decoration: line-through;
         }
 
         /* Blockquote */

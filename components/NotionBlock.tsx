@@ -18,6 +18,7 @@ import {
   Lightbulb,
 } from 'lucide-react';
 import { RichTextBlock } from './RichTextBlock';
+import { FormatToolbar } from './FormatToolbar';
 
 export type BlockType =
   | 'paragraph'
@@ -82,6 +83,7 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
   const [isHovered, setIsHovered] = useState(false);
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const editorRef = useRef<any>(null);
 
   const {
     attributes,
@@ -148,24 +150,33 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
       const previousBlockId = previousBlockElement?.getAttribute('data-block-id');
 
       if (previousBlockId) {
-        // Get previous block's content
+        // Get previous block's TipTap editor instance
         const prevProseMirror = previousBlockElement.querySelector('.ProseMirror');
         if (prevProseMirror) {
           const currentContent = block.content;
-
+          const prevContent = (prevProseMirror as HTMLElement).innerHTML;
+          
           // Delete current block
           onDelete(block.id);
 
-          // Update previous block content
-          const prevContent = (prevProseMirror as HTMLElement).innerHTML;
+          // Update previous block content by merging
           const mergedContent = prevContent + currentContent;
           onUpdate(previousBlockId, { content: mergedContent });
 
-          // Focus previous block and set cursor between the two merged contents
+          // Focus previous block and set cursor at the end of previous content
           setTimeout(() => {
             const editor = prevProseMirror as HTMLElement;
             editor.focus();
-            // TODO: Set cursor position using TipTap API
+            
+            // Try to find the TipTap editor view
+            const view = (editor as any).__tiptapEditorView__;
+            if (view && view.state) {
+              const { state } = view;
+              const { doc } = state;
+              const endPos = doc.content.size;
+              const tr = state.tr.setSelection(state.tr.selection.constructor.near(doc.resolve(endPos - 1)));
+              view.dispatch(tr);
+            }
           }, 50);
         }
       }
@@ -176,27 +187,82 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
     setShowSlashMenu(true);
   };
 
-  const handleTypeChange = (type: BlockType) => {
-    let cleanContent = block.content.replace(/^<\/?p>$/, '');
+  // Format toolbar handlers
+  const handleFormatBold = () => {
+    if (editorRef.current) {
+      editorRef.current.chain().focus().toggleBold().run();
+    }
+  };
 
-    // Set content based on type
+  const handleFormatItalic = () => {
+    if (editorRef.current) {
+      editorRef.current.chain().focus().toggleItalic().run();
+    }
+  };
+
+  const handleFormatUnderline = () => {
+    if (editorRef.current) {
+      editorRef.current.chain().focus().toggleUnderline().run();
+    }
+  };
+
+  const handleFormatStrike = () => {
+    if (editorRef.current) {
+      editorRef.current.chain().focus().toggleStrike().run();
+    }
+  };
+
+  const handleFormatCode = () => {
+    if (editorRef.current) {
+      editorRef.current.chain().focus().toggleCode().run();
+    }
+  };
+
+  const handleFormatIncreaseSize = () => {
+    // TipTap doesn't have built-in font size control
+    // This would need custom implementation
+    console.log('Font size increase not yet implemented');
+  };
+
+  const handleFormatDecreaseSize = () => {
+    // TipTap doesn't have built-in font size control
+    // This would need custom implementation
+    console.log('Font size decrease not yet implemented');
+  };
+
+  const handleAIRewrite = () => {
+    // This would need integration with AI
+    console.log('AI rewrite not yet implemented');
+  };
+
+  const handleTypeChange = (type: BlockType) => {
+    // Get plain text from current content
+    const getPlainText = (html: string): string => {
+      const div = document.createElement('div');
+      div.innerHTML = html;
+      return div.textContent || div.innerText || '';
+    };
+
+    let cleanContent = getPlainText(block.content) || '';
+
+    // Set content based on type using TipTap-compatible HTML
     const contentMapping: Record<BlockType, string> = {
-      paragraph: cleanContent || '　　',
-      h1: cleanContent,
-      h2: cleanContent,
-      h3: cleanContent,
-      bullet: `<li>${cleanContent}</li>`,
-      numbered: `<li>${cleanContent}</li>`,
-      todo: `<li><input type="checkbox"><div>${cleanContent}</div></li>`,
+      paragraph: `<p>${cleanContent || '　　'}</p>`,
+      h1: `<h1>${cleanContent}</h1>`,
+      h2: `<h2>${cleanContent}</h2>`,
+      h3: `<h3>${cleanContent}</h3>`,
+      bullet: `<ul><li>${cleanContent}</li></ul>`,
+      numbered: `<ol><li>${cleanContent}</li></ol>`,
+      todo: `<ul data-type="taskList"><li><label><input type="checkbox"><span></span></label><div>${cleanContent}</div></li></ul>`,
       code: `<pre><code>${cleanContent}</code></pre>`,
       quote: `<blockquote>${cleanContent}</blockquote>`,
       divider: '<hr>',
-      callout: cleanContent,
+      callout: `<p>${cleanContent}</p>`,
       image: cleanContent,
       guide: cleanContent,
     };
 
-    const newContent = contentMapping[type] || cleanContent;
+    const newContent = contentMapping[type] || `<p>${cleanContent}</p>`;
 
     setShowSlashMenu(false);
     onUpdate(block.id, { type, content: newContent });
@@ -234,14 +300,27 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
 
     if (isRichText) {
       return (
-        <RichTextBlock
-          content={block.content}
-          placeholder={getPlaceholder()}
-          onUpdate={handleContentUpdate}
-          onEnter={handleEnter}
-          onBackspaceAtStart={handleBackspaceAtStart}
-          onSlashCommand={handleSlashCommand}
-        />
+        <>
+          <RichTextBlock
+            content={block.content}
+            placeholder={getPlaceholder()}
+            onUpdate={handleContentUpdate}
+            onEnter={handleEnter}
+            onBackspaceAtStart={handleBackspaceAtStart}
+            onSlashCommand={handleSlashCommand}
+            editorRef={editorRef}
+          />
+          <FormatToolbar
+            onBold={handleFormatBold}
+            onItalic={handleFormatItalic}
+            onUnderline={handleFormatUnderline}
+            onStrike={handleFormatStrike}
+            onCode={handleFormatCode}
+            onIncreaseSize={handleFormatIncreaseSize}
+            onDecreaseSize={handleFormatDecreaseSize}
+            onAI={handleAIRewrite}
+          />
+        </>
       );
     }
 
@@ -308,8 +387,173 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
       );
     }
 
-    // For other non-rich-text types, use original implementation
-    // ... (code, divider, callout, image implementations would go here)
+    // For code blocks
+    if (block.type === 'code') {
+      const extractPlainText = (html: string) => {
+        const div = document.createElement('div');
+        div.innerHTML = html;
+        const code = div.querySelector('code');
+        return code?.textContent || div.textContent || '';
+      };
+
+      return (
+        <div style={{ flex: 1, width: '100%' }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            marginBottom: '8px',
+            padding: '6px 10px',
+            backgroundColor: 'rgba(135, 131, 120, 0.1)',
+            borderRadius: '4px',
+            width: 'fit-content'
+          }}>
+            <Code2 style={{ width: '16px', height: '16px', color: 'rgba(135, 131, 120, 0.8)' }} />
+            <span style={{
+              fontSize: '12px',
+              fontWeight: 500,
+              color: 'rgba(55, 53, 47, 0.6)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px'
+            }}>
+              代码
+            </span>
+          </div>
+          <textarea
+            value={extractPlainText(block.content)}
+            onChange={(e) => {
+              const newContent = `<pre><code>${e.target.value}</code></pre>`;
+              onUpdate(block.id, { content: newContent });
+            }}
+            style={{
+              width: '100%',
+              padding: '14px',
+              backgroundColor: 'rgba(135, 131, 120, 0.05)',
+              borderRadius: '6px',
+              border: '1px solid rgba(135, 131, 120, 0.2)',
+              fontSize: '13px',
+              lineHeight: 1.6,
+              fontFamily: "'Courier New', Courier, monospace",
+              color: 'rgba(55, 53, 47, 0.9)',
+              outline: 'none',
+              resize: 'vertical',
+              minHeight: '80px',
+              overflow: 'auto',
+              whiteSpace: 'pre',
+              wordWrap: 'break-word',
+            }}
+            placeholder="输入代码..."
+            rows={4}
+          />
+        </div>
+      );
+    }
+
+    // For divider blocks
+    if (block.type === 'divider') {
+      return (
+        <div style={{ 
+          flex: 1, 
+          padding: '12px 0',
+          display: 'flex',
+          alignItems: 'center'
+        }}>
+          <hr style={{
+            width: '100%',
+            border: 'none',
+            borderTop: '1px solid rgba(55, 53, 47, 0.15)',
+            margin: 0
+          }} />
+        </div>
+      );
+    }
+
+    // For callout blocks
+    if (block.type === 'callout') {
+      return (
+        <div style={{ flex: 1, width: '100%' }}>
+          <div style={{
+            padding: '14px 16px',
+            backgroundColor: 'rgba(55, 53, 47, 0.04)',
+            borderRadius: '6px',
+            borderLeft: '3px solid rgba(55, 53, 47, 0.3)',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '12px'
+          }}>
+            <Type style={{ width: '18px', height: '18px', color: 'rgba(55, 53, 47, 0.4)', flexShrink: 0, marginTop: '2px' }} />
+            <textarea
+              value={block.content.replace(/^<\/?p>$/, '')}
+              onChange={(e) => onUpdate(block.id, { content: e.target.value })}
+              style={{
+                flex: 1,
+                outline: 'none',
+                backgroundColor: 'transparent',
+                border: 'none',
+                padding: 0,
+                fontSize: '14px',
+                lineHeight: 1.6,
+                color: 'rgba(55, 53, 47, 0.9)',
+                resize: 'none',
+                overflow: 'hidden',
+                height: 'auto',
+                minHeight: '24px',
+              }}
+              placeholder="输入提示内容..."
+              rows={1}
+            />
+          </div>
+        </div>
+      );
+    }
+
+    // For image blocks
+    if (block.type === 'image') {
+      return (
+        <div style={{ flex: 1, width: '100%' }}>
+          <textarea
+            value={block.content}
+            onChange={(e) => onUpdate(block.id, { content: e.target.value })}
+            style={{
+              flex: 1,
+              outline: 'none',
+              color: 'rgba(55, 53, 47, 1)',
+              backgroundColor: 'rgba(55, 53, 47, 0.02)',
+              border: '1px dashed rgba(55, 53, 47, 0.2)',
+              borderRadius: '6px',
+              padding: '12px 14px',
+              width: '100%',
+              fontSize: '14px',
+              lineHeight: 1.6,
+              resize: 'vertical',
+              minHeight: '40px',
+            }}
+            placeholder="输入图片 URL..."
+            rows={1}
+          />
+          {block.content && (
+            <img 
+              src={block.content} 
+              alt=""
+              style={{
+                marginTop: '12px',
+                maxWidth: '100%',
+                borderRadius: '6px',
+                display: 'block',
+              }}
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = 'none';
+              }}
+              onLoad={(e) => {
+                (e.target as HTMLImageElement).style.display = 'block';
+              }}
+            />
+          )}
+        </div>
+      );
+    }
+
+    // Fallback textarea for other types
     return (
       <textarea
         value={block.content}
@@ -489,7 +733,11 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
           <>
             <button
               onClick={() => {
-                navigator.clipboard.writeText(block.content);
+                // Extract plain text from HTML content
+                const div = document.createElement('div');
+                div.innerHTML = block.content;
+                const plainText = div.textContent || div.innerText || '';
+                navigator.clipboard.writeText(plainText);
               }}
               style={{
                 position: 'absolute',
