@@ -16,24 +16,27 @@ import {
   CheckCircle2,
   Copy,
   Lightbulb,
+  Table as TableIcon,
 } from 'lucide-react';
 import { RichTextBlock } from './RichTextBlock';
+import { TableBlock } from './TableBlock';
 import { FormatToolbar } from './FormatToolbar';
 
 export type BlockType =
-  | 'paragraph'
-  | 'h1'
-  | 'h2'
-  | 'h3'
-  | 'bullet'
-  | 'numbered'
-  | 'todo'
-  | 'code'
-  | 'quote'
-  | 'divider'
-  | 'callout'
-  | 'image'
-  | 'guide';
+  | 'paragraph'  // 正文段落
+  | 'h1'        // 一级标题
+  | 'h2'        // 二级标题
+  | 'h3'        // 三级标题
+  | 'bullet'     // 无序列表
+  | 'numbered'   // 有序列表
+  | 'todo'       // 待办事项
+  | 'code'       // 代码块
+  | 'quote'      // 引用
+  | 'divider'    // 分割线
+  | 'callout'    // 提示框
+  | 'image'      // 图片
+  | 'table'      // 表格
+  | 'guide';     // 写作指导
 
 export interface NotionBlock {
   id: string;
@@ -64,19 +67,21 @@ const BLOCK_ICONS: Record<BlockType, React.ComponentType<React.SVGProps<SVGSVGEl
   divider: Minus,
   callout: Type,
   image: ImageIcon,
+  table: TableIcon,
   guide: Lightbulb,
 };
 
 const BLOCK_TYPES = [
-  { type: 'paragraph' as BlockType, label: '文本' },
-  { type: 'h1' as BlockType, label: '标题 1' },
-  { type: 'h2' as BlockType, label: '标题 2' },
-  { type: 'h3' as BlockType, label: '标题 3' },
-  { type: 'bullet' as BlockType, label: '无序列表' },
-  { type: 'numbered' as BlockType, label: '有序列表' },
-  { type: 'todo' as BlockType, label: '待办事项' },
-  { type: 'code' as BlockType, label: '代码' },
-  { type: 'quote' as BlockType, label: '引用' },
+  { type: 'paragraph' as BlockType, label: '正文', category: 'basic' },
+  { type: 'h1' as BlockType, label: '一级标题', category: 'basic' },
+  { type: 'h2' as BlockType, label: '二级标题', category: 'basic' },
+  { type: 'h3' as BlockType, label: '三级标题', category: 'basic' },
+  { type: 'bullet' as BlockType, label: '无序列表', category: 'basic' },
+  { type: 'numbered' as BlockType, label: '有序列表', category: 'basic' },
+  { type: 'todo' as BlockType, label: '待办事项', category: 'basic' },
+  { type: 'code' as BlockType, label: '代码', category: 'basic' },
+  { type: 'quote' as BlockType, label: '引用', category: 'basic' },
+  { type: 'table' as BlockType, label: '表格', category: 'basic' },
 ];
 
 export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockProps) {
@@ -259,6 +264,7 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
       divider: '<hr>',
       callout: `<p>${cleanContent}</p>`,
       image: cleanContent,
+      table: cleanContent,
       guide: cleanContent,
     };
 
@@ -276,18 +282,19 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
 
   const getPlaceholder = () => {
     const placeholders: Record<BlockType, string> = {
-      paragraph: '输入内容... (按 / 显示菜单)',
-      h1: '标题 1',
-      h2: '标题 2',
-      h3: '标题 3',
-      bullet: '列表项...',
-      numbered: '列表项...',
+      paragraph: '输入正文内容... (按 / 显示菜单)',
+      h1: '一级标题',
+      h2: '二级标题',
+      h3: '三级标题',
+      bullet: '无序列表项...',
+      numbered: '有序列表项...',
       todo: '待办事项...',
-      code: '代码块...',
-      quote: '引用...',
+      code: '代码内容...',
+      quote: '引用内容...',
       divider: '',
-      callout: '提示...',
+      callout: '提示内容...',
       image: '输入图片 URL...',
+      table: '表格内容...',
       guide: '在此编辑本章的写作指导要求...',
     };
     return placeholders[block.type] || '输入内容...';
@@ -553,6 +560,16 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
       );
     }
 
+    // For table blocks
+    if (block.type === 'table') {
+      return (
+        <TableBlock
+          content={block.content}
+          onUpdate={(newContent) => onUpdate(block.id, { content: newContent })}
+        />
+      );
+    }
+
     // Fallback textarea for other types
     return (
       <textarea
@@ -684,7 +701,7 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
 
               <div style={{ borderTop: '1px solid rgba(55, 53, 47, 0.09)', padding: '8px' }}>
                 <div style={{ fontSize: '11px', color: 'rgba(55, 53, 47, 0.5)', marginBottom: '4px', padding: '0 4px' }}>高级块</div>
-                {['quote', 'divider', 'callout', 'image', 'guide'].map((type) => (
+                {['quote', 'divider', 'callout', 'image', 'table'].map((type) => (
                   <button
                     key={type}
                     onClick={(e) => handleMenuItemClick(type as BlockType, e)}
@@ -720,7 +737,50 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
                         return Icon ? <Icon style={{ width: '16px', height: '16px' }} /> : null;
                       })()}
                     </span>
-                    <span>{type === 'quote' ? '引用' : type === 'divider' ? '分割线' : type === 'callout' ? '提示框' : type === 'image' ? '图片' : '写作指导'}</span>
+                    <span>{type === 'quote' ? '引用' : type === 'divider' ? '分割线' : type === 'callout' ? '提示框' : type === 'image' ? '图片' : '表格'}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div style={{ borderTop: '1px solid rgba(55, 53, 47, 0.09)', padding: '8px' }}>
+                <div style={{ fontSize: '11px', color: 'rgba(55, 53, 47, 0.5)', marginBottom: '4px', padding: '0 4px' }}>写作辅助</div>
+                {['guide'].map((type) => (
+                  <button
+                    key={type}
+                    onClick={(e) => handleMenuItemClick(type as BlockType, e)}
+                    style={{
+                      userSelect: 'none',
+                      transition: 'background 20ms ease-in',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      whiteSpace: 'nowrap',
+                      fontSize: '14px',
+                      fontWeight: 400,
+                      lineHeight: 1.2,
+                      color: 'rgba(55, 53, 47, 1)',
+                      backgroundColor: 'transparent',
+                      border: 'none',
+                      width: '100%',
+                      textAlign: 'left'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor = 'rgba(55, 53, 47, 0.04)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                    }}
+                  >
+                    <span style={{ color: 'rgba(55, 53, 47, 0.5)', display: 'flex', alignItems: 'center' }}>
+                      {(() => {
+                        const Icon = BLOCK_ICONS[type as BlockType];
+                        return Icon ? <Icon style={{ width: '16px', height: '16px' }} /> : null;
+                      })()}
+                    </span>
+                    <span>写作指导</span>
                   </button>
                 ))}
               </div>
