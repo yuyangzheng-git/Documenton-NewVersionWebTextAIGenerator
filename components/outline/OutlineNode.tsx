@@ -14,18 +14,19 @@ interface OutlineNodeProps {
     isExpanded?: boolean;
     isDragging?: boolean;
     onGenerateChapter?: (id: string) => void;
-    hasChildren?: boolean; // Whether this item has child sections
+    hasChildren?: boolean;
+    allItems?: OutlineItem[];
 }
 
 export function OutlineNode({
     item,
     onUpdate,
-    onDelete,
     onToggleExpand,
     isExpanded = true,
     isDragging = false,
     onGenerateChapter,
     hasChildren = false,
+    allItems = [],
 }: OutlineNodeProps) {
     const [isEditing, setIsEditing] = useState(false);
     const [editValue, setEditValue] = useState(item.title);
@@ -84,12 +85,67 @@ export function OutlineNode({
     };
 
     const getStatusText = () => {
-        switch (item.status) {
+        if (item.status === 'generating') return '生成中...';
+        if (item.status === 'completed') return '已完成';
+        if (item.status === 'pending') return '待生成';
+        return '';
+    };
+
+    const getChildItems = (): OutlineItem[] => {
+        if (!allItems.length) return [];
+        const itemIndex = allItems.findIndex((i) => i.id === item.id);
+        if (itemIndex === -1) return [];
+
+        const children: OutlineItem[] = [];
+        const currentLevel = item.level;
+
+        for (let i = itemIndex + 1; i < allItems.length; i++) {
+            if (allItems[i].level <= currentLevel) break;
+            children.push(allItems[i]);
+        }
+        return children;
+    };
+
+    const getOverallStatus = (): OutlineItem['status'] => {
+        const children = getChildItems();
+        if (!children.length) return item.status;
+
+        const allCompleted = children.every((child) => child.status === 'completed');
+        const anyGenerating = children.some((child) => child.status === 'generating');
+
+        if (anyGenerating) return 'generating';
+        if (allCompleted) return 'completed';
+        if (item.status === 'completed' && !allCompleted) return 'pending';
+        return item.status;
+    };
+
+    const displayStatus = getOverallStatus();
+
+    const getStatusColorForDisplay = () => {
+        switch (displayStatus) {
+            case 'generating':
+                return '#2383E2';
+            case 'completed':
+                return '#0F9D58';
+            case 'pending':
+                return '#F4B400';
+            default:
+                return 'rgba(55, 53, 47, 0.4)';
+        }
+    };
+
+    const getStatusTextForDisplay = () => {
+        switch (displayStatus) {
             case 'generating':
                 return '生成中...';
             case 'completed':
                 return '已完成';
             case 'pending':
+                const children = getChildItems();
+                const completedCount = children.filter((c) => c.status === 'completed').length;
+                if (children.length > 0) {
+                    return `${completedCount}/${children.length}子章节已完成`;
+                }
                 return '待生成';
             default:
                 return '';
@@ -134,8 +190,8 @@ export function OutlineNode({
                     <GripVertical style={{ width: '16px', height: '16px' }} />
                 </div>
 
-                {/* Expand/Collapse Button (for level 1 items) */}
-                {item.level === 1 && (
+                {/* Expand/Collapse Button (for level 1 and level 2 items) */}
+                {(item.level === 1 || item.level === 2) && hasChildren && (
                     <button
                         onClick={() => onToggleExpand?.(item.id)}
                         style={{
@@ -242,17 +298,17 @@ export function OutlineNode({
                 )}
 
                 {/* Status Indicator */}
-                {item.status !== 'idle' && (
+                {(displayStatus !== 'idle' || getChildItems().length > 0) && (
                     <span
                         style={{
                             fontSize: '12px',
-                            color: getStatusColor(),
+                            color: getStatusColorForDisplay(),
                             marginLeft: '12px',
                             whiteSpace: 'nowrap',
                             flexShrink: 0,
                         }}
                     >
-                        {getStatusText()}
+                        {getStatusTextForDisplay()}
                     </span>
                 )}
 
@@ -270,17 +326,17 @@ export function OutlineNode({
                             background: 'transparent',
                             border: 'none',
                             cursor: 'pointer',
-                            color: item.status === 'generating' ? '#2383E2' : 'rgba(55, 53, 47, 0.4)',
+                            color: displayStatus === 'generating' ? '#2383E2' : 'rgba(55, 53, 47, 0.4)',
                             padding: 0,
                             transition: 'transform 200ms ease-in-out',
                             flexShrink: 0,
-                            ...(item.status === 'generating' && { animation: 'spin 1s linear infinite' }),
+                            ...(displayStatus === 'generating' && { animation: 'spin 1s linear infinite' }),
                         }}
-                        disabled={item.status === 'generating'}
+                        disabled={displayStatus === 'generating'}
                         className="generate-button"
                         title={hasChildren ? '生成所有子章节' : '生成此章节'}
                     >
-                        {item.status === 'generating' ? (
+                        {displayStatus === 'generating' ? (
                             <RefreshCw style={{ width: '14px', height: '14px' }} />
                         ) : (
                             <Play style={{ width: '14px', height: '14px' }} />

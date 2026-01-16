@@ -1,0 +1,53 @@
+{
+  "name": "document_outline",
+  "description": "文档大纲结构，支持扁平、嵌套或混合结构",
+  "strict": true,
+  "schema": {
+    "type": "object",
+    "properties": {
+      "outline": {
+        "type": "array",
+        "description": "文档大纲列表",
+        "items": {
+          "type": "object",
+          "description": "大纲项",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "唯一标识符，如 '1', '1-1', '2-1-1'"
+            },
+            "title": {
+              "type": "string",
+              "description": "章节标题，如 '1.1 建设背景' 或 '建设背景'"
+            },
+            "level": {
+              "type": "integer",
+              "description": "层级：1=一级标题，2=二级标题，3=三级标题",
+              "enum": [1, 2, 3]
+            },
+            "content": {
+              "type": "string",
+              "description": "章节正文内容，初始为空字符串",
+              "default": ""
+            },
+            "requirements": {
+              "type": "string",
+              "description": "章节内容规划，用段落形式写出，明确说明要写哪些内容"
+            },
+            "children": {
+              "type": "array",
+              "description": "子章节数组（可选）",
+              "items": {
+                "$ref": "#/properties/outline/items"
+              }
+            }
+          },
+          "required": ["id", "title", "level", "content", "requirements"],
+          "additionalProperties": false
+        }
+      }
+    },
+    "required": ["outline"],
+    "additionalProperties": false
+  }
+}

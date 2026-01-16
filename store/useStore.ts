@@ -135,6 +135,7 @@ interface DocumentStore {
 // Generate numbering for outline items (1, 1.1, 1.1.1, 2, 2.1, 2.1.1, etc.)
 // Also removes any existing numbering prefixes from titles
 // Also removes duplicate items by id to avoid React key conflicts
+// Logic: if an item has children (sub-headings), it should NOT have direct content
 function generateNumbers(items: OutlineItem[]): OutlineItem[] {
   // Deduplicate items by id first to avoid React key conflicts
   const seenIds = new Set<string>();
@@ -148,8 +149,20 @@ function generateNumbers(items: OutlineItem[]): OutlineItem[] {
     }
   });
 
+  // First pass: mark items that have children
+  const hasChildren = new Set<string>();
+  uniqueItems.forEach((item, index) => {
+    if (index + 1 < uniqueItems.length) {
+      const nextItem = uniqueItems[index + 1];
+      if (nextItem.level > item.level) {
+        hasChildren.add(item.id);
+      }
+    }
+  });
+
   let level1Counter = 0;
   let level2Counter = 0;
+  let level3Counter = 0;
 
   return uniqueItems.map(item => {
     // Remove existing numbering prefix from title (e.g., "1. Introduction" -> "Introduction")
@@ -162,31 +175,31 @@ function generateNumbers(items: OutlineItem[]): OutlineItem[] {
       cleanTitle = item.title.replace(/^\d+\.\d+\.\d+\.\s*/, '').replace(/^\d+\.\d+\.\d+\s*/, '');
     }
 
+    let number: string | undefined;
+    
     if (item.level === 1) {
       level1Counter += 1;
       level2Counter = 0;
-      return {
-        ...item,
-        title: cleanTitle,
-        number: level1Counter.toString()
-      };
+      level3Counter = 0;
+      number = level1Counter.toString();
     } else if (item.level === 2) {
       level2Counter += 1;
-      return {
-        ...item,
-        title: cleanTitle,
-        number: `${level1Counter}.${level2Counter}`
-      };
+      level3Counter = 0;
+      number = `${level1Counter}.${level2Counter}`;
     } else if (item.level === 3) {
-      return {
-        ...item,
-        title: cleanTitle,
-        number: `${level1Counter}.${level2Counter}.1`
-      };
+      level3Counter += 1;
+      number = `${level1Counter}.${level2Counter}.${level3Counter}`;
     }
+
+    // If item has children, clear its content (it shouldn't have direct content)
+    const shouldHaveContent = !hasChildren.has(item.id);
+    
     return {
       ...item,
-      title: cleanTitle
+      title: cleanTitle,
+      number,
+      content: shouldHaveContent ? item.content : undefined,
+      paragraphs: shouldHaveContent ? item.paragraphs : undefined,
     };
   });
 }

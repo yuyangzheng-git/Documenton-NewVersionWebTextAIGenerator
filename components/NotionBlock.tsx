@@ -151,7 +151,6 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
         // Get previous block's content
         const prevProseMirror = previousBlockElement.querySelector('.ProseMirror');
         if (prevProseMirror) {
-          const prevContentLength = (prevProseMirror as HTMLElement).innerHTML.length;
           const currentContent = block.content;
 
           // Delete current block
@@ -166,7 +165,7 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
           setTimeout(() => {
             const editor = prevProseMirror as HTMLElement;
             editor.focus();
-            // TODO: Set cursor position using TipTap API - using prevContentLength: ${prevContentLength}
+            // TODO: Set cursor position using TipTap API
           }, 50);
         }
       }
@@ -246,8 +245,71 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
       );
     }
 
-    // For non-rich-text types, use original implementation
-    // ... (code, divider, callout, image, guide implementations would go here)
+    // Handle guide type separately
+    if (block.type === 'guide') {
+      return (
+        <div style={{ flex: 1, marginTop: '8px', width: '100%' }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            marginBottom: '8px',
+            padding: '6px 10px',
+            backgroundColor: 'rgba(255, 193, 7, 0.1)',
+            borderRadius: '4px',
+            width: 'fit-content'
+          }}>
+            <Lightbulb style={{ width: '16px', height: '16px', color: '#FFC107' }} />
+            <span style={{
+              fontSize: '12px',
+              fontWeight: 500,
+              color: '#F57C00',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5px'
+            }}>
+              写作指导
+            </span>
+          </div>
+          <textarea
+            value={block.content}
+            onChange={(e) => onUpdate(block.id, { content: e.target.value })}
+            style={{
+              width: '100%',
+              padding: '12px 14px',
+              backgroundColor: 'rgba(255, 193, 7, 0.05)',
+              borderRadius: '6px',
+              border: '1px solid rgba(255, 193, 7, 0.3)',
+              fontSize: '14px',
+              lineHeight: 1.7,
+              color: 'rgba(55, 53, 47, 0.9)',
+              outline: 'none',
+              resize: 'vertical',
+              minHeight: '80px',
+              overflow: 'auto',
+              whiteSpace: 'pre-wrap',
+              wordWrap: 'break-word',
+              transition: 'border-color 150ms ease',
+            }}
+            placeholder="在此编辑本章的写作指导要求，如：重点讨论的要点、写作风格、字数要求等..."
+            rows={3}
+          />
+          <div style={{
+            marginTop: '6px',
+            fontSize: '11px',
+            color: 'rgba(55, 53, 47, 0.4)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px'
+          }}>
+            <span>💡</span>
+            <span>修改后点击右侧"生成"按钮，AI 将根据您的指导重新生成内容</span>
+          </div>
+        </div>
+      );
+    }
+
+    // For other non-rich-text types, use original implementation
+    // ... (code, divider, callout, image implementations would go here)
     return (
       <textarea
         value={block.content}

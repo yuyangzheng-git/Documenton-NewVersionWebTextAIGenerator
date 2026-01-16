@@ -3,7 +3,7 @@
 import { useStore } from '@/store/useStore';
 import { OutlineTree } from './OutlineTree';
 import { X, FileText, Wand2 } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { generateSectionWithWorker, getDifyAppParameters } from '@/lib/dify-api';
 import { createAIProvider } from '@/lib/ai/provider-factory';
 import { OutlineItem } from '@/store/useStore';
@@ -51,7 +51,6 @@ export function OutlinePanel({ onClose, show = true, documentTopic = '' }: Outli
 
         // Otherwise, generate this single chapter
         try {
-            setIsGenerating(true);
             updateItem(itemId, { status: 'generating', content: '' });
 
             // Build full outline as string
@@ -95,14 +94,12 @@ export function OutlinePanel({ onClose, show = true, documentTopic = '' }: Outli
                             content: accumulatedContent,
                             paragraphs: paragraphs
                         });
-                        setIsGenerating(false);
                         console.log('Chapter generation completed, paragraphs:', paragraphs.length);
                     },
                     item.requirements,
                     (error: Error) => {
                         console.error('生成章节失败:', error);
                         updateItem(itemId, { status: 'pending' });
-                        setIsGenerating(false);
                         alert(`生成失败: ${error.message}`);
                     }
                 );
@@ -154,13 +151,11 @@ export function OutlinePanel({ onClose, show = true, documentTopic = '' }: Outli
                             content: accumulatedContent,
                             paragraphs: paragraphs
                         });
-                        setIsGenerating(false);
                         console.log('Chapter generation completed, paragraphs:', paragraphs.length);
                     },
                     (error: Error) => {
                         console.error('生成章节失败:', error);
                         updateItem(itemId, { status: 'pending' });
-                        setIsGenerating(false);
                         alert(`生成失败: ${error.message}`);
                     }
                 );
@@ -168,7 +163,6 @@ export function OutlinePanel({ onClose, show = true, documentTopic = '' }: Outli
         } catch (error) {
             console.error('生成章节失败:', error);
             updateItem(itemId, { status: 'pending' });
-            setIsGenerating(false);
             alert(`生成失败: ${error instanceof Error ? error.message : '未知错误'}`);
         }
     };
@@ -225,7 +219,6 @@ export function OutlinePanel({ onClose, show = true, documentTopic = '' }: Outli
             }
 
             try {
-                setIsGenerating(true);
                 updateItem(childItem.id, { status: 'generating', content: '' });
 
                 const fullOutline = outline.map(i => `${i.number ? i.number + ' ' : ''}${i.title}`).join('\n');
@@ -313,7 +306,6 @@ export function OutlinePanel({ onClose, show = true, documentTopic = '' }: Outli
             }
         }
 
-        setIsGenerating(false);
         console.log('All child chapters generation completed');
     };
 

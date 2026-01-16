@@ -1,0 +1,74 @@
+{
+  "type": "array",
+  "description": "文档大纲结构，支持任意层级嵌套，高灵活性",
+  "items": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "description": "唯一标识符，建议使用数字编号（1, 2, 3）或层级编号（1-1, 1-2-1, 2-3-2）"
+      },
+      "title": {
+        "type": "string",
+        "description": "章节标题，可以使用标准编号前缀（如'1.1', '2.3.1'），也可以不带编号"
+      },
+      "level": {
+        "type": "integer",
+        "enum": [1, 2, 3],
+        "description": "层级：1=一级标题，2=二级标题，3=三级标题"
+      },
+      "content": {
+        "type": "string",
+        "description": "章节正文内容，初始为空字符串，由后续生成步骤填充"
+      },
+      "requirements": {
+        "type": "string",
+        "description": "章节内容规划和写作指南，会直接作为正文显示在编辑器中，用户可以随时修改。用段落形式写出，明确说明本章要写哪些内容，按顺序组织，指出需要避免与其他章节重复的内容，说明需要引用的数据、标准或案例。"
+      },
+      "children": {
+        "type": "array",
+        "description": "子章节数组，采用递归结构。如果当前章节有子章节，将子章节放在这里。扁平结构中可以省略此字段。",
+        "items": {
+          "type": "object",
+          "properties": {
+            "id": { "type": "string" },
+            "title": { "type": "string" },
+            "level": { "type": "integer", "enum": [1, 2, 3] },
+            "content": { "type": "string" },
+            "requirements": { "type": "string" },
+            "children": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "string" },
+                  "title": { "type": "string" },
+                  "level": { "type": "integer", "enum": [1, 2, 3] },
+                  "content": { "type": "string" },
+                  "requirements": { "type": "string" },
+                  "children": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "string" },
+                        "title": { "type": "string" },
+                        "level": { "type": "integer", "enum": [1, 2, 3] },
+                        "content": { "type": "string" },
+                        "requirements": { "type": "string" }
+                      },
+                      "required": ["id", "title", "level", "content", "requirements"]
+                    }
+                  }
+                },
+                "required": ["id", "title", "level", "content", "requirements"]
+              }
+            }
+          },
+          "required": ["id", "title", "level", "content", "requirements"]
+        }
+      }
+    },
+    "required": ["id", "title", "level", "content", "requirements"]
+  }
+}

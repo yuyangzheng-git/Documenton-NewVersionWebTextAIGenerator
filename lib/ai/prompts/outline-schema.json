@@ -1,0 +1,301 @@
+{
+  "type": "array",
+  "description": "文档大纲结构，支持任意层级嵌套，高灵活性",
+  "items": {
+    "type": "object",
+    "required": ["id", "title", "level", "content", "requirements"],
+    "properties": {
+      "id": {
+        "type": "string",
+        "description": "唯一标识符，建议使用数字编号（1, 2, 3）或层级编号（1-1, 1-2-1, 2-3-2）",
+        "examples": [
+          "1",
+          "2",
+          "1-1",
+          "1-2",
+          "2-1-1",
+          "2-1-2"
+        ]
+      },
+      "title": {
+        "type": "string",
+        "description": "章节标题，可以使用标准编号前缀（如'1.1', '2.3.1'），也可以不带编号",
+        "examples": [
+          "第一章：项目背景与目标",
+          "1.1 建设背景",
+          "1.2 建设目标",
+          "2. 技术架构",
+          "2.1 AI XDR 联动防御系统",
+          "2.2 TrustOne 终端安全",
+          "2.1.1 核心能力",
+          "2.1.2 应用场景"
+        ]
+      },
+      "level": {
+        "type": "integer",
+        "enum": [1, 2, 3],
+        "description": "层级：1=一级标题，2=二级标题，3=三级标题",
+        "examples": [
+          1,
+          2,
+          3
+        ]
+      },
+      "content": {
+        "type": "string",
+        "description": "章节正文内容，初始为空字符串，由后续生成步骤填充",
+        "default": ""
+      },
+      "requirements": {
+        "type": "string",
+        "description": "章节内容规划和写作指南，会直接作为正文显示在编辑器中，用户可以随时修改。用段落形式写出，明确说明本章要写哪些内容，按顺序组织，指出需要避免与其他章节重复的内容，说明需要引用的数据、标准或案例。",
+        "examples": [
+          "本章首先要分析行业网络安全发展趋势，包括新型威胁的特点和危害。然后描述客户当前的安全现状，指出面临的主要痛点，如防护能力不足、运营效率低下等问题。最后明确项目建设的总体目标，包括构建AI XDR主动防御体系、实现威胁精准检测、快速响应等具体指标。需要注意避免在背景和目标部分过多描述具体的技术方案，将技术细节留到后续章节阐述。",
+          "本小节主要描述行业网络安全威胁的发展趋势，包括银狐勒索病毒等新型攻击手段的特点、传播路径和危害程度。同时分析当前安全防护面临的挑战，如攻击隐蔽性强、横向移动快速、传统防护手段失效等问题。通过数据和案例说明网络安全形势的严峻性，为项目建设的必要性提供支撑。"
+        ]
+      },
+      "children": {
+        "type": "array",
+        "description": "子章节数组，采用递归结构。如果当前章节有子章节，将子章节放在这里。扁平结构中可以省略此字段。",
+        "items": {
+          "$ref": "#/items"
+        },
+        "default": [],
+        "examples": [
+          [
+            {
+              "id": "1-1",
+              "title": "1.1 建设背景",
+              "level": 2,
+              "content": "",
+              "requirements": "本小节主要描述行业网络安全威胁的发展趋势...",
+              "children": [
+                {
+                  "id": "1-1-1",
+                  "title": "1.1.1 威胁形势",
+                  "level": 3,
+                  "content": "",
+                  "requirements": "描述当前网络安全威胁的主要特点和趋势...",
+                  "children": []
+                },
+                {
+                  "id": "1-1-2",
+                  "title": "1.1.2 防护挑战",
+                  "level": 3,
+                  "content": "",
+                  "requirements": "分析传统防护手段面临的主要挑战...",
+                  "children": []
+                }
+              ]
+            }
+          ]
+        ]
+      }
+    }
+  },
+  "examples": [
+    {
+      "description": "示例1：完全扁平结构（所有章节同级排列）",
+      "value": [
+        {
+          "id": "1",
+          "title": "第一章：项目背景与目标",
+          "level": 1,
+          "content": "",
+          "requirements": "本章首先要分析行业网络安全发展趋势..."
+        },
+        {
+          "id": "1-1",
+          "title": "1.1 建设背景",
+          "level": 2,
+          "content": "",
+          "requirements": "本小节主要描述行业网络安全威胁的发展趋势..."
+        },
+        {
+          "id": "1-2",
+          "title": "1.2 建设目标",
+          "level": 2,
+          "content": "",
+          "requirements": "本小节明确本项目的总体目标和具体建设指标..."
+        },
+        {
+          "id": "2",
+          "title": "第二章：技术架构",
+          "level": 1,
+          "content": "",
+          "requirements": "本章从业务需求、技术需求和合规需求三个维度进行分析..."
+        },
+        {
+          "id": "2-1",
+          "title": "2.1 AI XDR 联动防御系统",
+          "level": 2,
+          "content": "",
+          "requirements": "本章节介绍AI XDR系统的核心架构和关键能力..."
+        },
+        {
+          "id": "2-2",
+          "title": "2.2 TrustOne 终端安全",
+          "level": 2,
+          "content": "",
+          "requirements": "本章节介绍TrustOne终端安全产品的主要功能和价值..."
+        },
+        {
+          "id": "2-3",
+          "title": "2.3 DeepSecurity 云安全",
+          "level": 2,
+          "content": "",
+          "requirements": "本章节介绍DeepSecurity云主机安全解决方案..."
+        }
+      ]
+    },
+    {
+      "description": "示例2：嵌套结构（带children字段）",
+      "value": [
+        {
+          "id": "1",
+          "title": "第一章：项目背景与目标",
+          "level": 1,
+          "content": "",
+          "requirements": "本章首先要分析行业网络安全发展趋势...",
+          "children": [
+            {
+              "id": "1-1",
+              "title": "1.1 建设背景",
+              "level": 2,
+              "content": "",
+              "requirements": "本小节主要描述行业网络安全威胁的发展趋势...",
+              "children": [
+                {
+                  "id": "1-1-1",
+                  "title": "1.1.1 威胁形势",
+                  "level": 3,
+                  "content": "",
+                  "requirements": "描述当前网络安全威胁的主要特点和趋势...",
+                  "children": []
+                },
+                {
+                  "id": "1-1-2",
+                  "title": "1.1.2 防护挑战",
+                  "level": 3,
+                  "content": "",
+                  "requirements": "分析传统防护手段面临的主要挑战...",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "1-2",
+              "title": "1.2 建设目标",
+              "level": 2,
+              "content": "",
+              "requirements": "本小节明确本项目的总体目标和具体建设指标...",
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "2",
+          "title": "第二章：技术架构",
+          "level": 1,
+          "content": "",
+          "requirements": "本章从业务需求、技术需求和合规需求三个维度进行分析...",
+          "children": [
+            {
+              "id": "2-1",
+              "title": "2.1 AI XDR 联动防御系统",
+              "level": 2,
+              "content": "",
+              "requirements": "本章节介绍AI XDR系统的核心架构和关键能力..."
+            },
+            {
+              "id": "2-2",
+              "title": "2.2 TrustOne 终端安全",
+              "level": 2,
+              "content": "",
+              "requirements": "本章节介绍TrustOne终端安全产品的主要功能和价值..."
+            },
+            {
+              "id": "2-3",
+              "title": "2.3 DeepSecurity 云安全",
+              "level": 2,
+              "content": "",
+              "requirements": "本章节介绍DeepSecurity云主机安全解决方案..."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "description": "示例3：混合结构（部分章节有三级标题，部分只有二级标题）",
+      "value": [
+        {
+          "id": "1",
+          "title": "第一章：项目背景与目标",
+          "level": 1,
+          "content": "",
+          "requirements": "本章首先要分析行业网络安全发展趋势..."
+        },
+        {
+          "id": "1-1",
+          "title": "1.1 建设背景",
+          "level": 2,
+          "content": "",
+          "requirements": "本小节主要描述行业网络安全威胁的发展趋势..."
+        },
+        {
+          "id": "1-2",
+          "title": "1.2 建设目标",
+          "level": 2,
+          "content": "",
+          "requirements": "本小节明确本项目的总体目标和具体建设指标..."
+        },
+        {
+          "id": "2",
+          "title": "第二章：技术架构",
+          "level": 1,
+          "content": "",
+          "requirements": "本章从业务需求、技术需求和合规需求三个维度进行分析..."
+        },
+        {
+          "id": "2-1",
+          "title": "2.1 AI XDR 联动防御系统",
+          "level": 2,
+          "content": "",
+          "requirements": "本章节介绍AI XDR系统的核心架构和关键能力...",
+          "children": [
+            {
+              "id": "2-1-1",
+              "title": "2.1.1 核心能力",
+              "level": 3,
+              "content": "",
+              "requirements": "详细描述AI XDR系统的核心能力和技术特点...",
+              "children": []
+            },
+            {
+              "id": "2-1-2",
+              "title": "2.1.2 应用场景",
+              "level": 3,
+              "content": "",
+              "requirements": "列举AI XDR系统的主要应用场景和典型用例...",
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "2-2",
+          "title": "2.2 TrustOne 终端安全",
+          "level": 2,
+          "content": "",
+          "requirements": "本章节介绍TrustOne终端安全产品的主要功能和价值..."
+        },
+        {
+          "id": "2-3",
+          "title": "2.3 DeepSecurity 云安全",
+          "level": 2,
+          "content": "",
+          "requirements": "本章节介绍DeepSecurity云主机安全解决方案..."
+        }
+      ]
+    }
+  ]
+}

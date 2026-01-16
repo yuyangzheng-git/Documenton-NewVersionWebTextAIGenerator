@@ -167,17 +167,13 @@ export function NotionEditor({ blocks, setBlocks, onBlockUpdate }: NotionEditorP
     setBlocks((prev) => prev.filter((block) => block.id !== id));
   };
 
-  const addBlock = (parentId: string | null, position: number, type: BlockType, initialContent?: string): string | undefined => {
+  const addBlock = (parentId: string | null, type: BlockType, initialContent?: string): string | undefined => {
     const newBlockId = `block-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
     
-    // For paragraphs, add default indent (2 full-width spaces) only if initialContent is undefined
     let content = initialContent !== undefined ? initialContent : '';
     if (type === 'paragraph' && initialContent === undefined) {
       content = '　　';
     }
-    
-    console.log('addBlock START:', { parentId, position, type, initialContent, content, blocksLength: blocks.length });
-    console.trace('addBlock call stack');
     
     const newBlock: NotionBlock = {
       id: newBlockId,
@@ -187,20 +183,22 @@ export function NotionEditor({ blocks, setBlocks, onBlockUpdate }: NotionEditorP
       children: [],
     };
 
-    if (parentId) {
-      // Find the index of the parent block and insert after it
-      const parentIndex = blocks.findIndex((b) => b.id === parentId);
-      if (parentIndex !== -1) {
-        const newBlocks = [...blocks.slice(0, parentIndex + 1), newBlock, ...blocks.slice(parentIndex + 1)];
-        console.log('addBlock setBlocks (parentId):', { parentId, parentIndex, newBlockId, newBlockContent: newBlock.content, blocksLength: newBlocks.length });
-        setBlocks(newBlocks);
+    setBlocks((prevBlocks) => {
+      if (parentId) {
+        const parentIndex = prevBlocks.findIndex((b) => b.id === parentId);
+        if (parentIndex === -1) {
+          console.warn('Parent block not found:', parentId);
+          return prevBlocks;
+        }
+        return [
+          ...prevBlocks.slice(0, parentIndex + 1),
+          newBlock,
+          ...prevBlocks.slice(parentIndex + 1)
+        ];
+      } else {
+        return [...prevBlocks, newBlock];
       }
-    } else {
-      // Insert at the specified position
-      const newBlocks = [...blocks.slice(0, position), newBlock, ...blocks.slice(position)];
-      console.log('addBlock setBlocks (position):', { position, newBlockId, newBlockContent: newBlock.content, blocksLength: newBlocks.length });
-      setBlocks(newBlocks);
-    }
+    });
 
     return newBlockId;
   };
@@ -237,7 +235,7 @@ export function NotionEditor({ blocks, setBlocks, onBlockUpdate }: NotionEditorP
 
       {/* 添加新块按钮 */}
       <button
-        onClick={() => addBlock(null, blocks.length, 'paragraph')}
+        onClick={() => addBlock(null, 'paragraph')}
         style={{
           userSelect: 'none',
           transition: 'background 20ms ease-in',

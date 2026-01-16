@@ -13,6 +13,7 @@ export default function Home() {
   const [showQuickStart, setShowQuickStart] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [fontSize, setFontSize] = useState(40);
   const [isComposing, setIsComposing] = useState(false); // 输入法状态
   const [apiKey, setApiKey] = useState('');
   const [apiUrl, setApiUrl] = useState('');
@@ -248,6 +249,15 @@ export default function Home() {
       setIsTestingConnection(false);
     }
   };
+
+  useEffect(() => {
+    const updateFontSize = () => {
+      setFontSize(Math.min(56, Math.max(40, window.innerWidth * 0.05)));
+    };
+    updateFontSize();
+    window.addEventListener('resize', updateFontSize);
+    return () => window.removeEventListener('resize', updateFontSize);
+  }, []);
 
   const handleGenerate = async () => {
     if (!prompt.trim()) return;
@@ -1377,9 +1387,9 @@ export default function Home() {
           }}
         >
           {/* Main Heading */}
-          <h1
+            <h1
             style={{
-              fontSize: Math.min(56, Math.max(40, window.innerWidth * 0.05)),
+              fontSize: Math.min(56, Math.max(40, fontSize)),
               fontWeight: 700,
               margin: '0 0 20px 0',
               background: 'linear-gradient(135deg, #2383E2 0%, #1A6FC4 100%)',
@@ -1398,7 +1408,8 @@ export default function Home() {
               lineHeight: 1.6,
               color: 'rgba(55, 53, 47, 0.7)',
               maxWidth: '640px',
-              margin: '0 0 60px 0'
+              margin: '0 0 60px 0',
+              textAlign: 'center'
             }}
           >
             通过智能大纲生成和逐章节内容创作,快速打造高质量的专业文档
@@ -1470,7 +1481,8 @@ export default function Home() {
                           border: 'none',
                           background: 'transparent',
                           fontSize: '15px',
-                          lineHeight: '1.6'
+                          lineHeight: '1.6',
+                          textAlign: 'left'
                         }}
                       ></div>
                     </div>
@@ -1481,7 +1493,7 @@ export default function Home() {
                         padding: '12px',
                         display: 'flex',
                         alignItems: 'center',
-                        justifyContent: 'flex-end'
+                        justifyContent: 'flex-start'
                       }}
                     >
                       <button

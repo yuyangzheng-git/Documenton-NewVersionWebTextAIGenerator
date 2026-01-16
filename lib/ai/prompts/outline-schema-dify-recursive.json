@@ -1,0 +1,48 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://example.com/outline-schema.json",
+  "type": "array",
+  "description": "文档大纲结构，支持任意层级嵌套（使用递归引用）",
+  "items": {
+    "$ref": "#/definitions/outlineItem"
+  },
+  "definitions": {
+    "outlineItem": {
+      "type": "object",
+      "description": "大纲项",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "唯一标识符，如 '1', '1-1', '2-1-1'"
+        },
+        "title": {
+          "type": "string",
+          "description": "章节标题，如 '1.1 建设背景' 或 '建设背景'"
+        },
+        "level": {
+          "type": "integer",
+          "description": "层级：1=一级标题，2=二级标题，3=三级标题",
+          "enum": [1, 2, 3],
+          "minimum": 1,
+          "maximum": 3
+        },
+        "content": {
+          "type": "string",
+          "description": "章节正文内容，初始为空字符串，由后续生成步骤填充"
+        },
+        "requirements": {
+          "type": "string",
+          "description": "章节内容规划和写作指南，会直接作为正文显示在编辑器中，用户可以随时修改。用段落形式写出，明确说明本章要写哪些内容，按顺序组织，指出需要避免与其他章节重复的内容，说明需要引用的数据、标准或案例。"
+        },
+        "children": {
+          "type": "array",
+          "description": "子章节数组（可选），使用递归引用支持任意层级",
+          "items": {
+            "$ref": "#/definitions/outlineItem"
+          }
+        }
+      },
+      "required": ["id", "title", "level", "content", "requirements"]
+    }
+  }
+}
