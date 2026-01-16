@@ -5,7 +5,7 @@ import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import TaskList from '@tiptap/extension-task-list';
 import TaskItem from '@tiptap/extension-task-item';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 export interface RichTextBlockProps {
   content: string;
@@ -26,7 +26,14 @@ export function RichTextBlock({
   onBackspaceAtStart,
   onSlashCommand,
 }: RichTextBlockProps) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const editor = useEditor({
+    immediatelyRender: false,
     extensions: [
       StarterKit.configure({
         heading: {
@@ -108,6 +115,10 @@ export function RichTextBlock({
       });
     }
   }, [content, editor]);
+
+  if (!mounted) {
+    return null;
+  }
 
   return (
     <div className="rich-text-block">
