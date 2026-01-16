@@ -103,7 +103,9 @@ export function RichTextBlock({
   // Update editor content when prop changes
   useEffect(() => {
     if (editor && content !== editor.getHTML()) {
-      editor.commands.setContent(content, false);
+      editor.commands.setContent(content, {
+        emitUpdate: false,
+      });
     }
   }, [content, editor]);
 
