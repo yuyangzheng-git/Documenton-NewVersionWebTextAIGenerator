@@ -22,10 +22,10 @@ export default function WordEditorPage() {
   const [customTemplateName, setCustomTemplateName] = useState<string | null>(null);
   const [showCustomTemplate, setShowCustomTemplate] = useState(false);
 
-  // Handle block updates and sync with outline
+    // Handle block updates and sync with outline
   const handleBlockUpdate = (id: string, updates: Partial<NotionBlock>) => {
     console.log('handleBlockUpdate called:', { id, updates });
-    
+
     setBlocks(prev => {
       const newBlocks = prev.map(block =>
         block.id === id ? { ...block, ...updates } : block
@@ -34,9 +34,9 @@ export default function WordEditorPage() {
       return newBlocks;
     });
 
-    // If updating requirements block, sync to outline (for level 2 items before generation)
-    if (id.startsWith('requirements-')) {
-      const outlineItemId = id.replace('requirements-', '');
+    // If updating guide block, sync to outline (for level 2 items before generation)
+    if (id.startsWith('guide-')) {
+      const outlineItemId = id.replace('guide-', '');
       if (updates.content !== undefined) {
         updateItem(outlineItemId, { requirements: updates.content });
       }
@@ -166,12 +166,16 @@ export default function WordEditorPage() {
         children: [],
       });
 
-      // Only level 2 items show requirements (before content is generated)
+      // Only level 2 and level 3 items show requirements (before content is generated)
       // Level 1 items don't show requirements
-      if (item.level === 2 && item.requirements && !item.content) {
-        // Check if this requirements block already exists and preserve user's edits
-        const existingBlock = blocks.find(b => b.id === `requirements-${item.id}`);
-        const reqBlockId = `requirements-${item.id}`;
+      // Level 2 items with children (level 3) also don't show requirements
+      const hasNextItemAsChild = index + 1 < uniqueOutline.length &&
+                                 uniqueOutline[index + 1].level > item.level;
+
+      if ((item.level === 2 || item.level === 3) && item.requirements && !item.content && !hasNextItemAsChild) {
+        // Check if this guide block already exists and preserve user's edits
+        const existingBlock = blocks.find(b => b.id === `guide-${item.id}`);
+        const guideBlockId = `guide-${item.id}`;
 
         if (existingBlock) {
           // Keep the existing block only if it hasn't been added yet
@@ -179,15 +183,15 @@ export default function WordEditorPage() {
             notionBlocks.push(existingBlock);
             generatedBlockIds.add(existingBlock.id);
           }
-        } else if (!generatedBlockIds.has(reqBlockId)) {
+        } else if (!generatedBlockIds.has(guideBlockId)) {
           notionBlocks.push({
-            id: reqBlockId,
-            type: 'paragraph',
+            id: guideBlockId,
+            type: 'guide',
             content: item.requirements,
             properties: {},
             children: [],
           });
-          generatedBlockIds.add(reqBlockId);
+          generatedBlockIds.add(guideBlockId);
         }
       }
 
@@ -246,14 +250,9 @@ export default function WordEditorPage() {
         }
       }
 
-      // Check if this level 1 item has children (has 1.1, 1.2, etc.)
-      // If it has children, don't add placeholder
-      const hasNextItemAsChild = index + 1 < uniqueOutline.length &&
-                                 uniqueOutline[index + 1].level > item.level;
-
       // Add placeholder paragraph after each heading for easy editing
-      // Only if no content AND doesn't have child sections
-      if (!item.content && !item.requirements && !hasNextItemAsChild) {
+      // Only for level 1 items AND no content AND no requirements AND no child sections
+      if (item.level === 1 && !item.content && !item.requirements && !hasNextItemAsChild) {
         const placeholderBlockId = `placeholder-${item.id}`;
         if (!generatedBlockIds.has(placeholderBlockId)) {
           notionBlocks.push({
@@ -272,17 +271,63 @@ export default function WordEditorPage() {
     // These are blocks with IDs that don't match any outline item
     const outlineItemIds = new Set([
       ...uniqueOutline.map(item => item.id),
-      ...uniqueOutline.map(item => `requirements-${item.id}`),
+      ...uniqueOutline.map(item => `guide-${item.id}`),
       ...uniqueOutline.flatMap(item => item.paragraphs ? item.paragraphs.map((_, idx) => `content-${item.id}-p${idx}`) : []),
       ...uniqueOutline.map(item => `content-${item.id}`),
       ...uniqueOutline.map(item => `placeholder-${item.id}`),
     ]);
 
-    // Add user-created blocks that are not in outline AND not already in notionBlocks
-    const userCreatedBlocks = blocks.filter(b => !outlineItemIds.has(b.id) && !generatedBlockIds.has(b.id));
-    if (userCreatedBlocks.length > 0) {
-      console.log('Preserving user-created blocks:', userCreatedBlocks.map(b => b.id));
-      notionBlocks.push(...userCreatedBlocks);
+    // Find user-created blocks
+    const userCreatedBlocks = blocks.filter(b => !outlineItemIds.has(b.id));
+
+    // Insert user-created blocks at their correct positions
+    // We need to check the current blocks array to find the position
+    userCreatedBlocks.forEach(userBlock => {
+      // Skip if this block ID is already in notionBlocks
+      if (generatedBlockIds.has(userBlock.id)) {
+        console.warn('Skipping duplicate user-created block:', userBlock.id);
+        return;
+      }
+
+      // Find where this block was in the current blocks array
+      const currentIndex = blocks.findIndex(b => b.id === userBlock.id);
+      if (currentIndex === -1) return;
+
+      // Find the block before this user block in the current array
+      const previousBlockId = currentIndex > 0 ? blocks[currentIndex - 1].id : null;
+
+      if (previousBlockId) {
+        // Find the position in notionBlocks where we should insert this user block
+        const insertPosition = notionBlocks.findIndex(nb => nb.id === previousBlockId);
+        if (insertPosition !== -1) {
+          notionBlocks.splice(insertPosition + 1, 0, userBlock);
+          generatedBlockIds.add(userBlock.id);
+        } else {
+          // If we can't find the position, add it at the end
+          notionBlocks.push(userBlock);
+          generatedBlockIds.add(userBlock.id);
+        }
+      } else {
+        // Add at the beginning
+        notionBlocks.unshift(userBlock);
+        generatedBlockIds.add(userBlock.id);
+      }
+    });
+
+    // Check for duplicate IDs in notionBlocks before updating
+    const finalBlockIds = new Set<string>();
+    const duplicateBlocks: string[] = [];
+    notionBlocks.forEach(block => {
+      if (finalBlockIds.has(block.id)) {
+        duplicateBlocks.push(block.id);
+      } else {
+        finalBlockIds.add(block.id);
+      }
+    });
+
+    if (duplicateBlocks.length > 0) {
+      console.error('Duplicate block IDs found:', duplicateBlocks);
+      console.error('All block IDs:', notionBlocks.map(b => b.id));
     }
 
     // Only update if blocks are different to avoid unnecessary re-renders
@@ -295,33 +340,33 @@ export default function WordEditorPage() {
     // Check if any blocks from current state are missing in new state
     const hasMissingBlocks = blocks.some(b => !newIds.has(b.id));
 
-    // Also check if any user-created blocks have different types
-    const userCreatedBlocksChanged = userCreatedBlocks.some(userBlock => {
-      const matchingBlockInNotion = notionBlocks.find(nb => nb.id === userBlock.id);
-      if (matchingBlockInNotion) {
-        return matchingBlockInNotion.type !== userBlock.type || matchingBlockInNotion.content !== userBlock.content;
-      }
-      return false;
-    });
-
     console.log('useEffect outline -> blocks:', {
       prevLen: blocks.length,
       newLen: notionBlocks.length,
       hasNewBlocks,
       hasMissingBlocks,
       userCreatedCount: userCreatedBlocks.length,
-      userCreatedBlocksChanged,
+      duplicates: duplicateBlocks,
       newBlockIds: notionBlocks.filter(b => !currentIds.has(b.id)).map(b => b.id)
     });
 
-    // Update if: new blocks were added OR blocks are missing (preserve user edits)
-    if (hasNewBlocks || hasMissingBlocks || userCreatedBlocksChanged) {
+    // Remove duplicates from notionBlocks before updating
+    const uniqueNotionBlocks = notionBlocks.filter((block, index, self) =>
+      index === self.findIndex(b => b.id === block.id)
+    );
+
+    if (duplicateBlocks.length > 0) {
+      console.warn('Removing duplicate blocks:', duplicateBlocks);
+    }
+
+    // Update if: new blocks were added OR blocks are missing OR there are duplicates
+    if (hasNewBlocks || hasMissingBlocks || duplicateBlocks.length > 0) {
       console.log('Updating blocks (preserving user edits)');
-      setBlocks(notionBlocks);
+      setBlocks(uniqueNotionBlocks);
     } else if (JSON.stringify(notionBlocks.map(b => b.id)) !== JSON.stringify(blocks.map(b => b.id))) {
       // If only order changed, update
       console.log('Updating blocks (order changed)');
-      setBlocks(notionBlocks);
+      setBlocks(uniqueNotionBlocks);
     }
   }, [outline]);
 
