@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  ai-document-generator:
+    build:
+      context: ./ai-document-generator
+      dockerfile: Dockerfile
+    container_name: ai-doc-generator
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    volumes:
+      # 挂载模板文件（可选）
+      - ./reference_template.docx:/app/reference_template.docx:ro
+      # 持久化数据（可选）
+      - ai-doc-data:/app/data
+    restart: unless-stopped
+    networks:
+      - ai-doc-network
+
+networks:
+  ai-doc-network:
+    driver: bridge
+
+volumes:
+  ai-doc-data:
+    driver: local
