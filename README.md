@@ -51,7 +51,25 @@
 
 ### 🎬 快速开始
 
-#### Docker 部署（推荐）
+#### 方式 1：克隆 + Docker Compose（推荐，最简单）
+
+```bash
+# 1. 克隆仓库
+git clone https://github.com/yuyangzheng-git/Documenton-NewVersionWebTextAIGenerator.git
+cd Documenton-NewVersionWebTextAIGenerator
+
+# 2. 配置环境变量
+cp .env.example .env
+# 编辑 .env 填写你的 API Key
+
+# 3. 启动服务
+docker-compose up -d
+
+# 4. 访问应用
+open http://localhost:3000
+```
+
+#### 方式 2：使用 GitHub Container Registry 镜像
 
 ```bash
 # 1. 拉取镜像
@@ -61,6 +79,7 @@ docker pull ghcr.io/yuyangzheng-git/documenton-newversionwebtextaigenerator:late
 docker run -d \
   --name ai-doc-generator \
   -p 3000:3000 \
+  --env-file .env \
   ghcr.io/yuyangzheng-git/documenton-newversionwebtextaigenerator:latest
 
 # 3. 访问应用
@@ -294,7 +313,25 @@ AI-powered professional document writing platform that supports automatic outlin
 
 ### 🎬 Quick Start
 
-#### Docker Deployment (Recommended)
+#### Option 1: Clone + Docker Compose (Recommended, Easiest)
+
+```bash
+# 1. Clone repository
+git clone https://github.com/yuyangzheng-git/Documenton-NewVersionWebTextAIGenerator.git
+cd Documenton-NewVersionWebTextAIGenerator
+
+# 2. Configure environment variables
+cp .env.example .env
+# Edit .env and fill in your API Key
+
+# 3. Start services
+docker-compose up -d
+
+# 4. Access application
+open http://localhost:3000
+```
+
+#### Option 2: Use GitHub Container Registry Image
 
 ```bash
 # 1. Pull image
@@ -304,6 +341,7 @@ docker pull ghcr.io/yuyangzheng-git/documenton-newversionwebtextaigenerator:late
 docker run -d \
   --name ai-doc-generator \
   -p 3000:3000 \
+  --env-file .env \
   ghcr.io/yuyangzheng-git/documenton-newversionwebtextaigenerator:latest
 
 # 3. Access application
