@@ -7,8 +7,10 @@ import { AIChat } from '@/components/AIChat';
 import { TextSelectionToolbar } from '@/components/TextSelectionToolbar';
 import { NotionEditor, NotionBlock } from '@/components/NotionEditor';
 import { SettingsModal } from '@/components/SettingsModal';
-import { ChevronLeft, Palette, Download, Upload, Settings } from 'lucide-react';
+import { ChevronLeft, Palette, Download, Upload, Settings, FileText } from 'lucide-react';
 import { WORD_TEMPLATES } from '@/lib/word-templates';
+import { StreamingMarkdownParser } from '@/lib/streaming-markdown-parser';
+import { StreamingMarkdownHandler } from '@/lib/streaming-markdown-handler';
 
 export default function WordEditorPage() {
   const router = useRouter();
@@ -165,6 +167,98 @@ export default function WordEditorPage() {
       // Track the content as it streams in
       let generatedContent = '';
 
+      // 创建流式 Markdown 处理器
+      const markdownHandler = new StreamingMarkdownHandler();
+      markdownHandler.setThrottleDelay(500); // 增加节流延迟到 500ms 减少闪烁
+
+      // 用于跟踪已创建的块ID映射
+      const blockIdMap = new Map<number, string>(); // 索引 -> 块ID
+
+      // 设置解析回调 - 实时解析并更新块（AppFlowy 风格）
+      markdownHandler.setOnComplete(() => {
+        // 获取缓冲区的原始 Markdown
+        const currentMarkdown = markdownHandler.getBuffer();
+
+        // 使用 StreamingMarkdownParser 实时解析
+        const parser = new StreamingMarkdownParser();
+        const markdownBlocks = parser.parseComplete(currentMarkdown);
+        console.log('🔄 Streaming blocks:', markdownBlocks.map(b => ({ type: b.type, hasTableData: !!b.properties?.tableData })));
+
+        // 实时更新块结构（AppFlowy 的增量更新机制）
+        setBlocks(prevBlocks => {
+          const newBlocks = [...prevBlocks];
+
+          // 找到流式内容的起始位置
+          const guideBlockId = `guide-${outlineItemId}`;
+          const guideBlockIndex = newBlocks.findIndex(b => b.id === guideBlockId);
+
+          if (guideBlockIndex === -1) return newBlocks;
+
+          // 移除之前的流式生成块（从guide block之后到下一个heading之前）
+          let removeStartIndex = guideBlockIndex + 1;
+          let removeEndIndex = removeStartIndex;
+
+          for (let i = removeStartIndex; i < newBlocks.length; i++) {
+            const block = newBlocks[i];
+            // Stop at next heading
+            if (block.type === 'h1' || block.type === 'h2' || block.type === 'h3') {
+              removeEndIndex = i;
+              break;
+            }
+            // Remove if it's generating, loading, or previously generated for this item
+            const isGeneratedForThisItem = block.id.startsWith(`generated-${outlineItemId}-`) ||
+                                          block.id.startsWith(`streaming-${outlineItemId}-`);
+            if (block.properties?.isGenerating ||
+                block.properties?.loading ||
+                isGeneratedForThisItem) {
+              removeEndIndex = i + 1;
+            } else {
+              // Stop if we hit an unrelated block
+              break;
+            }
+          }
+
+          // 删除旧的生成中的块
+          if (removeEndIndex > removeStartIndex) {
+            newBlocks.splice(removeStartIndex, removeEndIndex - removeStartIndex);
+          }
+
+          // 创建新的块（包括表格块）
+          const newContentBlocks = markdownBlocks.map((mdBlock, index) => {
+            // 为每个块生成或复用稳定的ID
+            let blockId = blockIdMap.get(index);
+            if (!blockId) {
+              blockId = `streaming-${outlineItemId}-${mdBlock.type}-${index}`;
+              blockIdMap.set(index, blockId);
+            }
+
+            const notionBlock: any = {
+              id: blockId,
+              type: mdBlock.type,
+              content: mdBlock.content,
+              properties: {
+                ...(mdBlock.properties || {}),
+                isGenerating: true,
+                isGenerated: true
+              },
+              children: []
+            };
+
+            // 特殊处理表格：解析为 SimpleTableBlockData
+            if (mdBlock.type === 'table' && mdBlock.properties?.tableData) {
+              notionBlock.properties.tableData = mdBlock.properties.tableData;
+            }
+
+            return notionBlock;
+          });
+
+          // 在 guide block 之后插入新块
+          newBlocks.splice(guideBlockIndex + 1, 0, ...newContentBlocks);
+
+          return newBlocks;
+        });
+      });
+
       // Find current heading block index
       const headingBlockIndex = blocks.findIndex(b => b.id === headingBlockId);
       if (headingBlockIndex === -1) return;
@@ -219,10 +313,10 @@ export default function WordEditorPage() {
         // Add a loading placeholder after the guide block
         const newGuideBlockIndex = newBlocks.findIndex(b => b.id === guideBlockId);
         newBlocks.splice(newGuideBlockIndex + 1, 0, {
-          id: `loading-${Date.now()}`,
+          id: `loading-${outlineItemId}-${Date.now()}`,
           type: 'paragraph',
           content: '正在生成内容...',
-          properties: { loading: true },
+          properties: { loading: true, isGenerating: true },
           children: []
         });
 
@@ -236,182 +330,71 @@ export default function WordEditorPage() {
         documentTopic,
         fullOutline,
         (chunk) => {
+          // 使用流式处理器追加内容（会自动处理节流和解析）
+          markdownHandler.append(chunk);
           generatedContent += chunk;
           console.log('Received chunk:', chunk);
-
-          // Update loading placeholder with streaming content
-          setBlocks(prevBlocks => prevBlocks.map(block =>
-            block.properties.loading ? { ...block, content: generatedContent } : block
-          ));
         },
         () => {
-          // On complete, convert markdown to blocks and replace placeholder
+          // On complete, convert markdown to blocks and replace streaming blocks
           console.log('Generation complete. Final content:', generatedContent);
 
-          // Enhanced markdown parser
-          const lines = generatedContent.split('\n');
-          const newContentBlocks: NotionBlock[] = [];
+          // Use streaming markdown parser for final block conversion
+          const parser = new StreamingMarkdownParser();
+          const markdownBlocks = parser.parseComplete(generatedContent);
+          console.log('📊 Parsed markdown blocks:', markdownBlocks.map(b => ({ type: b.type, hasTableData: !!b.properties?.tableData })));
 
-          // State for table parsing
-          let inTable = false;
-          let tableRows: string[][] = [];
-          let currentListType: 'bullet' | 'ordered' | null = null;
+          const newContentBlocks = StreamingMarkdownParser.toNotionBlocks(markdownBlocks, `generated-${outlineItemId}`);
+          console.log('📊 Converted notion blocks:', newContentBlocks.map(b => ({ type: b.type, hasTableData: !!b.properties?.tableData })));
 
-          lines.forEach((line, index) => {
-            const trimmedLine = line.trim();
-
-            // Skip empty lines
-            if (!trimmedLine) return;
-
-            // Handle tables
-            if (trimmedLine.startsWith('|') && trimmedLine.endsWith('|')) {
-              if (!inTable) {
-                inTable = true;
-                tableRows = [];
-              }
-              const cells = trimmedLine.slice(1, -1).split('|').map(cell => cell.trim());
-              // Skip separator row (e.g., |---|---|)
-              if (!cells.every(cell => /^-+$/.test(cell))) {
-                tableRows.push(cells);
-              }
-              return;
-            } else if (inTable) {
-              // End of table, create table block
-              if (tableRows.length > 0) {
-                const tableHtml = tableRows.map(row =>
-                  `<tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>`
-                ).join('');
-                newContentBlocks.push({
-                  id: `generated-${outlineItemId}-table-${Date.now()}-${index}`,
-                  type: 'table',
-                  content: `<table>${tableHtml}</table>`,
-                  properties: {},
-                  children: []
-                });
-              }
-              inTable = false;
-              tableRows = [];
-            }
-
-            // Handle headings
-            if (trimmedLine.startsWith('### ')) {
-              currentListType = null;
-              newContentBlocks.push({
-                id: `generated-${outlineItemId}-h3-${Date.now()}-${index}`,
-                type: 'h3',
-                content: trimmedLine.substring(4),
-                properties: {},
-                children: []
-              });
-            } else if (trimmedLine.startsWith('## ')) {
-              currentListType = null;
-              newContentBlocks.push({
-                id: `generated-${outlineItemId}-h2-${Date.now()}-${index}`,
-                type: 'h2',
-                content: trimmedLine.substring(3),
-                properties: {},
-                children: []
-              });
-            } else if (trimmedLine.startsWith('# ')) {
-              currentListType = null;
-              newContentBlocks.push({
-                id: `generated-${outlineItemId}-h1-${Date.now()}-${index}`,
-                type: 'h1',
-                content: trimmedLine.substring(2),
-                properties: {},
-                children: []
-              });
-            }
-            // Handle images
-            else if (trimmedLine.startsWith('![') && trimmedLine.includes('](')) {
-              const altMatch = trimmedLine.match(/!\[([^\]]*)\]\(([^)]+)\)/);
-              if (altMatch) {
-                const altText = altMatch[1];
-                const src = altMatch[2];
-                newContentBlocks.push({
-                  id: `generated-${outlineItemId}-image-${Date.now()}-${index}`,
-                  type: 'image',
-                  content: altText || '',
-                  properties: { src, caption: altText },
-                  children: []
-                });
-              }
-            }
-            // Handle bullet lists
-            else if (trimmedLine.match(/^[-*+]\s+/)) {
-              currentListType = 'bullet';
-              newContentBlocks.push({
-                id: `generated-${outlineItemId}-bullet-${Date.now()}-${index}`,
-                type: 'bullet',
-                content: trimmedLine.replace(/^[-*+]\s+/, ''),
-                properties: {},
-                children: []
-              });
-            }
-            // Handle ordered lists
-            else if (trimmedLine.match(/^\d+\.\s+/)) {
-              currentListType = 'ordered';
-              newContentBlocks.push({
-                id: `generated-${outlineItemId}-ordered-${Date.now()}-${index}`,
-                type: 'numbered',
-                content: trimmedLine.replace(/^\d+\.\s+/, ''),
-                properties: {},
-                children: []
-              });
-            }
-            // Handle quotes
-            else if (trimmedLine.startsWith('> ')) {
-              currentListType = null;
-              newContentBlocks.push({
-                id: `generated-${outlineItemId}-quote-${Date.now()}-${index}`,
-                type: 'quote',
-                content: trimmedLine.substring(2),
-                properties: {},
-                children: []
-              });
-            }
-            // Handle code blocks (single line for now)
-            else if (trimmedLine.startsWith('```')) {
-              currentListType = null;
-              // Skip code block markers
-              return;
-            }
-            // Handle inline code or paragraphs
-            else {
-              const content = inTable ? '' : trimmedLine;
-              if (content) {
-                newContentBlocks.push({
-                  id: `generated-${outlineItemId}-p-${Date.now()}-${index}`,
-                  type: 'paragraph',
-                  content: content,
-                  properties: {},
-                  children: []
-                });
-              }
-            }
+          // Mark all generated blocks as isGenerated (remove isGenerating flag)
+          newContentBlocks.forEach(block => {
+            block.properties = { ...block.properties, isGenerated: true, isGenerating: false };
           });
 
-          // Handle unclosed table at end
-          if (inTable && tableRows.length > 0) {
-            const tableHtml = tableRows.map(row =>
-              `<tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>`
-            ).join('');
-            newContentBlocks.push({
-              id: `generated-${outlineItemId}-table-end-${Date.now()}`,
-              type: 'table',
-              content: `<table>${tableHtml}</table>`,
-              properties: {},
-              children: []
-            });
-          }
+          console.log('📊 After marking as generated:', newContentBlocks.map(b => ({ type: b.type, hasTableData: !!b.properties?.tableData })));
 
-          // Replace loading placeholder with generated content
+          // Replace streaming blocks with final structured blocks
           setBlocks(prevBlocks => {
             const newBlocks = [...prevBlocks];
-            const loadingIndex = newBlocks.findIndex(b => b.properties.loading);
-            if (loadingIndex !== -1) {
-              newBlocks.splice(loadingIndex, 1, ...newContentBlocks);
+
+            // Find the range of streaming/generating blocks
+            const guideBlockId = `guide-${outlineItemId}`;
+            const guideBlockIndex = newBlocks.findIndex(b => b.id === guideBlockId);
+
+            console.log('📍 Guide block index:', guideBlockIndex);
+
+            if (guideBlockIndex !== -1) {
+              // Remove all blocks after guide block that belong to this outline item
+              // This includes: isGenerating, loading, and previously generated blocks
+              let removeCount = 0;
+              for (let i = guideBlockIndex + 1; i < newBlocks.length; i++) {
+                const block = newBlocks[i];
+                // Stop at next heading
+                if (block.type === 'h1' || block.type === 'h2' || block.type === 'h3') {
+                  break;
+                }
+                // Remove if it's generating, loading, or a previously generated block for this item
+                const isGeneratedForThisItem = block.id.startsWith(`generated-${outlineItemId}-`);
+                if (block.properties?.isGenerating ||
+                    block.properties?.loading ||
+                    isGeneratedForThisItem) {
+                  removeCount++;
+                } else {
+                  // Stop if we hit a block that's not related to this generation
+                  break;
+                }
+              }
+
+              console.log('🗑️ Removing', removeCount, 'blocks');
+              console.log('➕ Adding', newContentBlocks.length, 'blocks');
+              console.log('➕ New blocks types:', newContentBlocks.map(b => b.type));
+              console.log('➕ New blocks with tableData:', newContentBlocks.filter(b => b.properties?.tableData).length);
+
+              // Replace with final blocks
+              newBlocks.splice(guideBlockIndex + 1, removeCount, ...newContentBlocks);
             }
+
             return newBlocks;
           });
 
@@ -420,6 +403,10 @@ export default function WordEditorPage() {
 
           // Show success toast
           showToast('✅ 章节内容生成完成!', 'success');
+
+          // Reset handler for next use
+          markdownHandler.reset();
+          blockIdMap.clear();
         },
         requirements,
         (error) => {
@@ -428,6 +415,9 @@ export default function WordEditorPage() {
 
           // Remove loading placeholder
           setBlocks(prevBlocks => prevBlocks.filter(b => !b.properties.loading));
+
+          // Reset handler
+          markdownHandler.reset();
         }
       );
     } catch (error) {
@@ -522,7 +512,9 @@ export default function WordEditorPage() {
       const hasNextItemAsChild = index + 1 < uniqueOutline.length &&
                                  uniqueOutline[index + 1].level > item.level;
 
-      if ((item.level === 2 || item.level === 3) && item.requirements && !item.content && !hasNextItemAsChild) {
+      // Add guide block and generated content for items with requirements
+      // IMPORTANT: Don't check !item.content because content is set after generation completes
+      if ((item.level === 2 || item.level === 3) && item.requirements && !hasNextItemAsChild) {
         // Check if this guide block already exists and preserve user's edits
         const existingBlock = blocks.find(b => b.id === `guide-${item.id}`);
         const guideBlockId = `guide-${item.id}`;
@@ -543,10 +535,31 @@ export default function WordEditorPage() {
           });
           generatedBlockIds.add(guideBlockId);
         }
+
+        // Insert generated blocks for this item right after the guide block
+        // This ensures generated content appears immediately after the guide block
+        const itemGeneratedBlocks = blocks.filter(b =>
+          b.id.startsWith(`generated-${item.id}-`) &&
+          b.properties?.isGenerated &&
+          !generatedBlockIds.has(b.id)
+        );
+
+        if (itemGeneratedBlocks.length > 0) {
+          console.log(`📦 Adding ${itemGeneratedBlocks.length} generated blocks after guide-${item.id}`);
+          itemGeneratedBlocks.forEach(genBlock => {
+            notionBlocks.push(genBlock);
+            generatedBlockIds.add(genBlock.id);
+          });
+        }
       }
 
       // Add content blocks if exists
-      if (item.content) {
+      // But skip if we already have generated blocks for this item (to avoid duplication)
+      const hasGeneratedBlocks = blocks.some(b =>
+        b.id.startsWith(`generated-${item.id}-`) && b.properties?.isGenerated
+      );
+
+      if (item.content && !hasGeneratedBlocks) {
         // 如果有段落列表，将每个段落作为独立块显示
         if (item.paragraphs && item.paragraphs.length > 0) {
           item.paragraphs.forEach((paragraph, index) => {
@@ -628,7 +641,10 @@ export default function WordEditorPage() {
     ]);
 
     // Find user-created blocks
-    const userCreatedBlocks = blocks.filter(b => !outlineItemIds.has(b.id));
+    // Exclude blocks that are generated from streaming (start with "generated-")
+    const userCreatedBlocks = blocks.filter(b =>
+      !outlineItemIds.has(b.id) && !b.id.startsWith('generated-')
+    );
 
     // Insert user-created blocks at their correct positions
     // We need to check the current blocks array to find the position
@@ -661,6 +677,66 @@ export default function WordEditorPage() {
         // Add at the beginning
         notionBlocks.unshift(userBlock);
         generatedBlockIds.add(userBlock.id);
+      }
+    });
+
+    // Preserve generated streaming blocks (including tables) that weren't already inserted
+    // These are blocks that might not have a guide block (edge case)
+    // Only keep blocks that belong to outline items that still exist
+    const validOutlineIds = new Set(uniqueOutline.map(item => item.id));
+    const remainingGeneratedBlocks = blocks.filter(b => {
+      if (!b.id.startsWith('generated-') || !b.properties?.isGenerated) {
+        return false;
+      }
+
+      // Skip if already added
+      if (generatedBlockIds.has(b.id)) {
+        return false;
+      }
+
+      // Extract outlineItemId from block ID: "generated-{outlineItemId}-..."
+      const idParts = b.id.split('-');
+      if (idParts.length < 3) return false;
+
+      const outlineItemId = idParts[1]; // Second part is the outlineItemId
+
+      // Only keep blocks that belong to existing outline items
+      return validOutlineIds.has(outlineItemId);
+    });
+
+    console.log('🔍 Remaining generated blocks to insert:', {
+      total: blocks.filter(b => b.id.startsWith('generated-')).length,
+      alreadyInserted: Array.from(generatedBlockIds).filter(id => id.startsWith('generated-')).length,
+      remaining: remainingGeneratedBlocks.length,
+      remainingIds: remainingGeneratedBlocks.map(b => b.id)
+    });
+
+    // Insert remaining generated blocks at their correct positions (fallback)
+    remainingGeneratedBlocks.forEach(genBlock => {
+      // Find where this block was in the current blocks array
+      const currentIndex = blocks.findIndex(b => b.id === genBlock.id);
+      if (currentIndex === -1) return;
+
+      // Find the block before this generated block in the current array
+      const previousBlockId = currentIndex > 0 ? blocks[currentIndex - 1].id : null;
+
+      if (previousBlockId) {
+        // Find the position in notionBlocks where we should insert this generated block
+        const insertPosition = notionBlocks.findIndex(nb => nb.id === previousBlockId);
+        if (insertPosition !== -1) {
+          notionBlocks.splice(insertPosition + 1, 0, genBlock);
+          generatedBlockIds.add(genBlock.id);
+          console.log(`📌 Inserted generated block ${genBlock.id} after ${previousBlockId}`);
+        } else {
+          // If we can't find the position, add it at the end
+          notionBlocks.push(genBlock);
+          generatedBlockIds.add(genBlock.id);
+          console.warn(`⚠️ Could not find position for ${genBlock.id}, added at end`);
+        }
+      } else {
+        // Add at the beginning
+        notionBlocks.unshift(genBlock);
+        generatedBlockIds.add(genBlock.id);
       }
     });
 
@@ -827,6 +903,7 @@ export default function WordEditorPage() {
           top: 0,
           zIndex: 50,
         }}
+        className="top-navbar"
       >
         <div style={{ position: 'relative', display: 'flex', flexShrink: 0, alignItems: 'center', gap: '4px' }}>
           <button
@@ -871,7 +948,11 @@ export default function WordEditorPage() {
             padding: '4px 8px',
             borderRadius: '4px',
             textAlign: 'center',
+            minWidth: '100px',
+            maxWidth: '300px',
+            flex: '1 1 auto',
           }}
+          className="document-title-input"
         />
 
         <div style={{ position: 'relative', display: 'flex', flexShrink: 0, alignItems: 'center', gap: '4px' }}>
@@ -896,9 +977,10 @@ export default function WordEditorPage() {
               gap: '6px',
               border: 'none',
             }}
+            className="nav-button template-button"
           >
             <Palette style={{ width: '20px', height: '20px', display: 'block', fill: 'rgba(55, 53, 47, 0.65)', flexShrink: 0 }} />
-            <span>{currentTemplate.name}</span>
+            <span className="button-text">{currentTemplate.name}</span>
           </button>
 
           <button
@@ -922,9 +1004,10 @@ export default function WordEditorPage() {
               gap: '6px',
               border: 'none',
             }}
+            className="nav-button export-button"
           >
             <Download style={{ width: '20px', height: '20px', display: 'block', flexShrink: 0 }} />
-            <span>导出</span>
+            <span className="button-text">导出</span>
           </button>
 
           <button
@@ -1076,7 +1159,10 @@ export default function WordEditorPage() {
           position: 'relative',
           minHeight: 'calc(100vh - 44px)',
           backgroundColor: '#f7f7f5',
+          overflowX: 'auto', // 允许横向滚动
+          overflowY: 'auto', // 允许纵向滚动
         }}
+        className="main-content-wrapper"
       >
         {/* Notion Editor - Centered Canvas */}
         <main
@@ -1086,6 +1172,7 @@ export default function WordEditorPage() {
             justifyContent: 'center',
             padding: '40px 20px',
             transition: 'all 200ms ease-in-out',
+            minWidth: 'fit-content', // 确保内容不被压缩
           }}
         >
           {/* A4-like Canvas Container */}
@@ -1093,13 +1180,16 @@ export default function WordEditorPage() {
             style={{
               width: '100%',
               maxWidth: '800px',
+              minWidth: '320px', // 最小宽度，小屏幕时使用滚动
               backgroundColor: '#fff',
               borderRadius: '4px',
               boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
               minHeight: '800px',
               display: 'flex',
               flexDirection: 'column',
+              overflow: 'visible', // 确保内容溢出可见（表格滚动条）
             }}
+            className="editor-canvas"
           >
             {/* Document Title */}
             <div style={{ padding: '40px 48px' }}>
@@ -1109,7 +1199,11 @@ export default function WordEditorPage() {
             </div>
 
             {/* Editor Content */}
-            <div style={{ padding: '0 48px 48px 48px' }}>
+            <div style={{
+              padding: '0 48px 48px 48px',
+              overflow: 'visible', // 允许表格滚动条显示
+              flex: 1
+            }}>
               {blocks.length === 0 ? (
                 <div
                   style={{

@@ -1,9 +1,22 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { useState, useRef, useEffect, lazy, Suspense } from 'react';
+import { ChevronDown, ChevronUp, Check } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import Prism from 'prismjs';
+import 'prismjs/themes/prism-tomorrow.css';
+import 'prismjs/components/prism-typescript';
+import 'prismjs/components/prism-javascript';
+import 'prismjs/components/prism-python';
+import 'prismjs/components/prism-java';
+import 'prismjs/components/prism-csharp';
+import 'prismjs/components/prism-bash';
+import 'prismjs/components/prism-json';
+import 'prismjs/components/prism-markdown';
+import 'prismjs/components/prism-css';
+import 'prismjs/components/prism-sql';
+import 'prismjs/components/prism-yaml';
 import {
   Type,
   Code2,
@@ -19,7 +32,12 @@ import {
   Lightbulb,
   Sparkles,
   Upload,
+  Table as TableIcon,
 } from 'lucide-react';
+import { SimpleTableBlock, type SimpleTableBlockData } from '@/components/blocks';
+
+// Lazy load StreamingMarkdownRenderer to avoid circular dependencies
+const StreamingMarkdownRenderer = lazy(() => import('@/components/StreamingMarkdownRenderer').then(m => ({ default: m.StreamingMarkdownRenderer })));
 
 export type BlockType =
   | 'paragraph'
@@ -34,6 +52,7 @@ export type BlockType =
   | 'divider'
   | 'callout'
   | 'image'
+  | 'table'
   | 'guide';
 
 export interface NotionBlock {
@@ -46,6 +65,7 @@ export interface NotionBlock {
 
 interface NotionBlockProps {
   block: NotionBlock;
+  editable?: boolean;
   onUpdate: (id: string, updates: Partial<NotionBlock>) => void;
   onDelete: (id: string) => void;
   onAdd: (parentId: string | null, type: BlockType, initialContent?: string) => string | undefined;
@@ -66,8 +86,132 @@ const BLOCK_ICONS: Record<BlockType, React.ComponentType<React.SVGProps<SVGSVGEl
   divider: Minus,
   callout: Type,
   image: ImageIcon,
+  table: TableIcon,
   guide: Lightbulb,
 };
+
+// Helper function to generate empty 3x3 table HTML
+function generateEmptyTable(): string {
+  let html = '<table style="border-collapse: collapse; width: 100%; border: 1px solid #e0e0e0;">';
+  for (let i = 0; i < 3; i++) {
+    html += '<tr>';
+    for (let j = 0; j < 3; j++) {
+      html += `<td style="border: 1px solid #e0e0e0; padding: 8px; min-width: 80px; height: 40px; vertical-align: top;"></td>`;
+    }
+    html += '</tr>';
+  }
+  html += '</table>';
+  return html;
+}
+
+// Helper function to parse table HTML and manipulate rows/cols
+function addTableRow(html: string): string {
+  const tbodyMatch = html.match(/<table[^>]*>([\s\S]*?)<\/table>/);
+  if (!tbodyMatch) return html;
+
+  const tableContent = tbodyMatch[1];
+  const trCount = (tableContent.match(/<tr>/g) || []).length;
+  const tdCount = tableContent.match(/<td>/g)?.length || 3;
+
+  let newTr = '<tr>';
+  for (let i = 0; i < Math.floor(tdCount / trCount); i++) {
+    newTr += `<td style="border: 1px solid #e0e0e0; padding: 8px; min-width: 80px; height: 40px; vertical-align: top;"></td>`;
+  }
+  newTr += '</tr>';
+
+  return html.replace(/<\/table>/, `${newTr}</table>`);
+}
+
+function removeTableRow(html: string): string {
+  const tbodyMatch = html.match(/<table[^>]*>([\s\S]*?)<\/table>/);
+  if (!tbodyMatch) return html;
+
+  const tableContent = tbodyMatch[1];
+  const trMatches = tableContent.match(/<tr>[\s\S]*?<\/tr>/g);
+
+  if (!trMatches || trMatches.length <= 1) return html;
+
+  // Remove last row
+  const newTableContent = tableContent.replace(/<tr>[\s\S]*?<\/tr>$/, '');
+
+  return html.replace(/<table[^>]*>[\s\S]*?<\/table>/, `<table style="border-collapse: collapse; width: 100%; border: 1px solid #e0e0e0;">${newTableContent}</table>`);
+}
+
+function addTableColumn(html: string): string {
+  const tbodyMatch = html.match(/<table[^>]*>([\s\S]*?)<\/table>/);
+  if (!tbodyMatch) return html;
+
+  const tableContent = tbodyMatch[1];
+  // Add a td to each tr
+  const newTableContent = tableContent.replace(/<\/tr>/g, `<td style="border: 1px solid #e0e0e0; padding: 8px; min-width: 80px; height: 40px; vertical-align: top;"></td></tr>`);
+
+  return html.replace(/<table[^>]*>[\s\S]*?<\/table>/, `<table style="border-collapse: collapse; width: 100%; border: 1px solid #e0e0e0;">${newTableContent}</table>`);
+}
+
+function removeTableColumn(html: string): string {
+  const tbodyMatch = html.match(/<table[^>]*>([\s\S]*?)<\/table>/);
+  if (!tbodyMatch) return html;
+
+  const tableContent = tbodyMatch[1];
+  const trMatches = tableContent.match(/<tr>[\s\S]*?<\/tr>/g);
+
+  if (!trMatches || trMatches.length === 0) return html;
+
+  // Check if each row has at least 2 cells
+  for (const tr of trMatches) {
+    const cellCount = (tr.match(/<td[^>]*>/g) || []).length;
+    if (cellCount <= 1) return html;
+  }
+
+  // Remove last cell from each tr
+  const newTableContent = tableContent.replace(/<td[^>]*>[\s\S]*?<\/td><\/tr>/g, '</tr>');
+
+  return html.replace(/<table[^>]*>[\s\S]*?<\/table>/, `<table style="border-collapse: collapse; width: 100%; border: 1px solid #e0e0e0;">${newTableContent}</table>`);
+}
+
+// Table control button component
+function TableControlButton({
+  onClick,
+  icon,
+  title,
+  position,
+}: {
+  onClick: () => void;
+  icon: React.ReactNode;
+  title: string;
+  position: 'top-right' | 'bottom-right';
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      style={{
+        position: 'absolute',
+        width: '16px',
+        height: '16px',
+        borderRadius: '50%',
+        backgroundColor: '#2383E2',
+        color: 'white',
+        border: 'none',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: '10px',
+        zIndex: 10,
+        ...(position === 'top-right' ? {
+          top: '-4px',
+          right: '-4px',
+        } : {
+          bottom: '-4px',
+          right: '-4px',
+        }),
+      }}
+    >
+      {icon}
+    </button>
+  );
+}
 
 const BLOCK_TYPES = [
   { type: 'paragraph' as BlockType, label: '文本' },
@@ -83,7 +227,7 @@ const BLOCK_TYPES = [
   { type: 'image' as BlockType, label: '图片' },
 ];
 
-export function NotionBlock({ block, onUpdate, onDelete, onAdd, onGenerate }: NotionBlockProps) {
+export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd, onGenerate }: NotionBlockProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [editContent, setEditContent] = useState(block.content);
@@ -142,15 +286,15 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, onGenerate }: No
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    console.log('handleKeyDown START:', { 
-      key: e.key, 
-      code: e.code, 
-      shiftKey: e.shiftKey, 
+    console.log('handleKeyDown START:', {
+      key: e.key,
+      code: e.code,
+      shiftKey: e.shiftKey,
       ctrlKey: e.ctrlKey,
       type: block.type,
-      blockId: block.id 
+      blockId: block.id
     });
-    
+
     // Enter creates a new block (Notion-style)
     if (e.key === 'Enter' && !e.shiftKey) {
       console.log('Enter detected, preventing default');
@@ -177,6 +321,10 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, onGenerate }: No
         // For code blocks, Enter creates new line in same block
         newBlockType = 'code';
         initialContent = undefined;
+      } else if (block.type === 'table') {
+        // For table blocks, Enter creates new table block
+        newBlockType = 'table';
+        initialContent = generateEmptyTable();
       } else if (block.type === 'h1' || block.type === 'h2' || block.type === 'h3') {
         // For headings, Enter creates new paragraph
         newBlockType = 'paragraph';
@@ -201,12 +349,12 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, onGenerate }: No
       }
 
       // Add new block with content after cursor and get its ID
-      console.log('About to call onAdd:', { 
-        onAddExists: !!onAdd, 
-        newBlockType, 
-        initialContent, 
+      console.log('About to call onAdd:', {
+        onAddExists: !!onAdd,
+        newBlockType,
+        initialContent,
         afterCursor,
-        blockId: block.id 
+        blockId: block.id
       });
       const newBlockId = onAdd ? onAdd(block.id, newBlockType, initialContent) : undefined;
       console.log('onAdd result:', { newBlockId });
@@ -399,35 +547,68 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, onGenerate }: No
 
   const handleTypeChange = (type: BlockType) => {
     // Remove the '/' from content before changing type
-    let cleanContent = editContent.replace(/^\/$/, '');
+    let cleanContent = editContent.replace(/^\/+$/, '');
+
+    console.log('NotionBlock handleTypeChange:', {
+      blockId: block.id,
+      currentType: block.type,
+      newType: type,
+      originalEditContent: editContent,
+      cleanContent: cleanContent
+    });
+
+    // Generate proper SimpleTableBlockData when switching to table type
+    if (type === 'table') {
+      const tableData: SimpleTableBlockData = {
+        id: block.id,
+        type: 'table',
+        rows: [
+          { cells: [{ content: '' }, { content: '' }, { content: '' }] },
+          { cells: [{ content: '' }, { content: '' }, { content: '' }] },
+          { cells: [{ content: '' }, { content: '' }, { content: '' }] }
+        ],
+        enableHeaderRow: true,
+        columnWidths: {
+          0: 160,
+          1: 160,
+          2: 160
+        }
+      };
+
+      console.log('NotionBlock generating empty table data:', tableData);
+      cleanContent = '';  // Clear content for table blocks
+
+      // Update with table data in properties
+      setEditContent(cleanContent);
+      setShowSlashMenu(false);
+      onUpdate(block.id, {
+        type,
+        content: cleanContent,
+        properties: {
+          ...block.properties,
+          tableData
+        }
+      });
+      return;
+    }
 
     // Add default indent when switching to paragraph if content is empty
     if (type === 'paragraph' && cleanContent === '') {
       cleanContent = '　　';
     }
 
-    console.log('NotionBlock handleTypeChange:', {
-      blockId: block.id,
-      currentType: block.type,
-      newType: type,
-      currentContent: editContent,
-      cleanContent
-    });
-
-    // Update local state immediately to ensure UI shows the change
+    // Update local state immediately
     setEditContent(cleanContent);
 
-    // Close the menu immediately
+    // Close the menu
     setShowSlashMenu(false);
 
-    // Force a re-render by using setTimeout
-    setTimeout(() => {
-      console.log('NotionBlock calling onUpdate with:', { type, content: cleanContent });
-      onUpdate(block.id, { type, content: cleanContent });
-    }, 0);
+    // Update parent state immediately (not in setTimeout)
+    onUpdate(block.id, { type, content: cleanContent });
   };
 
   const handleMenuItemClick = (type: BlockType, e: React.MouseEvent) => {
+    console.log('NotionBlock handleMenuItemClick:', { type, e });
     e.preventDefault();
     e.stopPropagation();
     handleTypeChange(type);
@@ -499,6 +680,28 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, onGenerate }: No
       ...getBlockStyles()
     };
 
+    // Use streaming markdown renderer for paragraph blocks with markdown content
+    // This includes both loading state and completed markdown content
+    const hasMarkdownContent = editContent && (
+      editContent.includes('```') ||
+      editContent.includes('|') ||
+      editContent.includes('#') ||
+      editContent.includes('**') ||
+      editContent.includes('*') ||
+      editContent.includes('- ') ||
+      editContent.includes('1. ')
+    );
+
+    if (block.type === 'paragraph' && (block.properties.loading || (block.properties.isGenerated && hasMarkdownContent))) {
+      return (
+        <Suspense fallback={<div style={{ padding: '12px', color: 'rgba(55, 53, 47, 0.5)' }}>加载中...</div>}>
+          <div style={{ flex: 1, marginTop: '8px', width: '100%', padding: '12px', backgroundColor: block.properties.loading ? 'rgba(35, 131, 226, 0.02)' : 'transparent', borderRadius: '4px' }}>
+            <StreamingMarkdownRenderer markdown={editContent} isComplete={!block.properties.loading} />
+          </div>
+        </Suspense>
+      );
+    }
+
     switch (block.type) {
       case 'h1':
         return (
@@ -506,7 +709,10 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, onGenerate }: No
             <textarea
               ref={editorRef as any}
               value={editContent}
-              onChange={(e) => setEditContent(e.target.value)}
+              onChange={(e) => {
+                setEditContent(e.target.value);
+                onUpdate(block.id, { content: e.target.value });
+              }}
               onFocus={handleFocus}
               onBlur={handleBlur}
               onKeyDown={handleKeyDown}
@@ -547,7 +753,10 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, onGenerate }: No
             <textarea
               ref={editorRef as any}
               value={editContent}
-              onChange={(e) => setEditContent(e.target.value)}
+              onChange={(e) => {
+                setEditContent(e.target.value);
+                onUpdate(block.id, { content: e.target.value });
+              }}
               onFocus={handleFocus}
               onBlur={handleBlur}
               onKeyDown={handleKeyDown}
@@ -588,7 +797,10 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, onGenerate }: No
             <textarea
               ref={editorRef as any}
               value={editContent}
-              onChange={(e) => setEditContent(e.target.value)}
+              onChange={(e) => {
+                setEditContent(e.target.value);
+                onUpdate(block.id, { content: e.target.value });
+              }}
               onFocus={handleFocus}
               onBlur={handleBlur}
               onKeyDown={handleKeyDown}
@@ -630,7 +842,10 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, onGenerate }: No
             <textarea
               ref={editorRef as any}
               value={editContent}
-              onChange={(e) => setEditContent(e.target.value)}
+              onChange={(e) => {
+                setEditContent(e.target.value);
+                onUpdate(block.id, { content: e.target.value });
+              }}
               onFocus={handleFocus}
               onBlur={handleBlur}
               onKeyDown={handleKeyDown}
@@ -641,13 +856,22 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, onGenerate }: No
           </div>
         );
       case 'numbered':
+        // Try to extract number from content or use a default
+        const numberMatch = editContent.match(/^(\d+)\./);
+        const displayNumber = numberMatch ? numberMatch[1] : '1';
+
         return (
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', flex: 1, width: '100%' }}>
-            <span style={{ color: 'rgba(55, 53, 47, 0.4)', marginTop: '2px', flexShrink: 0 }}>•</span>
+            <span style={{ color: 'rgba(55, 53, 47, 0.4)', marginTop: '2px', flexShrink: 0, minWidth: '20px' }}>
+              {displayNumber}.
+            </span>
             <textarea
               ref={editorRef as any}
               value={editContent}
-              onChange={(e) => setEditContent(e.target.value)}
+              onChange={(e) => {
+                setEditContent(e.target.value);
+                onUpdate(block.id, { content: e.target.value });
+              }}
               onFocus={handleFocus}
               onBlur={handleBlur}
               onKeyDown={handleKeyDown}
@@ -676,7 +900,10 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, onGenerate }: No
             <textarea
               ref={editorRef as any}
               value={editContent}
-              onChange={(e) => setEditContent(e.target.value)}
+              onChange={(e) => {
+                setEditContent(e.target.value);
+                onUpdate(block.id, { content: e.target.value });
+              }}
               onFocus={handleFocus}
               onBlur={handleBlur}
               onKeyDown={handleKeyDown}
@@ -687,31 +914,161 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, onGenerate }: No
           </div>
         );
       case 'code':
+        const codeRef = useRef<HTMLPreElement>(null);
+        const [showPreview, setShowPreview] = useState(false);
+        const [copied, setCopied] = useState(false);
+
+        // Apply syntax highlighting when preview is shown
+        useEffect(() => {
+          if (showPreview && codeRef.current) {
+            Prism.highlightElement(codeRef.current);
+          }
+        }, [editContent, showPreview]);
+
+        // Extract language from content if specified (e.g., ```javascript)
+        const languageMatch = editContent.match(/^```(\w+)?\n/);
+        const codeLanguage = languageMatch ? (languageMatch[1] || 'javascript') : 'javascript';
+        const cleanCode = languageMatch ? editContent.replace(/^```\w*\n/, '').replace(/```$/, '') : editContent;
+
+        // Language alias map
+        const languageMap: Record<string, string> = {
+          'js': 'javascript',
+          'ts': 'typescript',
+          'py': 'python',
+          'sh': 'bash',
+          'zsh': 'bash',
+          'yml': 'yaml',
+        };
+
+        const normalizedLanguage = languageMap[codeLanguage.toLowerCase()] || codeLanguage.toLowerCase();
+
+        const handleCopy = async () => {
+          try {
+            await navigator.clipboard.writeText(cleanCode);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+          } catch (error) {
+            console.error('复制失败:', error);
+          }
+        };
+
         return (
-          <div style={{ flex: 1, marginTop: '8px' }}>
-            <textarea
-              value={editContent}
-              onChange={(e) => setEditContent(e.target.value)}
-              onFocus={handleFocus}
-              onBlur={handleBlur}
-              onKeyDown={handleKeyDown}
-              style={{
-                width: '100%',
-                padding: '12px',
-                backgroundColor: '#F7F6F3',
-                borderRadius: '4px',
-                fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-                fontSize: '14px',
-                lineHeight: 1.6,
-                color: 'rgba(55, 53, 47, 1)',
-                outline: 'none',
-                border: '1px solid rgba(55, 53, 47, 0.15)',
-                resize: 'vertical',
-                minHeight: '80px'
-              }}
-              placeholder="输入代码..."
-              rows={3}
-            />
+          <div style={{ flex: 1, marginTop: '8px', position: 'relative' }}>
+            {/* Toolbar */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: '8px',
+              padding: '4px 8px',
+              backgroundColor: '#2d2d2d',
+              borderRadius: '4px 4px 0 0',
+              borderBottom: '1px solid #404040'
+            }}>
+              <span style={{
+                fontSize: '12px',
+                color: '#b9b9b9',
+                textTransform: 'uppercase',
+                fontWeight: 500
+              }}>
+                {normalizedLanguage}
+              </span>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={() => setShowPreview(!showPreview)}
+                  style={{
+                    padding: '4px 8px',
+                    fontSize: '12px',
+                    backgroundColor: showPreview ? '#2383E2' : 'transparent',
+                    color: showPreview ? 'white' : '#b9b9b9',
+                    border: showPreview ? 'none' : '1px solid #505050',
+                    borderRadius: '3px',
+                    cursor: 'pointer',
+                    transition: 'all 150ms ease'
+                  }}
+                >
+                  {showPreview ? '编辑' : '预览'}
+                </button>
+                {showPreview && (
+                  <button
+                    onClick={handleCopy}
+                    style={{
+                      padding: '4px 8px',
+                      fontSize: '12px',
+                      backgroundColor: copied ? '#4CAF50' : 'transparent',
+                      color: copied ? 'white' : '#b9b9b9',
+                      border: '1px solid #505050',
+                      borderRadius: '3px',
+                      cursor: 'pointer',
+                      transition: 'all 150ms ease',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}
+                  >
+                    {copied ? <Check style={{ width: '12px', height: '12px' }} /> : <Copy style={{ width: '12px', height: '12px' }} />}
+                    {copied ? '已复制' : '复制'}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Content area */}
+            {showPreview ? (
+              <pre
+                ref={codeRef}
+                className={`language-${normalizedLanguage}`}
+                style={{
+                  margin: 0,
+                  padding: '16px',
+                  borderRadius: '0 0 4px 4px',
+                  overflow: 'auto',
+                  fontSize: '14px',
+                  lineHeight: 1.6,
+                  maxHeight: '500px',
+                  background: '#2d2d2d',
+                  borderTop: 'none'
+                }}
+              >
+                <code
+                  className={`language-${normalizedLanguage}`}
+                  style={{
+                    display: 'block',
+                    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                    fontSize: 'inherit',
+                    lineHeight: 'inherit'
+                  }}
+                >
+                  {cleanCode}
+                </code>
+              </pre>
+            ) : (
+              <textarea
+                ref={editorRef as any}
+                value={editContent}
+                onChange={(e) => setEditContent(e.target.value)}
+                onFocus={handleFocus}
+                onBlur={handleBlur}
+                onKeyDown={handleKeyDown}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  backgroundColor: '#F7F6F3',
+                  borderRadius: '0 0 4px 4px',
+                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+                  fontSize: '14px',
+                  lineHeight: 1.6,
+                  color: 'rgba(55, 53, 47, 1)',
+                  outline: 'none',
+                  border: '1px solid rgba(55, 53, 47, 0.15)',
+                  borderTop: 'none',
+                  resize: 'vertical',
+                  minHeight: '80px'
+                }}
+                placeholder="输入代码... (例如: ```javascript ... ```)"
+                rows={6}
+              />
+            )}
           </div>
         );
       case 'quote':
@@ -720,7 +1077,10 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, onGenerate }: No
             <textarea
               ref={editorRef as any}
               value={editContent}
-              onChange={(e) => setEditContent(e.target.value)}
+              onChange={(e) => {
+                setEditContent(e.target.value);
+                onUpdate(block.id, { content: e.target.value });
+              }}
               onFocus={handleFocus}
               onBlur={handleBlur}
               onKeyDown={handleKeyDown}
@@ -738,7 +1098,10 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, onGenerate }: No
             <textarea
               ref={editorRef as any}
               value={editContent}
-              onChange={(e) => setEditContent(e.target.value)}
+              onChange={(e) => {
+                setEditContent(e.target.value);
+                onUpdate(block.id, { content: e.target.value });
+              }}
               onFocus={handleFocus}
               onBlur={handleBlur}
               onKeyDown={handleKeyDown}
@@ -959,46 +1322,57 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, onGenerate }: No
           </div>
         );
       }
-      case 'table':
+      case 'table': {
+        // Check if content is a SimpleTableBlockData object
+        console.log('🎨 Rendering table block:', block.id, 'has tableData:', !!block.properties?.tableData);
+        let tableData: SimpleTableBlockData;
+
+        if (typeof block.properties.tableData === 'object' && block.properties.tableData !== null) {
+          // Already have proper table data
+          tableData = block.properties.tableData as SimpleTableBlockData;
+          console.log('✅ Using existing tableData with', tableData.rows.length, 'rows');
+        } else {
+          // Legacy HTML table or need to create default table
+          // For now, create a default 3x3 table
+          console.log('⚠️ No tableData found, creating default 3x3 table');
+          tableData = {
+            id: block.id,
+            type: 'table',
+            rows: [
+              { cells: [{ content: '' }, { content: '' }, { content: '' }] },
+              { cells: [{ content: '' }, { content: '' }, { content: '' }] },
+              { cells: [{ content: '' }, { content: '' }, { content: '' }] }
+            ],
+            enableHeaderRow: true,
+            columnWidths: {
+              0: 160,
+              1: 160,
+              2: 160
+            }
+          };
+        }
+
         return (
-          <div style={{ flex: 1, marginTop: '8px', width: '100%', overflowX: 'auto' }}>
-            <div
-              dangerouslySetInnerHTML={{ __html: editContent || '<table><tr><td>空表格</td></tr></table>' }}
-              style={{
-                width: '100%',
-                borderCollapse: 'collapse',
-                fontSize: '14px',
-                color: 'rgba(55, 53, 47, 1)'
+          <div style={{ flex: 1, marginTop: '8px', width: '100%' }}>
+            <SimpleTableBlock
+              node={tableData}
+              editable={editable}
+              onUpdateNode={(updates) => {
+                // Save the entire table data structure
+                onUpdate(block.id, {
+                  properties: {
+                    ...block.properties,
+                    tableData: {
+                      ...tableData,
+                      ...updates
+                    }
+                  }
+                });
               }}
-            />
-            <textarea
-              ref={editorRef as any}
-              value={editContent}
-              onChange={(e) => setEditContent(e.target.value)}
-              onFocus={handleFocus}
-              onBlur={handleBlur}
-              onKeyDown={handleKeyDown}
-              style={{
-                marginTop: '8px',
-                width: '100%',
-                padding: '8px',
-                backgroundColor: '#F7F6F3',
-                borderRadius: '4px',
-                fontSize: '12px',
-                color: 'rgba(55, 53, 47, 0.6)',
-                outline: 'none',
-                border: '1px solid rgba(55, 53, 47, 0.15)',
-                resize: 'vertical',
-                minHeight: '60px',
-                overflow: 'auto',
-                whiteSpace: 'pre',
-                wordWrap: 'normal'
-              }}
-              placeholder="输入 HTML 表格代码..."
-              rows={3}
             />
           </div>
         );
+      }
       default:
         return (
           <textarea
@@ -1081,7 +1455,14 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, onGenerate }: No
                 {BLOCK_TYPES.map((type) => (
                   <button
                     key={type.type}
-                    onClick={(e) => handleMenuItemClick(type.type, e)}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    onClick={(e) => {
+                      console.log('Menu button clicked:', type.type);
+                      handleMenuItemClick(type.type, e);
+                    }}
                     style={{
                       userSelect: 'none',
                       transition: 'background 20ms ease-in',
@@ -1124,7 +1505,14 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd, onGenerate }: No
                 {['quote', 'divider', 'callout', 'image', 'guide'].map((type) => (
                   <button
                     key={type}
-                    onClick={(e) => handleMenuItemClick(type as BlockType, e)}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    onClick={(e) => {
+                      console.log('Menu button clicked:', type);
+                      handleMenuItemClick(type as BlockType, e);
+                    }}
                     style={{
                       userSelect: 'none',
                       transition: 'background 20ms ease-in',

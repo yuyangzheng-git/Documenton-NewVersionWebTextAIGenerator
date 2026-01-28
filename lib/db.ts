@@ -2,7 +2,7 @@ import Dexie, { Table } from 'dexie';
 
 export interface BlockData {
   id: string;        // UUID v4
-  type: 'h1' | 'h2' | 'h3' | 'paragraph' | 'bullet' | 'numbered' | 'todo' | 'code' | 'quote' | 'divider' | 'callout' | 'image' | 'guide';
+  type: 'h1' | 'h2' | 'h3' | 'paragraph' | 'bullet' | 'numbered' | 'todo' | 'code' | 'quote' | 'divider' | 'callout' | 'image' | 'table' | 'guide';
   content: string;   // 文本内容 或 HTML 表格代码
   props: {
     level?: 1 | 2 | 3 | 4;

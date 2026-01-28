@@ -86,3 +86,170 @@ html {
   background-color: var(--accent-light);
   color: var(--accent);
 }
+
+/* Notion-style table scrollbar */
+.notion-table-wrapper::-webkit-scrollbar {
+  height: 12px;
+}
+
+.notion-table-wrapper::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 0 8px;
+}
+
+.notion-table-wrapper::-webkit-scrollbar-thumb {
+  background: rgba(55, 53, 47, 0.16);
+  border-radius: 6px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+.notion-table-wrapper::-webkit-scrollbar-thumb:hover {
+  background: rgba(55, 53, 47, 0.3);
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+.notion-table-wrapper::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Responsive table handling for small screens */
+@media (max-width: 900px) {
+  .notion-table-wrapper {
+    /* More prominent scrollbar on mobile */
+    scrollbarWidth: 'auto';
+  }
+
+  .notion-table-wrapper::-webkit-scrollbar {
+    height: 8px;
+  }
+
+  .notion-table-wrapper::-webkit-scrollbar-thumb {
+    background: rgba(55, 53, 47, 0.3);
+  }
+}
+
+/* Ensure page content doesn't overflow on mobile */
+@media (max-width: 768px) {
+  body {
+    overflow-x: hidden;
+  }
+}
+
+/* Main content wrapper scrollbar styling */
+.main-content-wrapper::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+.main-content-wrapper::-webkit-scrollbar-track {
+  background: #f7f7f5;
+}
+
+.main-content-wrapper::-webkit-scrollbar-thumb {
+  background: rgba(55, 53, 47, 0.3);
+  border-radius: 6px;
+  border: 3px solid #f7f7f5;
+  background-clip: content-box;
+}
+
+.main-content-wrapper::-webkit-scrollbar-thumb:hover {
+  background: rgba(55, 53, 47, 0.5);
+  border: 3px solid #f7f7f5;
+  background-clip: content-box;
+}
+
+/* Responsive editor canvas */
+@media (max-width: 900px) {
+  .editor-canvas {
+    /* Reduce border radius on smaller screens */
+    border-radius: 0 !important;
+  }
+}
+
+/* Ultra-small screens (mobile) */
+@media (max-width: 480px) {
+  .editor-canvas {
+    /* Remove box shadow on very small screens */
+    box-shadow: none !important;
+    /* Full width on mobile */
+    min-width: 280px !important;
+  }
+}
+
+/* Responsive text sizes */
+@media (max-width: 768px) {
+  /* Reduce heading sizes on smaller screens */
+  h1 {
+    font-size: 24px !important;
+  }
+
+  h2 {
+    font-size: 20px !important;
+  }
+
+  h3 {
+    font-size: 18px !important;
+  }
+}
+
+/* Navigation bar responsive styles */
+@media (max-width: 768px) {
+  .top-navbar {
+    padding-inline: 8px 6px !important;
+  }
+
+  /* Hide button text on small screens, show only icons */
+  .nav-button .button-text {
+    display: none;
+  }
+
+  .nav-button {
+    padding-inline: 8px !important;
+    min-width: 36px;
+  }
+}
+
+/* Very small screens - further optimizations */
+@media (max-width: 480px) {
+  .top-navbar {
+    padding-inline: 4px !important;
+    gap: 2px;
+  }
+
+  .nav-button {
+    padding-inline: 6px !important;
+    min-width: 32px;
+    height: 32px !important;
+  }
+}
+
+/* Responsive padding for editor content */
+@media (max-width: 768px) {
+  .editor-canvas > div {
+    padding-left: 24px !important;
+    padding-right: 24px !important;
+  }
+
+  /* Document title input responsive */
+  .document-title-input {
+    font-size: 12px !important;
+    max-width: 200px !important;
+    min-width: 80px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .editor-canvas > div {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+
+  .document-title-input {
+    font-size: 11px !important;
+    max-width: 120px !important;
+    min-width: 60px !important;
+    padding: 2px 4px !important;
+  }
+}
