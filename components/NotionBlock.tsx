@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import {
@@ -16,6 +17,8 @@ import {
   CheckCircle2,
   Copy,
   Lightbulb,
+  Sparkles,
+  Upload,
 } from 'lucide-react';
 
 export type BlockType =
@@ -47,6 +50,7 @@ interface NotionBlockProps {
   onDelete: (id: string) => void;
   onAdd: (parentId: string | null, type: BlockType, initialContent?: string) => string | undefined;
   onFocusNext?: () => void;
+  onGenerate?: (blockId: string) => void;
 }
 
 const BLOCK_ICONS: Record<BlockType, React.ComponentType<React.SVGProps<SVGSVGElement>>> = {
@@ -75,14 +79,18 @@ const BLOCK_TYPES = [
   { type: 'todo' as BlockType, label: '待办事项' },
   { type: 'code' as BlockType, label: '代码' },
   { type: 'quote' as BlockType, label: '引用' },
+  { type: 'table' as BlockType, label: '表格' },
+  { type: 'image' as BlockType, label: '图片' },
 ];
 
-export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockProps) {
+export function NotionBlock({ block, onUpdate, onDelete, onAdd, onGenerate }: NotionBlockProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [editContent, setEditContent] = useState(block.content);
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
   const editorRef = useRef<HTMLTextAreaElement | HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const blockRef = useRef<HTMLDivElement>(null);
 
   // Auto-resize textarea
   const autoResize = () => {
@@ -321,6 +329,74 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
     }
   };
 
+  const handleFileDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingFile(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    const imageFile = files.find(file => file.type.startsWith('image/'));
+
+    if (!imageFile) {
+      return;
+    }
+
+    try {
+      // Convert image to base64
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(imageFile);
+      });
+
+      // Update block with base64 image
+      onUpdate(block.id, { content: base64 });
+    } catch (error) {
+      console.error('Error processing image:', error);
+      alert('图片处理失败');
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isDraggingFile) {
+      setIsDraggingFile(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDraggingFile(false);
+  };
+
+  const handleImageUpload = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      try {
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+
+        onUpdate(block.id, { content: base64 });
+      } catch (error) {
+        console.error('Error processing image:', error);
+        alert('图片处理失败');
+      }
+    };
+    input.click();
+  };
+
   const handleTypeChange = (type: BlockType) => {
     // Remove the '/' from content before changing type
     let cleanContent = editContent.replace(/^\/$/, '');
@@ -426,45 +502,126 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
     switch (block.type) {
       case 'h1':
         return (
-          <textarea
-            ref={editorRef as any}
-            value={editContent}
-            onChange={(e) => setEditContent(e.target.value)}
-            onFocus={handleFocus}
-            onBlur={handleBlur}
-            onKeyDown={handleKeyDown}
-            style={{ ...baseStyle, width: '100%', resize: 'none', overflow: 'hidden', height: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word', marginTop: '2px' }}
-            placeholder="标题 1"
-            rows={1}
-          />
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', width: '100%' }}>
+            <textarea
+              ref={editorRef as any}
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              onFocus={handleFocus}
+              onBlur={handleBlur}
+              onKeyDown={handleKeyDown}
+              style={{ ...baseStyle, width: '100%', resize: 'none', overflow: 'hidden', height: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word', marginTop: '2px' }}
+              placeholder="标题 1"
+              rows={1}
+            />
+            {onGenerate && block.id.startsWith('heading-') && (
+              <button
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); onGenerate(block.id); }}
+                style={{
+                  padding: '4px 8px',
+                  fontSize: '12px',
+                  backgroundColor: 'rgba(35, 131, 226, 0.1)',
+                  color: '#2383E2',
+                  border: '1px solid rgba(35, 131, 226, 0.2)',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  marginTop: '4px',
+                  transition: 'all 200ms ease',
+                  whiteSpace: 'nowrap'
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(35, 131, 226, 0.15)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'rgba(35, 131, 226, 0.1)'; }}
+              >
+                <Sparkles style={{ width: '12px', height: '12px' }} />
+                <span>生成/重写</span>
+              </button>
+            )}
+          </div>
         );
       case 'h2':
         return (
-          <textarea
-            ref={editorRef as any}
-            value={editContent}
-            onChange={(e) => setEditContent(e.target.value)}
-            onFocus={handleFocus}
-            onBlur={handleBlur}
-            onKeyDown={handleKeyDown}
-            style={{ ...baseStyle, width: '100%', resize: 'none', overflow: 'hidden', height: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word', marginTop: '2px' }}
-            placeholder="标题 2"
-            rows={1}
-          />
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', width: '100%' }}>
+            <textarea
+              ref={editorRef as any}
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              onFocus={handleFocus}
+              onBlur={handleBlur}
+              onKeyDown={handleKeyDown}
+              style={{ ...baseStyle, width: '100%', resize: 'none', overflow: 'hidden', height: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word', marginTop: '2px' }}
+              placeholder="标题 2"
+              rows={1}
+            />
+            {onGenerate && block.id.startsWith('heading-') && (
+              <button
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); onGenerate(block.id); }}
+                style={{
+                  padding: '4px 8px',
+                  fontSize: '12px',
+                  backgroundColor: 'rgba(35, 131, 226, 0.1)',
+                  color: '#2383E2',
+                  border: '1px solid rgba(35, 131, 226, 0.2)',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  marginTop: '4px',
+                  transition: 'all 200ms ease',
+                  whiteSpace: 'nowrap'
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(35, 131, 226, 0.15)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'rgba(35, 131, 226, 0.1)'; }}
+              >
+                <Sparkles style={{ width: '12px', height: '12px' }} />
+                <span>生成/重写</span>
+              </button>
+            )}
+          </div>
         );
       case 'h3':
         return (
-          <textarea
-            ref={editorRef as any}
-            value={editContent}
-            onChange={(e) => setEditContent(e.target.value)}
-            onFocus={handleFocus}
-            onBlur={handleBlur}
-            onKeyDown={handleKeyDown}
-            style={{ ...baseStyle, width: '100%', resize: 'none', overflow: 'hidden', height: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word', marginTop: '2px' }}
-            placeholder="标题 3"
-            rows={1}
-          />
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', width: '100%' }}>
+            <textarea
+              ref={editorRef as any}
+              value={editContent}
+              onChange={(e) => setEditContent(e.target.value)}
+              onFocus={handleFocus}
+              onBlur={handleBlur}
+              onKeyDown={handleKeyDown}
+              style={{ ...baseStyle, width: '100%', resize: 'none', overflow: 'hidden', height: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word', marginTop: '2px' }}
+              placeholder="标题 3"
+              rows={1}
+            />
+            {onGenerate && block.id.startsWith('heading-') && (
+              <button
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); onGenerate(block.id); }}
+                style={{
+                  padding: '4px 8px',
+                  fontSize: '12px',
+                  backgroundColor: 'rgba(35, 131, 226, 0.1)',
+                  color: '#2383E2',
+                  border: '1px solid rgba(35, 131, 226, 0.2)',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  marginTop: '4px',
+                  transition: 'all 200ms ease',
+                  whiteSpace: 'nowrap'
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(35, 131, 226, 0.15)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'rgba(35, 131, 226, 0.1)'; }}
+              >
+                <Sparkles style={{ width: '12px', height: '12px' }} />
+                <span>生成/重写</span>
+              </button>
+            )}
+          </div>
         );
       case 'bullet':
         return (
@@ -593,7 +750,21 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
         );
       case 'image':
         return (
-          <div style={{ flex: 1, marginTop: '8px', width: '100%' }}>
+          <div
+            style={{
+              flex: 1,
+              marginTop: '8px',
+              width: '100%',
+              border: isDraggingFile ? '2px dashed #2383E2' : 'none',
+              borderRadius: '8px',
+              padding: isDraggingFile ? '8px' : 0,
+              backgroundColor: isDraggingFile ? 'rgba(35, 131, 226, 0.05)' : 'transparent',
+              transition: 'all 200ms ease'
+            }}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleFileDrop}
+          >
             {editContent ? (
               <div style={{ position: 'relative', width: '100%' }}>
                 <img
@@ -629,13 +800,22 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
                     whiteSpace: 'pre-wrap',
                     wordWrap: 'break-word'
                   }}
-                  placeholder="输入图片 URL..."
+                  placeholder="输入图片 URL 或拖拽图片到这里..."
                   rows={1}
                 />
               </div>
             ) : (
-              <div style={{ border: '2px dashed rgba(55, 53, 47, 0.2)', borderRadius: '8px', padding: '32px', textAlign: 'center', backgroundColor: 'rgba(55, 53, 47, 0.02)' }}>
-                <ImageIcon style={{ width: '48px', height: '48px', color: 'rgba(55, 53, 47, 0.3)', marginBottom: '12px', margin: '0 auto 12px' }} />
+              <div
+                style={{
+                  border: isDraggingFile ? '2px dashed #2383E2' : '2px dashed rgba(55, 53, 47, 0.2)',
+                  borderRadius: '8px',
+                  padding: '32px',
+                  textAlign: 'center',
+                  backgroundColor: isDraggingFile ? 'rgba(35, 131, 226, 0.05)' : 'rgba(55, 53, 47, 0.02)',
+                  transition: 'all 200ms ease'
+                }}
+              >
+                <ImageIcon style={{ width: '48px', height: '48px', color: isDraggingFile ? '#2383E2' : 'rgba(55, 53, 47, 0.3)', marginBottom: '12px', margin: '0 auto 12px' }} />
                 <textarea
                   ref={editorRef as any}
                   value={editContent}
@@ -657,27 +837,67 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
                     whiteSpace: 'pre-wrap',
                     wordWrap: 'break-word'
                   }}
-                  placeholder="输入图片 URL..."
+                  placeholder={isDraggingFile ? '松开以上传图片' : '输入图片 URL 或拖拽图片到这里...'}
                   rows={1}
+                  disabled={isDraggingFile}
                 />
-                <div style={{ fontSize: '13px', color: 'rgba(55, 53, 47, 0.5)', marginTop: '8px' }}>支持 HTTPS 图片链接</div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', marginTop: '12px' }}>
+                  <div style={{ fontSize: '13px', color: 'rgba(55, 53, 47, 0.5)' }}>
+                    {isDraggingFile ? '📁 拖拽图片文件以上传' : '支持 HTTPS 图片链接和拖拽上传'}
+                  </div>
+                  {!isDraggingFile && (
+                    <button
+                      onClick={handleImageUpload}
+                      style={{
+                        padding: '6px 12px',
+                        fontSize: '13px',
+                        backgroundColor: 'white',
+                        color: '#2383E2',
+                        border: '1px solid rgba(35, 131, 226, 0.3)',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        transition: 'all 150ms ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = 'rgba(35, 131, 226, 0.05)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'white';
+                      }}
+                    >
+                      <Upload style={{ width: '14px', height: '14px' }} />
+                      <span>选择文件上传</span>
+                    </button>
+                  )}
+                </div>
               </div>
             )}
           </div>
         );
-      case 'guide':
+      case 'guide': {
+        const isGuidanceVisible = block.properties.guidanceVisible !== false;
         return (
           <div style={{ flex: 1, marginTop: '8px', width: '100%' }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              marginBottom: '8px',
-              padding: '6px 10px',
-              backgroundColor: 'rgba(255, 193, 7, 0.1)',
-              borderRadius: '4px',
-              width: 'fit-content'
-            }}>
+            <div
+              onClick={() => onUpdate(block.id, { properties: { ...block.properties, guidanceVisible: !isGuidanceVisible } })}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                marginBottom: isGuidanceVisible ? '8px' : '0',
+                padding: '6px 10px',
+                backgroundColor: 'rgba(255, 193, 7, 0.1)',
+                borderRadius: '4px',
+                width: 'fit-content',
+                cursor: 'pointer',
+                transition: 'all 150ms ease',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255, 193, 7, 0.15)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255, 193, 7, 0.1)'; }}
+            >
               <Lightbulb style={{ width: '16px', height: '16px', color: '#FFC107' }} />
               <span style={{
                 fontSize: '12px',
@@ -688,7 +908,69 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
               }}>
                 写作指导
               </span>
+              {isGuidanceVisible ? (
+                <ChevronUp style={{ width: '14px', height: '14px', color: '#F57C00', marginLeft: '4px' }} />
+              ) : (
+                <ChevronDown style={{ width: '14px', height: '14px', color: '#F57C00', marginLeft: '4px' }} />
+              )}
             </div>
+            {isGuidanceVisible && (
+              <>
+                <textarea
+                  ref={editorRef as any}
+                  value={editContent}
+                  onChange={(e) => setEditContent(e.target.value)}
+                  onFocus={handleFocus}
+                  onBlur={handleBlur}
+                  onKeyDown={handleKeyDown}
+                  style={{
+                    width: '100%',
+                    padding: '12px 14px',
+                    backgroundColor: 'rgba(255, 193, 7, 0.05)',
+                    borderRadius: '6px',
+                    border: '1px solid rgba(255, 193, 7, 0.3)',
+                    fontSize: '14px',
+                    lineHeight: 1.7,
+                    color: 'rgba(55, 53, 47, 0.9)',
+                    outline: 'none',
+                    resize: 'vertical',
+                    minHeight: '80px',
+                    overflow: 'auto',
+                    whiteSpace: 'pre-wrap',
+                    wordWrap: 'break-word',
+                    transition: 'border-color 150ms ease',
+                  }}
+                  placeholder="在此编辑本章的写作指导要求，如：重点讨论的要点、写作风格、字数要求等..."
+                  rows={3}
+                />
+                <div style={{
+                  marginTop: '6px',
+                  fontSize: '11px',
+                  color: 'rgba(55, 53, 47, 0.4)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}>
+                  <span>💡</span>
+                  <span>修改后点击上方标题右侧"生成/重写"按钮，AI 将根据您的指导重新生成内容</span>
+                </div>
+              </>
+            )}
+          </div>
+        );
+      }
+      case 'table':
+        return (
+          <div style={{ flex: 1, marginTop: '8px', width: '100%', overflowX: 'auto' }}>
+            <div
+              dangerouslySetInnerHTML={{ __html: editContent || '<table><tr><td>空表格</td></tr></table>' }}
+              style={{
+                width: '100%',
+                borderCollapse: 'collapse',
+                fontSize: '14px',
+                color: 'rgba(55, 53, 47, 1)'
+              }}
+            />
             <textarea
               ref={editorRef as any}
               value={editContent}
@@ -697,36 +979,24 @@ export function NotionBlock({ block, onUpdate, onDelete, onAdd }: NotionBlockPro
               onBlur={handleBlur}
               onKeyDown={handleKeyDown}
               style={{
+                marginTop: '8px',
                 width: '100%',
-                padding: '12px 14px',
-                backgroundColor: 'rgba(255, 193, 7, 0.05)',
-                borderRadius: '6px',
-                border: '1px solid rgba(255, 193, 7, 0.3)',
-                fontSize: '14px',
-                lineHeight: 1.7,
-                color: 'rgba(55, 53, 47, 0.9)',
+                padding: '8px',
+                backgroundColor: '#F7F6F3',
+                borderRadius: '4px',
+                fontSize: '12px',
+                color: 'rgba(55, 53, 47, 0.6)',
                 outline: 'none',
+                border: '1px solid rgba(55, 53, 47, 0.15)',
                 resize: 'vertical',
-                minHeight: '80px',
+                minHeight: '60px',
                 overflow: 'auto',
-                whiteSpace: 'pre-wrap',
-                wordWrap: 'break-word',
-                transition: 'border-color 150ms ease',
+                whiteSpace: 'pre',
+                wordWrap: 'normal'
               }}
-              placeholder="在此编辑本章的写作指导要求，如：重点讨论的要点、写作风格、字数要求等..."
+              placeholder="输入 HTML 表格代码..."
               rows={3}
             />
-            <div style={{
-              marginTop: '6px',
-              fontSize: '11px',
-              color: 'rgba(55, 53, 47, 0.4)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px'
-            }}>
-              <span>💡</span>
-              <span>修改后点击右侧"生成"按钮，AI 将根据您的指导重新生成内容</span>
-            </div>
           </div>
         );
       default:

@@ -110,7 +110,7 @@ export const generateContent = async (
 
   if (aiPlatform === 'dify') {
     const { generateSectionWithWorker } = await import('@/lib/dify-api');
-    const apiKey = state.apiKey;
+    const apiKey = state.chapterApiKey; // Use chapterApiKey for content generation, NOT apiKey (outline key)
     const documentTitle = state.documentTitle;
     const outline = state.outline;
     const fullOutline = outline.map((block) => `${'  '.repeat(block.level - 1)}- ${block.title}`).join('\n');

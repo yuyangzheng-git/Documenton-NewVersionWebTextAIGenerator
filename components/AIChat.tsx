@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { MessageSquare, Send, X, Minus, Maximize2, Loader2 } from 'lucide-react';
+import { useStore } from '@/store/useStore';
 
 interface NotionBlock {
   id: string;
@@ -24,6 +25,7 @@ interface AIChatProps {
 }
 
 export function AIChat({ onRewriteText, onRewriteSection, blocks, outline }: AIChatProps) {
+  const { chatApiKey } = useStore();
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -108,7 +110,7 @@ export function AIChat({ onRewriteText, onRewriteSection, blocks, outline }: AIC
         body: JSON.stringify({
           message: sectionContext ? sectionContext : prompt,
           history: messages,
-          appKey: process.env.NEXT_PUBLIC_DIFY_CHAT_API_KEY || '',
+          appKey: chatApiKey || process.env.NEXT_PUBLIC_DIFY_LLM_KEY || '',
         }),
       });
 

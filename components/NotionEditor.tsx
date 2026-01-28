@@ -23,10 +23,11 @@ interface NotionEditorProps {
   blocks: NotionBlock[];
   setBlocks: React.Dispatch<React.SetStateAction<NotionBlock[]>>;
   onBlockUpdate?: (id: string, updates: Partial<NotionBlock>) => void;
+  onGenerate?: (blockId: string) => void;
   documentTitle?: string;
 }
 
-export function NotionEditor({ blocks, setBlocks, onBlockUpdate }: NotionEditorProps) {
+export function NotionEditor({ blocks, setBlocks, onBlockUpdate, onGenerate }: NotionEditorProps) {
   // Calculate block numbers (1, 1.1, 1.2, 2, 2.1, etc.)
   const getBlockNumber = (index: number): string | undefined => {
     const block = blocks[index];
@@ -224,13 +225,14 @@ export function NotionEditor({ blocks, setBlocks, onBlockUpdate }: NotionEditorP
       onDragEnd={handleDragEnd}
     >
       <SortableContext items={blocks} strategy={verticalListSortingStrategy}>
-        {blocks.map((block, index) => (
+        {blocks.map((block) => (
           <NotionBlockComponent
             key={block.id}
             block={block}
             onUpdate={updateBlock}
             onDelete={deleteBlock}
-            onAdd={addBlock}
+            onAdd={(parentId, type, initialContent) => addBlock(parentId, blocks.length, type, initialContent)}
+            onGenerate={onGenerate}
           />
         ))}
       </SortableContext>

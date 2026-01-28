@@ -125,7 +125,7 @@ export function getProviderConfig(platform: AIPlatform): {
     case 'dify':
       return {
         apiKey: process.env.NEXT_PUBLIC_DIFY_PLANNER_API_KEY || '',
-        baseUrl: process.env.NEXT_PUBLIC_DIFY_API_URL,
+        baseUrl: process.env.NEXT_PUBLIC_DIFY_BASE_URL,
       };
 
     case 'openai':

@@ -238,13 +238,13 @@ export const useStore = create<DocumentStore>((set) => ({
   setAIPlatform: (platform) => set({ aiPlatform: platform }),
 
   // Dify Config
-  apiKey: process.env.NEXT_PUBLIC_DIFY_PLANNER_API_KEY || '',
+  apiKey: process.env.NEXT_PUBLIC_DIFY_OUTLINE_KEY || '',
   setApiKey: (key) => set({ apiKey: key }),
-  apiUrl: process.env.NEXT_PUBLIC_DIFY_API_URL || '',
+  apiUrl: process.env.NEXT_PUBLIC_DIFY_BASE_URL || '',
   setApiUrl: (url) => set({ apiUrl: url }),
-  chapterApiKey: process.env.NEXT_PUBLIC_DIFY_CHAPTER_API_KEY || '',
+  chapterApiKey: process.env.NEXT_PUBLIC_DIFY_CHAPTER_KEY || '',
   setChapterApiKey: (key) => set({ chapterApiKey: key }),
-  chatApiKey: process.env.NEXT_PUBLIC_DIFY_CHAT_API_KEY || '',
+  chatApiKey: process.env.NEXT_PUBLIC_DIFY_LLM_KEY || '',
   setChatApiKey: (key) => set({ chatApiKey: key }),
 
   // OpenAI Config

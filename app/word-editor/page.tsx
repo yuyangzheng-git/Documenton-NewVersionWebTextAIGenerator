@@ -3,11 +3,11 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStore } from '@/store/useStore';
-import { OutlinePanel } from '@/components/outline/OutlinePanel';
 import { AIChat } from '@/components/AIChat';
 import { TextSelectionToolbar } from '@/components/TextSelectionToolbar';
 import { NotionEditor, NotionBlock } from '@/components/NotionEditor';
-import { ChevronLeft, Palette, Download, FileText, Upload } from 'lucide-react';
+import { SettingsModal } from '@/components/SettingsModal';
+import { ChevronLeft, Palette, Download, Upload, Settings } from 'lucide-react';
 import { WORD_TEMPLATES } from '@/lib/word-templates';
 
 export default function WordEditorPage() {
@@ -15,12 +15,12 @@ export default function WordEditorPage() {
   const { outline, documentTitle, setDocumentTitle, updateItem } = useStore();
   const [selectedTemplate, setSelectedTemplate] = useState('simple-white');
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
-  const [showOutlinePanel, setShowOutlinePanel] = useState(true);
   const [blocks, setBlocks] = useState<NotionBlock[]>([]);
   const [documentTopic, setDocumentTopic] = useState('');
   const [customTemplateId, setCustomTemplateId] = useState<string | null>(null);
   const [customTemplateName, setCustomTemplateName] = useState<string | null>(null);
   const [showCustomTemplate, setShowCustomTemplate] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
     // Handle block updates and sync with outline
   const handleBlockUpdate = (id: string, updates: Partial<NotionBlock>) => {
@@ -87,6 +87,356 @@ export default function WordEditorPage() {
   const handleRewriteText = (text: string) => {
     // Handle AI rewrite request - could open a dialog with the AI chat
     console.log('Rewrite text:', text);
+  };
+
+  // Handle generate section button click
+  const handleGenerateSection = async (headingBlockId: string) => {
+    // Extract outline item ID from heading block ID (heading-{itemId})
+    const outlineItemId = headingBlockId.replace('heading-', '');
+
+    // Find the outline item
+    const outlineItem = outline.find(item => item.id === outlineItemId);
+    if (!outlineItem) {
+      console.error('Outline item not found:', outlineItemId);
+      alert('找不到对应的大纲项');
+      return;
+    }
+
+    // Find the guide block to get requirements
+    const guideBlock = blocks.find(b => b.id === `guide-${outlineItemId}`);
+    const requirements = guideBlock?.content || outlineItem.requirements || '';
+
+    console.log('Generating section:', {
+      outlineItemId,
+      title: outlineItem.title,
+      requirements
+    });
+
+    // Confirm with user before overwriting
+    if (outlineItem.content) {
+      const confirmOverwrite = confirm(
+        `⚠️ 该章节已有内容，重新生成将覆盖现有内容。\n\n标题: ${outlineItem.title}\n\n是否继续?`
+      );
+      if (!confirmOverwrite) return;
+    }
+
+    // Show toast notification
+    const toastId = `toast-${Date.now()}`;
+    const showToast = (message: string, type: 'info' | 'success' | 'error' = 'info') => {
+      const toast = document.createElement('div');
+      toast.id = toastId;
+      toast.className = `fixed top-4 right-4 px-4 py-2 rounded-lg shadow-lg z-50 transition-all duration-300 ${
+        type === 'success' ? 'bg-green-500 text-white' :
+        type === 'error' ? 'bg-red-500 text-white' :
+        'bg-blue-500 text-white'
+      }`;
+      toast.textContent = message;
+      document.body.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    };
+
+    showToast('🚀 正在生成章节内容...', 'info');
+
+    try {
+      // Import the generation function
+      const { generateSectionWithWorker } = await import('@/lib/dify-api');
+      const { getDifyApiBaseUrl } = await import('@/lib/dify-api');
+
+      // Get API configuration from store
+      // Use chapterApiKey for chapter generation, DO NOT fallback to apiKey (outline key)
+      const apiKey = useStore.getState().chapterApiKey;
+      const apiUrl = getDifyApiBaseUrl();
+
+      if (!apiKey || apiKey === 'app-xxxxxxxxxxxxxxxxxxx') {
+        alert('请先在设置中配置"正文写作"的 API Key（NEXT_PUBLIC_DIFY_CHAPTER_KEY）');
+        return;
+      }
+
+      // Build full outline string for context
+      const fullOutline = outline.map(item => {
+        const indent = '  '.repeat(item.level - 1);
+        return `${indent}${item.title}`;
+      }).join('\n');
+
+      // Track the content as it streams in
+      let generatedContent = '';
+
+      // Find current heading block index
+      const headingBlockIndex = blocks.findIndex(b => b.id === headingBlockId);
+      if (headingBlockIndex === -1) return;
+
+      // Remove existing content blocks for this section (but keep the guide block)
+      setBlocks(prevBlocks => {
+        const newBlocks = [...prevBlocks];
+        const startIndex = headingBlockIndex + 1;
+
+        // Find the next heading block of same or higher level
+        let endIndex = newBlocks.length;
+        for (let i = startIndex; i < newBlocks.length; i++) {
+          const block = newBlocks[i];
+          if (block.type === 'h1' || block.type === 'h2' || block.type === 'h3') {
+            endIndex = i;
+            break;
+          }
+        }
+
+        // Remove content blocks except the guide block (keep guide-{outlineItemId})
+        const guideBlockId = `guide-${outlineItemId}`;
+        const blocksToRemove: string[] = [];
+        for (let i = startIndex; i < endIndex; i++) {
+          if (newBlocks[i].id !== guideBlockId) {
+            blocksToRemove.push(newBlocks[i].id);
+          }
+        }
+
+        // Remove blocks in reverse order to preserve indices
+        blocksToRemove.reverse().forEach(blockId => {
+          const idx = newBlocks.findIndex(b => b.id === blockId);
+          if (idx !== -1) {
+            newBlocks.splice(idx, 1);
+          }
+        });
+
+        // If guide block doesn't exist, create it
+        const guideBlockIndex = newBlocks.findIndex(b => b.id === guideBlockId);
+        if (guideBlockIndex === -1) {
+          newBlocks.splice(startIndex, 0, {
+            id: guideBlockId,
+            type: 'callout',
+            content: requirements || '',
+            properties: {
+              icon: '💡',
+              color: '#fff9c4'
+            },
+            children: []
+          });
+        }
+
+        // Add a loading placeholder after the guide block
+        const newGuideBlockIndex = newBlocks.findIndex(b => b.id === guideBlockId);
+        newBlocks.splice(newGuideBlockIndex + 1, 0, {
+          id: `loading-${Date.now()}`,
+          type: 'paragraph',
+          content: '正在生成内容...',
+          properties: { loading: true },
+          children: []
+        });
+
+        return newBlocks;
+      });
+
+      // Generate content
+      await generateSectionWithWorker(
+        apiKey,
+        outlineItem.title,
+        documentTopic,
+        fullOutline,
+        (chunk) => {
+          generatedContent += chunk;
+          console.log('Received chunk:', chunk);
+
+          // Update loading placeholder with streaming content
+          setBlocks(prevBlocks => prevBlocks.map(block =>
+            block.properties.loading ? { ...block, content: generatedContent } : block
+          ));
+        },
+        () => {
+          // On complete, convert markdown to blocks and replace placeholder
+          console.log('Generation complete. Final content:', generatedContent);
+
+          // Enhanced markdown parser
+          const lines = generatedContent.split('\n');
+          const newContentBlocks: NotionBlock[] = [];
+
+          // State for table parsing
+          let inTable = false;
+          let tableRows: string[][] = [];
+          let currentListType: 'bullet' | 'ordered' | null = null;
+
+          lines.forEach((line, index) => {
+            const trimmedLine = line.trim();
+
+            // Skip empty lines
+            if (!trimmedLine) return;
+
+            // Handle tables
+            if (trimmedLine.startsWith('|') && trimmedLine.endsWith('|')) {
+              if (!inTable) {
+                inTable = true;
+                tableRows = [];
+              }
+              const cells = trimmedLine.slice(1, -1).split('|').map(cell => cell.trim());
+              // Skip separator row (e.g., |---|---|)
+              if (!cells.every(cell => /^-+$/.test(cell))) {
+                tableRows.push(cells);
+              }
+              return;
+            } else if (inTable) {
+              // End of table, create table block
+              if (tableRows.length > 0) {
+                const tableHtml = tableRows.map(row =>
+                  `<tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>`
+                ).join('');
+                newContentBlocks.push({
+                  id: `generated-${outlineItemId}-table-${Date.now()}-${index}`,
+                  type: 'table',
+                  content: `<table>${tableHtml}</table>`,
+                  properties: {},
+                  children: []
+                });
+              }
+              inTable = false;
+              tableRows = [];
+            }
+
+            // Handle headings
+            if (trimmedLine.startsWith('### ')) {
+              currentListType = null;
+              newContentBlocks.push({
+                id: `generated-${outlineItemId}-h3-${Date.now()}-${index}`,
+                type: 'h3',
+                content: trimmedLine.substring(4),
+                properties: {},
+                children: []
+              });
+            } else if (trimmedLine.startsWith('## ')) {
+              currentListType = null;
+              newContentBlocks.push({
+                id: `generated-${outlineItemId}-h2-${Date.now()}-${index}`,
+                type: 'h2',
+                content: trimmedLine.substring(3),
+                properties: {},
+                children: []
+              });
+            } else if (trimmedLine.startsWith('# ')) {
+              currentListType = null;
+              newContentBlocks.push({
+                id: `generated-${outlineItemId}-h1-${Date.now()}-${index}`,
+                type: 'h1',
+                content: trimmedLine.substring(2),
+                properties: {},
+                children: []
+              });
+            }
+            // Handle images
+            else if (trimmedLine.startsWith('![') && trimmedLine.includes('](')) {
+              const altMatch = trimmedLine.match(/!\[([^\]]*)\]\(([^)]+)\)/);
+              if (altMatch) {
+                const altText = altMatch[1];
+                const src = altMatch[2];
+                newContentBlocks.push({
+                  id: `generated-${outlineItemId}-image-${Date.now()}-${index}`,
+                  type: 'image',
+                  content: altText || '',
+                  properties: { src, caption: altText },
+                  children: []
+                });
+              }
+            }
+            // Handle bullet lists
+            else if (trimmedLine.match(/^[-*+]\s+/)) {
+              currentListType = 'bullet';
+              newContentBlocks.push({
+                id: `generated-${outlineItemId}-bullet-${Date.now()}-${index}`,
+                type: 'bullet',
+                content: trimmedLine.replace(/^[-*+]\s+/, ''),
+                properties: {},
+                children: []
+              });
+            }
+            // Handle ordered lists
+            else if (trimmedLine.match(/^\d+\.\s+/)) {
+              currentListType = 'ordered';
+              newContentBlocks.push({
+                id: `generated-${outlineItemId}-ordered-${Date.now()}-${index}`,
+                type: 'numbered',
+                content: trimmedLine.replace(/^\d+\.\s+/, ''),
+                properties: {},
+                children: []
+              });
+            }
+            // Handle quotes
+            else if (trimmedLine.startsWith('> ')) {
+              currentListType = null;
+              newContentBlocks.push({
+                id: `generated-${outlineItemId}-quote-${Date.now()}-${index}`,
+                type: 'quote',
+                content: trimmedLine.substring(2),
+                properties: {},
+                children: []
+              });
+            }
+            // Handle code blocks (single line for now)
+            else if (trimmedLine.startsWith('```')) {
+              currentListType = null;
+              // Skip code block markers
+              return;
+            }
+            // Handle inline code or paragraphs
+            else {
+              const content = inTable ? '' : trimmedLine;
+              if (content) {
+                newContentBlocks.push({
+                  id: `generated-${outlineItemId}-p-${Date.now()}-${index}`,
+                  type: 'paragraph',
+                  content: content,
+                  properties: {},
+                  children: []
+                });
+              }
+            }
+          });
+
+          // Handle unclosed table at end
+          if (inTable && tableRows.length > 0) {
+            const tableHtml = tableRows.map(row =>
+              `<tr>${row.map(cell => `<td>${cell}</td>`).join('')}</tr>`
+            ).join('');
+            newContentBlocks.push({
+              id: `generated-${outlineItemId}-table-end-${Date.now()}`,
+              type: 'table',
+              content: `<table>${tableHtml}</table>`,
+              properties: {},
+              children: []
+            });
+          }
+
+          // Replace loading placeholder with generated content
+          setBlocks(prevBlocks => {
+            const newBlocks = [...prevBlocks];
+            const loadingIndex = newBlocks.findIndex(b => b.properties.loading);
+            if (loadingIndex !== -1) {
+              newBlocks.splice(loadingIndex, 1, ...newContentBlocks);
+            }
+            return newBlocks;
+          });
+
+          // Update outline with generated content
+          updateItem(outlineItemId, { content: generatedContent, paragraphs: newContentBlocks.filter(b => b.type === 'paragraph').map(b => b.content) });
+
+          // Show success toast
+          showToast('✅ 章节内容生成完成!', 'success');
+        },
+        requirements,
+        (error) => {
+          console.error('Generation error:', error);
+          showToast(`❌ 生成失败: ${error.message}`, 'error');
+
+          // Remove loading placeholder
+          setBlocks(prevBlocks => prevBlocks.filter(b => !b.properties.loading));
+        }
+      );
+    } catch (error) {
+      console.error('Error generating section:', error);
+      showToast(`❌ 生成失败: ${error instanceof Error ? error.message : '未知错误'}`, 'error');
+
+      // Remove loading placeholder
+      setBlocks(prevBlocks => prevBlocks.filter(b => !b.properties.loading));
+    }
   };
 
   const handleRewriteSection = (sectionId: string, newContent: string) => {
@@ -578,7 +928,7 @@ export default function WordEditorPage() {
           </button>
 
           <button
-            onClick={() => setShowOutlinePanel(!showOutlinePanel)}
+            onClick={() => setShowSettings(true)}
             style={{
               userSelect: 'none',
               transition: 'background 20ms ease-in',
@@ -587,20 +937,17 @@ export default function WordEditorPage() {
               alignItems: 'center',
               justifyContent: 'center',
               height: '28px',
-              paddingInline: '12px',
+              width: '28px',
               borderRadius: '50px',
-              whiteSpace: 'nowrap',
               fontSize: '14px',
               fontWeight: 500,
               lineHeight: 1.2,
               color: 'rgba(55, 53, 47, 1)',
-              background: showOutlinePanel ? 'rgba(35, 131, 226, 0.1)' : 'transparent',
-              gap: '6px',
-              border: 'none',
+              background: 'transparent',
+              border: '1px solid rgba(55, 53, 47, 0.15)',
             }}
           >
-            <FileText style={{ width: '20px', height: '20px', display: 'block', fill: 'rgba(55, 53, 47, 0.65)', flexShrink: 0 }} />
-            <span>大纲</span>
+            <Settings style={{ width: '16px', height: '16px', display: 'block' }} />
           </button>
         </div>
       </nav>
@@ -722,52 +1069,47 @@ export default function WordEditorPage() {
         </div>
       )}
 
-      {/* Main Content Area */}
-      <div style={{ display: 'flex', position: 'relative', minHeight: 'calc(100vh - 44px)' }}>
-        {/* Notion Editor */}
+      {/* Main Content Area - Centered Canvas */}
+      <div
+        style={{
+          display: 'flex',
+          position: 'relative',
+          minHeight: 'calc(100vh - 44px)',
+          backgroundColor: '#f7f7f5',
+        }}
+      >
+        {/* Notion Editor - Centered Canvas */}
         <main
           style={{
             flex: 1,
-            maxWidth: showOutlinePanel ? 'calc(1168px - 320px)' : '1168px',
-            width: showOutlinePanel ? 'calc(100% - 320px)' : '100%',
-            margin: '0 auto',
-            padding: '24px',
+            display: 'flex',
+            justifyContent: 'center',
+            padding: '40px 20px',
             transition: 'all 200ms ease-in-out',
           }}
         >
+          {/* A4-like Canvas Container */}
           <div
             style={{
+              width: '100%',
+              maxWidth: '800px',
               backgroundColor: '#fff',
-              borderRadius: '16px',
-              overflow: 'visible',
-              border: '1px solid rgba(55, 53, 47, 0.09)',
-              boxShadow: '0 1px 2px rgba(0, 0, 0, 0.03)',
-              minHeight: '600px',
+              borderRadius: '4px',
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+              minHeight: '800px',
+              display: 'flex',
+              flexDirection: 'column',
             }}
           >
             {/* Document Title */}
-            <div style={{ padding: '32px 48px' }}>
-              <h1 style={{ fontSize: '30px', fontWeight: 600, color: 'rgba(55, 53, 47, 1)', lineHeight: 1.2 }}>
+            <div style={{ padding: '40px 48px' }}>
+              <h1 style={{ fontSize: '32px', fontWeight: 600, color: '#37352f', lineHeight: 1.3, marginBottom: '16px' }}>
                 {documentTitle}
               </h1>
             </div>
 
-            {/* Page Header */}
-            <div
-              style={{
-                padding: '12px 48px',
-                fontSize: '14px',
-                fontWeight: 400,
-                textAlign: currentTemplate.header?.alignment || 'center',
-                backgroundColor: currentTemplate.header?.backgroundColor || 'transparent',
-                color: currentTemplate.header?.textColor || 'gray',
-              }}
-            >
-              {currentTemplate.header?.text || ''}
-            </div>
-
             {/* Editor Content */}
-            <div style={{ padding: '32px 48px' }}>
+            <div style={{ padding: '0 48px 48px 48px' }}>
               {blocks.length === 0 ? (
                 <div
                   style={{
@@ -793,6 +1135,7 @@ export default function WordEditorPage() {
                     }
                   }}
                   onBlockUpdate={handleBlockUpdate}
+                  onGenerate={handleGenerateSection}
                   documentTitle={documentTitle}
                 />
               )}
@@ -814,13 +1157,6 @@ export default function WordEditorPage() {
             </div>
           </div>
         </main>
-
-        {/* Outline Panel */}
-        <OutlinePanel
-          show={showOutlinePanel}
-          onClose={() => setShowOutlinePanel(false)}
-          documentTopic={documentTopic}
-        />
       </div>
 
       {/* Text Selection Toolbar */}
@@ -832,6 +1168,9 @@ export default function WordEditorPage() {
         blocks={blocks}
         outline={outline}
       />
+
+      {/* Settings Modal */}
+      <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
 
       <style>{`
         @keyframes fadeIn {

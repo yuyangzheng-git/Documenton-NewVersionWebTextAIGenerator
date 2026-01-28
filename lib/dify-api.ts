@@ -16,7 +16,7 @@ export function getDifyApiBaseUrl(): string {
     }
   }
   // Fallback to env var or default
-  return process.env.NEXT_PUBLIC_DIFY_API_URL || DEFAULT_DIFY_API_BASE_URL;
+  return process.env.NEXT_PUBLIC_DIFY_BASE_URL || DEFAULT_DIFY_API_BASE_URL;
 }
 
 export interface DifyOutlineItem {
@@ -332,6 +332,16 @@ export async function generateOutlineWithPlanner(
 
 /**
  * Call Worker API - Generate section content (streaming mode)
+ *
+ * Note: Dify Workflow input parameters should match your Workflow configuration.
+ * Common parameter names:
+ *   - title / section_title: The chapter title
+ *   - topic / document_topic: The document topic
+ *   - outline / full_outline: The full outline context
+ *   - requirements: Additional requirements for the chapter
+ *
+ * If you get "parameter X is required" errors, update the parameter names
+ * to match your Dify Workflow configuration.
  */
 export async function generateSectionWithWorker(
   apiKey: string,
@@ -360,20 +370,16 @@ export async function generateSectionWithWorker(
 
     const body: any = {
       inputs: {
-        context_summary: contextSummary,
-        document_topic: documentTopic,
-        section_title: sectionTitle,
-        full_outline: fullOutline,
+        title: documentTopic, // Document title
+        section: sectionTitle, // Chapter section name
         requirements: requirements || '',
+        userinput: {
+          files: files || [],
+        },
       },
       response_mode: 'streaming',
       user: 'user-' + Date.now(),
     };
-
-    // Add files if provided
-    if (files && files.length > 0) {
-      body.inputs.files = files;
-    }
 
     console.log('Generating section with API key:', apiKey);
     console.log('Request body:', JSON.stringify(body, null, 2));
@@ -436,7 +442,7 @@ export async function generateSectionWithWorker(
               return;
             } else if (parsed.event === 'node_finished') {
               // Node finished - could be used to track progress
-              console.log('Node finished:', parsed.data.title);
+              console.log('Node finished:', parsed.data?.title || 'unknown');
             } else if (parsed.event === 'workflow_started') {
               taskId = parsed.task_id;
               console.log('Workflow started:', taskId);

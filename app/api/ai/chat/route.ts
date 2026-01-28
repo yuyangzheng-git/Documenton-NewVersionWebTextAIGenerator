@@ -5,21 +5,36 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { message, history, appKey } = body;
 
+    console.log('=== AI Chat Debug ===');
+    console.log('Message:', message);
+    console.log('App Key:', appKey ? appKey.substring(0, 10) + '...' : '(empty)');
+    console.log('API URL:', process.env.NEXT_PUBLIC_DIFY_BASE_URL || 'http://your-dify-instance/v1');
+    console.log('=====================');
+
+    const requestBody = {
+      inputs: {},
+      query: message,
+      response_mode: 'streaming',
+      conversation_id: '',
+      user: 'web-user',
+    };
+
+    // 如果Dify应用配置了userinput参数，添加到inputs
+    requestBody.inputs = {
+      'userinput.query': message,
+      'userinput.files': [],
+    };
+
+    console.log('Request body:', JSON.stringify(requestBody, null, 2));
+
     // 调用 Dify API (流式响应)
-    const difyResponse = await fetch(`${process.env.NEXT_PUBLIC_DIFY_API_URL || 'http://your-dify-instance/v1'}/chat-messages`, {
+    const difyResponse = await fetch(`${process.env.NEXT_PUBLIC_DIFY_BASE_URL || 'http://your-dify-instance/v1'}/chat-messages`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${appKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        inputs: {},
-        query: message,
-        response_mode: 'streaming',
-        conversation_id: '',
-        user: 'web-user',
-        files: [],
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!difyResponse.ok) {
