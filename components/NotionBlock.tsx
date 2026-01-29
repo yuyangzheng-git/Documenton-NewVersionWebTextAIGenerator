@@ -35,6 +35,7 @@ import {
   Table as TableIcon,
 } from 'lucide-react';
 import { SimpleTableBlock, type SimpleTableBlockData } from '@/components/blocks';
+import { logger } from '@/lib/logger';
 
 // Lazy load StreamingMarkdownRenderer to avoid circular dependencies
 const StreamingMarkdownRenderer = lazy(() => import('@/components/StreamingMarkdownRenderer').then(m => ({ default: m.StreamingMarkdownRenderer })));
@@ -71,6 +72,8 @@ interface NotionBlockProps {
   onAdd: (parentId: string | null, type: BlockType, initialContent?: string) => string | undefined;
   onFocusNext?: () => void;
   onGenerate?: (blockId: string) => void;
+  generatingIds?: Set<string>;
+  allBlocks?: NotionBlock[];
 }
 
 const BLOCK_ICONS: Record<BlockType, React.ComponentType<React.SVGProps<SVGSVGElement>>> = {
@@ -227,7 +230,7 @@ const BLOCK_TYPES = [
   { type: 'image' as BlockType, label: '图片' },
 ];
 
-export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd, onGenerate }: NotionBlockProps) {
+export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd, onGenerate, generatingIds, allBlocks }: NotionBlockProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [editContent, setEditContent] = useState(block.content);
@@ -286,7 +289,7 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    console.log('handleKeyDown START:', {
+    logger.log('handleKeyDown START:', {
       key: e.key,
       code: e.code,
       shiftKey: e.shiftKey,
@@ -297,7 +300,7 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
 
     // Enter creates a new block (Notion-style)
     if (e.key === 'Enter' && !e.shiftKey) {
-      console.log('Enter detected, preventing default');
+      logger.log('Enter detected, preventing default');
       e.preventDefault();
       e.stopPropagation(); // Ensure event doesn't bubble
 
@@ -310,7 +313,7 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
       setEditContent(beforeCursor);
 
       // Then update the parent state
-      console.log('NotionBlock handleKeyDown onUpdate (current block):', { blockId: block.id, content: beforeCursor });
+      logger.log('NotionBlock handleKeyDown onUpdate (current block):', { blockId: block.id, content: beforeCursor });
       onUpdate(block.id, { content: beforeCursor });
 
       // Determine the type for the new block (Notion behavior)
@@ -349,7 +352,7 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
       }
 
       // Add new block with content after cursor and get its ID
-      console.log('About to call onAdd:', {
+      logger.log('About to call onAdd:', {
         onAddExists: !!onAdd,
         newBlockType,
         initialContent,
@@ -357,7 +360,7 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
         blockId: block.id
       });
       const newBlockId = onAdd ? onAdd(block.id, newBlockType, initialContent) : undefined;
-      console.log('onAdd result:', { newBlockId });
+      logger.log('onAdd result:', { newBlockId });
 
       // Focus the new block after it's created
       if (newBlockId) {
@@ -447,7 +450,7 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
   const handleBlur = () => {
     // Only update if slash menu is not shown
     if (!showSlashMenu) {
-      console.log('NotionBlock onBlur onUpdate:', { blockId: block.id, content: editContent });
+      logger.log('NotionBlock onBlur onUpdate:', { blockId: block.id, content: editContent });
       onUpdate(block.id, { content: editContent });
     }
     setShowSlashMenu(false);
@@ -467,7 +470,7 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
         setEditContent(originalText);
       }, 1000);
     } catch (err) {
-      console.error('复制失败:', err);
+      logger.error('复制失败:', err);
       // Fallback for older browsers
       const textarea = editorRef.current;
       if (textarea) {
@@ -501,7 +504,7 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
       // Update block with base64 image
       onUpdate(block.id, { content: base64 });
     } catch (error) {
-      console.error('Error processing image:', error);
+      logger.error('Error processing image:', error);
       alert('图片处理失败');
     }
   };
@@ -538,7 +541,7 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
 
         onUpdate(block.id, { content: base64 });
       } catch (error) {
-        console.error('Error processing image:', error);
+        logger.error('Error processing image:', error);
         alert('图片处理失败');
       }
     };
@@ -549,7 +552,7 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
     // Remove the '/' from content before changing type
     let cleanContent = editContent.replace(/^\/+$/, '');
 
-    console.log('NotionBlock handleTypeChange:', {
+    logger.log('NotionBlock handleTypeChange:', {
       blockId: block.id,
       currentType: block.type,
       newType: type,
@@ -575,7 +578,7 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
         }
       };
 
-      console.log('NotionBlock generating empty table data:', tableData);
+      logger.log('NotionBlock generating empty table data:', tableData);
       cleanContent = '';  // Clear content for table blocks
 
       // Update with table data in properties
@@ -608,7 +611,7 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
   };
 
   const handleMenuItemClick = (type: BlockType, e: React.MouseEvent) => {
-    console.log('NotionBlock handleMenuItemClick:', { type, e });
+    logger.log('NotionBlock handleMenuItemClick:', { type, e });
     e.preventDefault();
     e.stopPropagation();
     handleTypeChange(type);
@@ -720,31 +723,6 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
               placeholder="标题 1"
               rows={1}
             />
-            {onGenerate && block.id.startsWith('heading-') && (
-              <button
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); onGenerate(block.id); }}
-                style={{
-                  padding: '4px 8px',
-                  fontSize: '12px',
-                  backgroundColor: 'rgba(35, 131, 226, 0.1)',
-                  color: '#2383E2',
-                  border: '1px solid rgba(35, 131, 226, 0.2)',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  marginTop: '4px',
-                  transition: 'all 200ms ease',
-                  whiteSpace: 'nowrap'
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(35, 131, 226, 0.15)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'rgba(35, 131, 226, 0.1)'; }}
-              >
-                <Sparkles style={{ width: '12px', height: '12px' }} />
-                <span>生成/重写</span>
-              </button>
-            )}
           </div>
         );
       case 'h2':
@@ -764,31 +742,6 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
               placeholder="标题 2"
               rows={1}
             />
-            {onGenerate && block.id.startsWith('heading-') && (
-              <button
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); onGenerate(block.id); }}
-                style={{
-                  padding: '4px 8px',
-                  fontSize: '12px',
-                  backgroundColor: 'rgba(35, 131, 226, 0.1)',
-                  color: '#2383E2',
-                  border: '1px solid rgba(35, 131, 226, 0.2)',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  marginTop: '4px',
-                  transition: 'all 200ms ease',
-                  whiteSpace: 'nowrap'
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(35, 131, 226, 0.15)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'rgba(35, 131, 226, 0.1)'; }}
-              >
-                <Sparkles style={{ width: '12px', height: '12px' }} />
-                <span>生成/重写</span>
-              </button>
-            )}
           </div>
         );
       case 'h3':
@@ -808,31 +761,6 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
               placeholder="标题 3"
               rows={1}
             />
-            {onGenerate && block.id.startsWith('heading-') && (
-              <button
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); onGenerate(block.id); }}
-                style={{
-                  padding: '4px 8px',
-                  fontSize: '12px',
-                  backgroundColor: 'rgba(35, 131, 226, 0.1)',
-                  color: '#2383E2',
-                  border: '1px solid rgba(35, 131, 226, 0.2)',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                  marginTop: '4px',
-                  transition: 'all 200ms ease',
-                  whiteSpace: 'nowrap'
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(35, 131, 226, 0.15)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'rgba(35, 131, 226, 0.1)'; }}
-              >
-                <Sparkles style={{ width: '12px', height: '12px' }} />
-                <span>生成/重写</span>
-              </button>
-            )}
           </div>
         );
       case 'bullet':
@@ -948,7 +876,7 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
             setCopied(true);
             setTimeout(() => setCopied(false), 2000);
           } catch (error) {
-            console.error('复制失败:', error);
+            logger.error('复制失败:', error);
           }
         };
 
@@ -1140,32 +1068,35 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
                     alert('图片加载失败，请检查图片链接是否正确');
                   }}
                 />
-                <textarea
-                  ref={editorRef as any}
-                  value={editContent}
-                  onChange={(e) => setEditContent(e.target.value)}
-                  onFocus={handleFocus}
-                  onBlur={handleBlur}
-                  onKeyDown={handleKeyDown}
-                  style={{
-                    marginTop: '8px',
-                    width: '100%',
-                    padding: '8px',
-                    backgroundColor: '#F7F6F3',
-                    borderRadius: '4px',
-                    fontSize: '13px',
-                    color: 'rgba(55, 53, 47, 0.6)',
-                    outline: 'none',
-                    border: '1px solid rgba(55, 53, 47, 0.15)',
-                    resize: 'none',
-                    overflow: 'hidden',
-                    height: 'auto',
-                    whiteSpace: 'pre-wrap',
-                    wordWrap: 'break-word'
-                  }}
-                  placeholder="输入图片 URL 或拖拽图片到这里..."
-                  rows={1}
-                />
+                {/* 只在图片是 URL 格式时显示编辑区域（不是 base64） */}
+                {!editContent.startsWith('data:image/') && (
+                  <textarea
+                    ref={editorRef as any}
+                    value={editContent}
+                    onChange={(e) => setEditContent(e.target.value)}
+                    onFocus={handleFocus}
+                    onBlur={handleBlur}
+                    onKeyDown={handleKeyDown}
+                    style={{
+                      marginTop: '8px',
+                      width: '100%',
+                      padding: '8px',
+                      backgroundColor: '#F7F6F3',
+                      borderRadius: '4px',
+                      fontSize: '13px',
+                      color: 'rgba(55, 53, 47, 0.6)',
+                      outline: 'none',
+                      border: '1px solid rgba(55, 53, 47, 0.15)',
+                      resize: 'none',
+                      overflow: 'hidden',
+                      height: 'auto',
+                      whiteSpace: 'pre-wrap',
+                      wordWrap: 'break-word'
+                    }}
+                    placeholder="输入图片 URL..."
+                    rows={1}
+                  />
+                )}
               </div>
             ) : (
               <div
@@ -1242,40 +1173,115 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
         );
       case 'guide': {
         const isGuidanceVisible = block.properties.guidanceVisible !== false;
+        // 从 guide-{itemId} 推导出 heading-{itemId}
+        const headingBlockId = block.id.replace('guide-', 'heading-');
+
         return (
           <div style={{ flex: 1, marginTop: '8px', width: '100%' }}>
-            <div
-              onClick={() => onUpdate(block.id, { properties: { ...block.properties, guidanceVisible: !isGuidanceVisible } })}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                marginBottom: isGuidanceVisible ? '8px' : '0',
-                padding: '6px 10px',
-                backgroundColor: 'rgba(255, 193, 7, 0.1)',
-                borderRadius: '4px',
-                width: 'fit-content',
-                cursor: 'pointer',
-                transition: 'all 150ms ease',
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255, 193, 7, 0.15)'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255, 193, 7, 0.1)'; }}
-            >
-              <Lightbulb style={{ width: '16px', height: '16px', color: '#FFC107' }} />
-              <span style={{
-                fontSize: '12px',
-                fontWeight: 500,
-                color: '#F57C00',
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px'
-              }}>
-                写作指导
-              </span>
-              {isGuidanceVisible ? (
-                <ChevronUp style={{ width: '14px', height: '14px', color: '#F57C00', marginLeft: '4px' }} />
-              ) : (
-                <ChevronDown style={{ width: '14px', height: '14px', color: '#F57C00', marginLeft: '4px' }} />
-              )}
+            {/* 写作指导容器 - 添加 position: relative */}
+            <div style={{ position: 'relative' }}>
+              <div
+                onClick={() => onUpdate(block.id, { properties: { ...block.properties, guidanceVisible: !isGuidanceVisible } })}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  marginBottom: isGuidanceVisible ? '8px' : '0',
+                  padding: '6px 10px',
+                  backgroundColor: 'rgba(255, 193, 7, 0.1)',
+                  borderRadius: '4px',
+                  width: 'fit-content',
+                  cursor: 'pointer',
+                  transition: 'all 150ms ease',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255, 193, 7, 0.15)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255, 193, 7, 0.1)'; }}
+              >
+                <Lightbulb style={{ width: '16px', height: '16px', color: '#FFC107' }} />
+                <span style={{
+                  fontSize: '12px',
+                  fontWeight: 500,
+                  color: '#F57C00',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px'
+                }}>
+                  写作指导
+                </span>
+                {isGuidanceVisible ? (
+                  <ChevronUp style={{ width: '14px', height: '14px', color: '#F57C00', marginLeft: '4px' }} />
+                ) : (
+                  <ChevronDown style={{ width: '14px', height: '14px', color: '#F57C00', marginLeft: '4px' }} />
+                )}
+              </div>
+
+              {/* 生成/重写按钮 - 右上角 */}
+              {onGenerate && (() => {
+                // 从 guide-{itemId} 中提取 itemId
+                const outlineItemId = block.id.replace('guide-', '');
+
+                // 判断状态
+                const isGenerating = generatingIds?.has(outlineItemId) || false;
+                const hasGenerated = allBlocks?.some(b =>
+                  b.id.startsWith(`generated-${outlineItemId}-`) &&
+                  b.properties?.isGenerated
+                ) || false;
+
+                let buttonText = '生成';
+                let buttonColor = '#2383E2';
+                let bgColor = 'rgba(35, 131, 226, 0.1)';
+                let borderColor = 'rgba(35, 131, 226, 0.2)';
+                let hoverBgColor = 'rgba(35, 131, 226, 0.15)';
+
+                if (isGenerating) {
+                  buttonText = '生成中...';
+                  buttonColor = '#999';
+                  bgColor = 'rgba(153, 153, 153, 0.1)';
+                  borderColor = 'rgba(153, 153, 153, 0.2)';
+                  hoverBgColor = bgColor;
+                } else if (hasGenerated) {
+                  buttonText = '重写';
+                  buttonColor = '#10B981';
+                  bgColor = 'rgba(16, 185, 129, 0.1)';
+                  borderColor = 'rgba(16, 185, 129, 0.2)';
+                  hoverBgColor = 'rgba(16, 185, 129, 0.15)';
+                }
+
+                return (
+                  <button
+                    onClick={(e) => {
+                      if (!isGenerating) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        onGenerate(headingBlockId);
+                      }
+                    }}
+                    disabled={isGenerating}
+                    style={{
+                      position: 'absolute',
+                      top: '0',
+                      right: '0',
+                      padding: '4px 8px',
+                      fontSize: '12px',
+                      backgroundColor: bgColor,
+                      color: buttonColor,
+                      border: `1px solid ${borderColor}`,
+                      borderRadius: '4px',
+                      cursor: isGenerating ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      transition: 'all 200ms ease',
+                      whiteSpace: 'nowrap',
+                      opacity: isGenerating ? 0.6 : 1,
+                    }}
+                    onMouseEnter={(e) => { if (!isGenerating) e.currentTarget.style.backgroundColor = hoverBgColor; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = bgColor; }}
+                  >
+                    <Sparkles style={{ width: '12px', height: '12px' }} />
+                    <span>{buttonText}</span>
+                  </button>
+                );
+              })()}
             </div>
             {isGuidanceVisible && (
               <>
@@ -1324,17 +1330,17 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
       }
       case 'table': {
         // Check if content is a SimpleTableBlockData object
-        console.log('🎨 Rendering table block:', block.id, 'has tableData:', !!block.properties?.tableData);
+        logger.log('🎨 Rendering table block:', block.id, 'has tableData:', !!block.properties?.tableData);
         let tableData: SimpleTableBlockData;
 
         if (typeof block.properties.tableData === 'object' && block.properties.tableData !== null) {
           // Already have proper table data
           tableData = block.properties.tableData as SimpleTableBlockData;
-          console.log('✅ Using existing tableData with', tableData.rows.length, 'rows');
+          logger.log('✅ Using existing tableData with', tableData.rows.length, 'rows');
         } else {
           // Legacy HTML table or need to create default table
           // For now, create a default 3x3 table
-          console.log('⚠️ No tableData found, creating default 3x3 table');
+          logger.log('⚠️ No tableData found, creating default 3x3 table');
           tableData = {
             id: block.id,
             type: 'table',
@@ -1460,7 +1466,7 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
                       e.stopPropagation();
                     }}
                     onClick={(e) => {
-                      console.log('Menu button clicked:', type.type);
+                      logger.log('Menu button clicked:', type.type);
                       handleMenuItemClick(type.type, e);
                     }}
                     style={{
@@ -1510,7 +1516,7 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
                       e.stopPropagation();
                     }}
                     onClick={(e) => {
-                      console.log('Menu button clicked:', type);
+                      logger.log('Menu button clicked:', type);
                       handleMenuItemClick(type as BlockType, e);
                     }}
                     style={{

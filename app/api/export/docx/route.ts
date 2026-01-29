@@ -15,7 +15,7 @@ import {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { outline, blocks, documentTitle, templateId, customTemplateId } = body;
+    const { outline, blocks, documentTitle, templateId, customTemplateId, usePandoc } = body;
 
     console.log('Export request:', {
       hasBlocks: !!blocks,
@@ -25,6 +25,7 @@ export async function POST(request: NextRequest) {
       documentTitle,
       templateId,
       customTemplateId,
+      usePandoc,
     });
 
     if (!blocks || blocks.length === 0) {
@@ -37,7 +38,11 @@ export async function POST(request: NextRequest) {
 
     let buffer: Buffer;
 
-    if (customTemplateId) {
+    // 优先使用 Pandoc 方案（亚信模板）
+    if (usePandoc) {
+      console.log('Using Pandoc export with AsiaInfo template');
+      buffer = await exportWithPandoc(blocks, outline, documentTitle);
+    } else if (customTemplateId) {
       console.log('Using custom template:', customTemplateId);
       // 使用上传的自定义模板
       buffer = await exportWithLocalTemplate(blocks, outline, documentTitle, customTemplateId);
@@ -202,35 +207,190 @@ async function exportWithLocalTemplate(
 }
 
 // Convert blocks to HTML string
+// 中文文档格式：首行缩进2字符，1.5倍行距
 function blocksToHtml(blocks: any[]): string {
-  return blocks
-    .map((block) => {
-      switch (block.type) {
-        case 'h1':
-          return `<h1>${block.content}</h1>`;
-        case 'h2':
-          return `<h2>${block.content}</h2>`;
-        case 'h3':
-          return `<h3>${block.content}</h3>`;
-        case 'bullet':
-          return `<ul><li>${block.content}</li></ul>`;
-        case 'numbered':
-          return `<ol><li>${block.content}</li></ol>`;
-        case 'quote':
-          return `<blockquote>${block.content}</blockquote>`;
-        case 'divider':
-          return '<hr>';
-        case 'code':
-          return `<pre><code>${block.content}</code></pre>`;
-        case 'image':
-          return block.content ? `<img src="${block.content}" alt="图片" />` : '';
-        case 'callout':
-          return `<div style="background-color: rgba(35, 131, 226, 0.08); padding: 12px 16px; border-radius: 4px; border-left: 3px solid #2383E2;">${block.content}</div>`;
-        default:
-          return block.content ? `<p>${block.content}</p>` : '';
+  // 收集连续的列表项
+  const result: string[] = [];
+  let currentListType: string | null = null;
+  let currentListItems: string[] = [];
+
+  const flushList = () => {
+    if (currentListItems.length > 0) {
+      const tag = currentListType === 'bullet' ? 'ul' : 'ol';
+      result.push(`<${tag} style="margin-left: 2em; margin-bottom: 12pt; line-height: 1.5;">${currentListItems.join('')}</${tag}>`);
+      currentListItems = [];
+      currentListType = null;
+    }
+  };
+
+  blocks.forEach((block) => {
+    // 如果遇到非列表块，先刷新之前的列表
+    if (block.type !== 'bullet' && block.type !== 'numbered') {
+      flushList();
+    }
+
+    switch (block.type) {
+      case 'h1':
+        result.push(`<h1>${escapeHtml(block.content)}</h1>`);
+        break;
+      case 'h2':
+        result.push(`<h2>${escapeHtml(block.content)}</h2>`);
+        break;
+      case 'h3':
+        result.push(`<h3>${escapeHtml(block.content)}</h3>`);
+        break;
+      case 'bullet':
+        if (currentListType !== 'bullet') {
+          flushList();
+          currentListType = 'bullet';
+        }
+        currentListItems.push(`<li style="margin-bottom: 6pt;">${escapeHtml(block.content)}</li>`);
+        break;
+      case 'numbered':
+        if (currentListType !== 'numbered') {
+          flushList();
+          currentListType = 'numbered';
+        }
+        currentListItems.push(`<li style="margin-bottom: 6pt;">${escapeHtml(block.content)}</li>`);
+        break;
+      case 'quote':
+        result.push(`<blockquote>${escapeHtml(block.content)}</blockquote>`);
+        break;
+      case 'divider':
+        result.push('<hr />');
+        break;
+      case 'code':
+        result.push(`<pre><code>${escapeHtml(block.content)}</code></pre>`);
+        break;
+      case 'image':
+        // 处理图片（base64 或 URL）
+        if (block.content) {
+          result.push(`<p style="text-align: center;"><img src="${block.content}" alt="图片" /></p>`);
+        }
+        break;
+      case 'table':
+        // 处理表格 - 检查是否有 tableData
+        if (block.properties?.tableData) {
+          result.push(renderTableToHtml(block.properties.tableData));
+        } else if (block.content && block.content.includes('<table')) {
+          // 如果 content 是 HTML 表格，直接使用
+          result.push(block.content);
+        } else if (block.content && block.content.includes('|')) {
+          // 如果 content 是 Markdown 表格，转换为 HTML
+          result.push(markdownTableToHtml(block.content));
+        }
+        break;
+      case 'callout':
+      case 'guide':
+        // 写作指导块不导出
+        break;
+      case 'paragraph':
+      default:
+        // 段落添加首行缩进（2个中文字符）和1.5倍行距
+        if (block.content && block.content.trim()) {
+          result.push(`<p>${escapeHtml(block.content)}</p>`);
+        }
+        break;
+    }
+  });
+
+  // 刷新最后的列表
+  flushList();
+
+  return result.filter(html => html).join('\n');
+}
+
+// HTML 转义
+function escapeHtml(text: string): string {
+  if (!text) return '';
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+// 渲染表格数据为 HTML
+// 支持两种格式：
+// 1. SimpleTableBlockData: { rows: [{cells: [{content}]}], enableHeaderRow }
+// 2. Legacy format: { headers: string[], rows: string[][] }
+function renderTableToHtml(tableData: any): string {
+  if (!tableData) return '';
+
+  let html = '<table>';
+
+  // 检查是否是 SimpleTableBlockData 格式（有 rows 数组，每个 row 有 cells）
+  if (tableData.rows && Array.isArray(tableData.rows) && tableData.rows[0]?.cells) {
+    const rows = tableData.rows;
+    const enableHeaderRow = tableData.enableHeaderRow !== false; // 默认第一行是表头
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const isHeader = enableHeaderRow && i === 0;
+      const tag = isHeader ? 'th' : 'td';
+      const rowStyle = isHeader ? ' style="background-color: #f0f0f0;"' : '';
+
+      html += `<tr${rowStyle}>`;
+      for (const cell of row.cells || []) {
+        const content = cell.content || '';
+        html += `<${tag}>${escapeHtml(content)}</${tag}>`;
       }
-    })
-    .join('');
+      html += '</tr>';
+    }
+  }
+  // Legacy format: { headers, rows }
+  else if (tableData.headers && Array.isArray(tableData.headers)) {
+    // 表头
+    html += '<tr style="background-color: #f0f0f0;">';
+    for (const header of tableData.headers) {
+      html += `<th>${escapeHtml(header)}</th>`;
+    }
+    html += '</tr>';
+
+    // 表体
+    for (const row of tableData.rows || []) {
+      html += '<tr>';
+      for (const cell of row) {
+        html += `<td>${escapeHtml(cell)}</td>`;
+      }
+      html += '</tr>';
+    }
+  }
+
+  html += '</table>';
+  return html;
+}
+
+// Markdown 表格转 HTML
+function markdownTableToHtml(markdown: string): string {
+  const lines = markdown.trim().split('\n').filter(line => line.includes('|'));
+  if (lines.length < 2) return `<p>${escapeHtml(markdown)}</p>`;
+
+  let html = '<table>';
+
+  // 解析表头（第一行）
+  const headerCells = lines[0].split('|').map(cell => cell.trim()).filter(cell => cell);
+  html += '<tr style="background-color: #f0f0f0;">';
+  for (const cell of headerCells) {
+    html += `<th>${escapeHtml(cell)}</th>`;
+  }
+  html += '</tr>';
+
+  // 跳过分隔行（第二行），解析数据行
+  for (let i = 2; i < lines.length; i++) {
+    const cells = lines[i].split('|').map(cell => cell.trim()).filter(cell => cell);
+    if (cells.length > 0) {
+      html += '<tr>';
+      for (const cell of cells) {
+        html += `<td>${escapeHtml(cell)}</td>`;
+      }
+      html += '</tr>';
+    }
+  }
+
+  html += '</table>';
+  return html;
 }
 
 // Prepare data for template rendering
@@ -457,4 +617,205 @@ function prepareTemplateData(blocks: any[], outline: any[], title: string) {
     })),
     htmlContent: blocksToHtml(blocks),
   };
+}
+
+/**
+ * 使用 Python + Pandoc 导出（亚信模板方案）
+ *
+ * 注意：Pandoc 的 --reference-doc 只使用模板的样式，不保留模板内容（如封面页）
+ * 封面页由模板自带，内容直接从第二页开始
+ */
+async function exportWithPandoc(
+  blocks: any[],
+  outline: any[],
+  title: string
+): Promise<Buffer> {
+  const { spawn } = await import('child_process');
+  const { writeFile, unlink, readFile } = await import('fs/promises');
+  const { tmpdir } = await import('os');
+  const { join } = await import('path');
+
+  // 1. 将 blocks 转换为 HTML
+  const html = blocksToHtml(blocks);
+
+  // 2. 生成文档标题（用于封面页）
+  // 优先使用传入的标题，否则从内容中提取或生成
+  let documentTitle = title;
+  if (!documentTitle) {
+    // 尝试从第一个 h1 标题提取
+    const firstH1 = blocks.find(b => b.type === 'h1');
+    if (firstH1 && firstH1.content) {
+      // 如果 h1 看起来像章节标题（如"第一章 xxx"），提取主题
+      const chapterMatch = firstH1.content.match(/第[一二三四五六七八九十\d]+章[：:\s]*(.+)/);
+      if (chapterMatch) {
+        documentTitle = chapterMatch[1].trim();
+      } else {
+        documentTitle = firstH1.content;
+      }
+    } else {
+      // 从内容中提取关键词作为标题
+      const allText = blocks
+        .filter(b => b.type === 'paragraph' || b.type === 'h1' || b.type === 'h2')
+        .map(b => b.content)
+        .join(' ')
+        .slice(0, 200);
+
+      // 简单提取：取前20个字符作为标题
+      documentTitle = allText.slice(0, 50).replace(/[，。！？\s]+/g, ' ').trim() || '技术方案文档';
+    }
+  }
+
+  console.log('[Pandoc] Document title for cover:', documentTitle);
+
+  // 3. 构建 HTML - 使用中文文档标准格式
+  // 注意：不添加 HTML 封面页，因为模板自带封面页
+  // Pandoc 会根据 h1/h2/h3 标签自动应用模板中的 Heading 1/2/3 样式
+  const fullHtml = `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>${escapeHtml(documentTitle)}</title>
+  <style>
+    /* 基础样式 - Pandoc 会将这些映射到 Word 样式 */
+    body {
+      font-family: "SimSun", "宋体", serif;
+      font-size: 12pt;
+      line-height: 1.5;
+    }
+    /* 段落样式 - 中文首行缩进2字符，1.5倍行距 */
+    p {
+      text-indent: 2em;
+      line-height: 1.5;
+      margin-bottom: 0.5em;
+      text-align: justify;
+    }
+    /* 标题样式 */
+    h1 { font-size: 22pt; font-weight: bold; }
+    h2 { font-size: 16pt; font-weight: bold; }
+    h3 { font-size: 14pt; font-weight: bold; }
+    /* 表格样式 */
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 12pt 0;
+    }
+    th, td {
+      border: 1px solid #000;
+      padding: 6pt 8pt;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background-color: #f0f0f0;
+      font-weight: bold;
+    }
+    /* 列表样式 */
+    ul, ol {
+      margin-left: 2em;
+      line-height: 1.5;
+    }
+    li { margin-bottom: 0.3em; }
+    /* 代码样式 */
+    pre, code {
+      font-family: "Courier New", monospace;
+      font-size: 10pt;
+      background-color: #f5f5f5;
+    }
+    pre { padding: 8pt; margin: 8pt 0; }
+    /* 引用样式 */
+    blockquote {
+      margin-left: 2em;
+      padding-left: 1em;
+      border-left: 3px solid #ccc;
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+${html}
+</body>
+</html>`;
+
+  // 4. 创建临时文件
+  const tmpInput = join(tmpdir(), `docx-input-${Date.now()}.html`);
+  const tmpOutput = join(tmpdir(), `docx-output-${Date.now()}.docx`);
+
+  await writeFile(tmpInput, fullHtml, 'utf-8');
+
+  console.log('[Pandoc] Temp input file:', tmpInput);
+  console.log('[Pandoc] Temp output file:', tmpOutput);
+
+  try {
+    // 5. 获取模板路径
+    const templatePath = join(process.cwd(), 'public', 'templates', 'asiainfo-template.docx');
+    console.log('[Pandoc] Template path:', templatePath);
+
+    // 6. 调用 Python CLI
+    await new Promise<void>((resolve, reject) => {
+      const cliPath = join(process.cwd(), 'cli.py');
+      console.log('[Pandoc] CLI path:', cliPath);
+
+      const python = spawn('python3', [
+        cliPath,
+        '--input', tmpInput,
+        '--output', tmpOutput,
+        '--template', templatePath,
+        '--title', documentTitle
+      ], {
+        cwd: process.cwd(),
+        env: process.env,
+      });
+
+      let stdout = '';
+      let stderr = '';
+
+      python.stdout.on('data', (data) => {
+        stdout += data.toString();
+        console.log('[Pandoc stdout]', data.toString().trim());
+      });
+
+      python.stderr.on('data', (data) => {
+        stderr += data.toString();
+        console.error('[Pandoc stderr]', data.toString().trim());
+      });
+
+      python.on('close', (code) => {
+        if (code === 0) {
+          console.log('[Pandoc] Conversion successful');
+          resolve();
+        } else {
+          console.error('[Pandoc] Conversion failed with code:', code);
+          console.error('[Pandoc] stdout:', stdout);
+          console.error('[Pandoc] stderr:', stderr);
+          reject(new Error(`Pandoc process failed with code ${code}: ${stderr}`));
+        }
+      });
+
+      python.on('error', (err) => {
+        console.error('[Pandoc] Process error:', err);
+        reject(new Error(`Failed to spawn Python process: ${err.message}`));
+      });
+    });
+
+    // 7. 读取输出文件
+    const buffer = await readFile(tmpOutput);
+    console.log('[Pandoc] Output buffer size:', buffer.length);
+
+    // 8. 清理临时文件
+    await unlink(tmpInput);
+    await unlink(tmpOutput);
+    console.log('[Pandoc] Cleaned up temp files');
+
+    return buffer;
+  } catch (error) {
+    // 清理临时文件
+    try {
+      await unlink(tmpInput);
+      await unlink(tmpOutput);
+    } catch (cleanupError) {
+      console.error('[Pandoc] Cleanup error:', cleanupError);
+    }
+
+    throw error;
+  }
 }

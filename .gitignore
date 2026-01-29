@@ -43,3 +43,12 @@ next-env.d.ts
 
 # Local template storage (comment out if you want to track templates)
 data/templates/
+
+# Python
+venv/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+.venv/

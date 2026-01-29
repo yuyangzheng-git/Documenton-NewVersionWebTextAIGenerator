@@ -2,6 +2,8 @@
 """
 HTML to Word 转换脚本（命令行接口）
 用于 Next.js API 路由调用
+
+使用项目中的虚拟环境
 """
 
 import argparse
@@ -9,7 +11,16 @@ import sys
 import os
 
 # 将项目根目录添加到 Python 路径
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+project_root = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, project_root)
+
+# 确保使用虚拟环境
+venv_python = os.path.join(project_root, 'venv', 'bin', 'python')
+if os.path.exists(venv_python) and sys.executable != venv_python:
+    # 如果当前不是虚拟环境的 Python，重新执行
+    import subprocess
+    result = subprocess.run([venv_python] + sys.argv, cwd=project_root)
+    sys.exit(result.returncode)
 
 from document_generator import DocumentGenerator
 
@@ -19,6 +30,7 @@ def main():
     parser.add_argument('--input', required=True, help='Input HTML file path')
     parser.add_argument('--output', required=True, help='Output DOCX file path')
     parser.add_argument('--template', required=True, help='Reference template DOCX file path')
+    parser.add_argument('--title', default='', help='Document title for cover page')
     parser.add_argument('--toc-depth', type=int, default=3, help='Table of contents depth (default: 3)')
 
     args = parser.parse_args()
@@ -42,7 +54,7 @@ def main():
         print(f"[CLI] Input: {args.input}")
         print(f"[CLI] Output: {args.output}")
         print(f"[CLI] Template: {args.template}")
-        print(f"[CLI] TOC depth: {args.toc_depth}")
+        print(f"[CLI] Title: {args.title or '(auto-generated)'}")
 
         # 创建生成器实例
         generator = DocumentGenerator(template_path=args.template)
@@ -51,7 +63,7 @@ def main():
         output_path = generator.html_to_docx(
             html_content=html_content,
             output_path=args.output,
-            toc_depth=args.toc_depth
+            document_title=args.title
         )
 
         print(f"[CLI] Conversion successful: {output_path}")

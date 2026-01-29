@@ -10,6 +10,7 @@ import {
   DragEndEvent,
 } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
+import { logger } from '@/lib/logger';
 
 export interface NotionBlock {
   id: string;
@@ -24,112 +25,11 @@ interface NotionEditorProps {
   setBlocks: React.Dispatch<React.SetStateAction<NotionBlock[]>>;
   onBlockUpdate?: (id: string, updates: Partial<NotionBlock>) => void;
   onGenerate?: (blockId: string) => void;
+  generatingIds?: Set<string>;
   documentTitle?: string;
 }
 
-export function NotionEditor({ blocks, setBlocks, onBlockUpdate, onGenerate }: NotionEditorProps) {
-  // Calculate block numbers (1, 1.1, 1.2, 2, 2.1, etc.)
-  const getBlockNumber = (index: number): string | undefined => {
-    const block = blocks[index];
-    if (!block || (block.type !== 'h1' && block.type !== 'h2' && block.type !== 'h3')) {
-      return undefined;
-    }
-
-    if (block.type === 'h1') {
-      // Count how many h1 blocks before this one
-      let h1Count = 0;
-      for (let i = 0; i < index; i++) {
-        if (blocks[i].type === 'h1') {
-          h1Count++;
-        }
-      }
-      return (h1Count + 1).toString();
-    } else if (block.type === 'h2') {
-      // Find the most recent h1 block
-      let h1Index = -1;
-      for (let i = index - 1; i >= 0; i--) {
-        if (blocks[i].type === 'h1') {
-          h1Index = i;
-          break;
-        }
-      }
-
-      if (h1Index === -1) return undefined;
-
-      // Count how many h1 blocks before the h1 we found
-      let h1Count = 0;
-      for (let i = 0; i < h1Index; i++) {
-        if (blocks[i].type === 'h1') {
-          h1Count++;
-        }
-      }
-
-      // Count how many h2 blocks between h1 and current block
-      let h2Count = 0;
-      for (let i = h1Index + 1; i < index; i++) {
-        if (blocks[i].type === 'h1') {
-          break;
-        }
-        if (blocks[i].type === 'h2') {
-          h2Count++;
-        }
-      }
-
-      return `${h1Count + 1}.${h2Count + 1}`;
-    } else if (block.type === 'h3') {
-      // Find the most recent h2 block
-      let h2Index = -1;
-      for (let i = index - 1; i >= 0; i--) {
-        if (blocks[i].type === 'h2') {
-          h2Index = i;
-          break;
-        }
-      }
-
-      if (h2Index === -1) return undefined;
-
-      // Find the h1 that this h2 belongs to
-      let h1Index = -1;
-      for (let i = h2Index - 1; i >= 0; i--) {
-        if (blocks[i].type === 'h1') {
-          h1Index = i;
-          break;
-        }
-      }
-
-      if (h1Index === -1) return undefined;
-
-      // Count h1 blocks before h1Index
-      let h1Count = 0;
-      for (let i = 0; i < h1Index; i++) {
-        if (blocks[i].type === 'h1') {
-          h1Count++;
-        }
-      }
-
-      // Count h2 blocks between h1 and h2
-      let h2Count = 0;
-      for (let i = h1Index + 1; i < h2Index; i++) {
-        if (blocks[i].type === 'h1') break;
-        if (blocks[i].type === 'h2') {
-          h2Count++;
-        }
-      }
-
-      // Count h3 blocks between h2 and current block
-      let h3Count = 0;
-      for (let i = h2Index + 1; i < index; i++) {
-        if (blocks[i].type === 'h1' || blocks[i].type === 'h2') break;
-        if (blocks[i].type === 'h3') {
-          h3Count++;
-        }
-      }
-
-      return `${h1Count + 1}.${h2Count + 1}.${h3Count + 1}`;
-    }
-
-    return undefined;
-  };
+export function NotionEditor({ blocks, setBlocks, onBlockUpdate, onGenerate, generatingIds }: NotionEditorProps) {
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
@@ -139,11 +39,11 @@ export function NotionEditor({ blocks, setBlocks, onBlockUpdate, onGenerate }: N
   );
 
   const updateBlock = (id: string, updates: Partial<NotionBlock>) => {
-    console.log('NotionEditor updateBlock:', { id, updates, currentBlocks: blocks.map(b => ({ id: b.id, type: b.type, content: b.content.substring(0, 20) })) });
+    logger.log('NotionEditor updateBlock:', { id, updates, currentBlocks: blocks.map(b => ({ id: b.id, type: b.type, content: b.content.substring(0, 20) })) });
     setBlocks((prev) =>
       prev.map((block) => {
         if (block.id === id) {
-          console.log('NotionEditor updateBlock found block to update:', { id, oldType: block.type, newType: updates.type });
+          logger.log('NotionEditor updateBlock found block to update:', { id, oldType: block.type, newType: updates.type });
           return { ...block, ...updates };
         }
         if (block.children) {
@@ -177,7 +77,7 @@ export function NotionEditor({ blocks, setBlocks, onBlockUpdate, onGenerate }: N
       content = '　　';
     }
     
-    console.log('addBlock START:', { parentId, position, type, initialContent, content, blocksLength: blocks.length });
+    logger.log('addBlock START:', { parentId, position, type, initialContent, content, blocksLength: blocks.length });
     console.trace('addBlock call stack');
     
     const newBlock: NotionBlock = {
@@ -193,13 +93,13 @@ export function NotionEditor({ blocks, setBlocks, onBlockUpdate, onGenerate }: N
       const parentIndex = blocks.findIndex((b) => b.id === parentId);
       if (parentIndex !== -1) {
         const newBlocks = [...blocks.slice(0, parentIndex + 1), newBlock, ...blocks.slice(parentIndex + 1)];
-        console.log('addBlock setBlocks (parentId):', { parentId, parentIndex, newBlockId, newBlockContent: newBlock.content, blocksLength: newBlocks.length });
+        logger.log('addBlock setBlocks (parentId):', { parentId, parentIndex, newBlockId, newBlockContent: newBlock.content, blocksLength: newBlocks.length });
         setBlocks(newBlocks);
       }
     } else {
       // Insert at the specified position
       const newBlocks = [...blocks.slice(0, position), newBlock, ...blocks.slice(position)];
-      console.log('addBlock setBlocks (position):', { position, newBlockId, newBlockContent: newBlock.content, blocksLength: newBlocks.length });
+      logger.log('addBlock setBlocks (position):', { position, newBlockId, newBlockContent: newBlock.content, blocksLength: newBlocks.length });
       setBlocks(newBlocks);
     }
 
@@ -233,6 +133,8 @@ export function NotionEditor({ blocks, setBlocks, onBlockUpdate, onGenerate }: N
             onDelete={deleteBlock}
             onAdd={(parentId, type, initialContent) => addBlock(parentId, blocks.length, type, initialContent)}
             onGenerate={onGenerate}
+            generatingIds={generatingIds}
+            allBlocks={blocks}
           />
         ))}
       </SortableContext>

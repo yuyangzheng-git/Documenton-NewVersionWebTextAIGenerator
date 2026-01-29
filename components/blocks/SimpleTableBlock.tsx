@@ -20,6 +20,7 @@ const SimpleTableConstants = {
   // 尺寸
   defaultColumnWidth: 160.0,
   minimumColumnWidth: 36.0,
+  maximumColumnWidth: 600.0, // 🆕 最大列宽限制
   defaultRowHeight: 36.0,
 
   // 单元格边距（Desktop）
@@ -42,7 +43,11 @@ const SimpleTableConstants = {
   lightBorderWidth: 0.5,
 
   // 表格内边距
-  tablePaddingLeft: 8.0
+  tablePaddingLeft: 8.0,
+
+  // 🆕 编辑器最大宽度（与编辑页一致）
+  editorMaxWidth: 800.0,
+  editorPadding: 96.0 // 左右各 48px
 };
 
 // AppFlowy 颜色系统（Light Mode）
@@ -266,9 +271,33 @@ export function SimpleTableBlock({
     setTableNode({ ...tableNode, rows: newRows });
   };
 
-  // 更新列宽
+  // 更新列宽（优化版本，带智能限制）
   const updateColumnWidth = (colIndex: number, width: number) => {
-    const clampedWidth = Math.max(SimpleTableConstants.minimumColumnWidth, width);
+    // 计算当前所有列的总宽度
+    const currentTotalWidth = Array.from({ length: columnLength }, (_, i) => {
+      if (i === colIndex) return 0; // 排除当前列
+      return tableNode.columnWidths?.[i] || SimpleTableConstants.defaultColumnWidth;
+    }).reduce((sum, w) => sum + w, 0);
+
+    // 计算可用的最大宽度
+    const maxAvailableWidth = SimpleTableConstants.editorMaxWidth -
+                               SimpleTableConstants.editorPadding -
+                               SimpleTableConstants.tablePaddingLeft -
+                               SimpleTableConstants.addColumnButtonWidth -
+                               SimpleTableConstants.addColumnButtonPadding * 4;
+
+    // 计算该列的最大允许宽度
+    const maxWidthForThisColumn = Math.min(
+      SimpleTableConstants.maximumColumnWidth,
+      maxAvailableWidth - currentTotalWidth - 20 // 留 20px 余量
+    );
+
+    // 限制宽度范围
+    const clampedWidth = Math.max(
+      SimpleTableConstants.minimumColumnWidth,
+      Math.min(width, maxWidthForThisColumn)
+    );
+
     setTableNode({
       ...tableNode,
       columnWidths: {
@@ -578,6 +607,8 @@ function SimpleTableCell({
 
   const [dragStartX, setDragStartX] = useState(0);
   const [dragStartWidth, setDragStartWidth] = useState(0);
+  const [tempWidth, setTempWidth] = useState<number | null>(null); // 🆕 临时宽度用于拖拽预览
+  const rafIdRef = useRef<number | null>(null); // 🆕 RAF ID
 
   const isHeader = isHeaderRow || isHeaderColumn;
   const isHovered = hoveringTableCell?.row === rowIndex && hoveringTableCell?.col === colIndex;
@@ -585,31 +616,55 @@ function SimpleTableCell({
   const isResizeHandleHovered = hoveringOnResizeHandle === colIndex;
   const isResizing = resizingColumn === colIndex;
 
-  // 获取列宽
-  const columnWidth = tableNode.columnWidths?.[colIndex] || SimpleTableConstants.defaultColumnWidth;
+  // 获取列宽（拖拽时使用临时宽度）
+  const storedWidth = tableNode.columnWidths?.[colIndex] || SimpleTableConstants.defaultColumnWidth;
+  const columnWidth = isResizing && tempWidth !== null ? tempWidth : storedWidth;
 
   // 获取列对齐
   const columnAlign = tableNode.columnAligns?.[colIndex] || 'left';
 
-  // 拖拽调整列宽
+  // 拖拽调整列宽（优化版本）
   const handleResizeStart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setDragStartX(e.clientX);
-    setDragStartWidth(columnWidth);
+    setDragStartWidth(storedWidth);
     setResizingColumn(colIndex);
+    setTempWidth(storedWidth); // 初始化临时宽度
   };
 
   useEffect(() => {
-    if (!isResizing) return;
+    if (!isResizing) {
+      // 拖拽结束，清理临时状态
+      setTempWidth(null);
+      if (rafIdRef.current) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
+      return;
+    }
 
     const handleMouseMove = (e: MouseEvent) => {
-      const deltaX = e.clientX - dragStartX;
-      const newWidth = dragStartWidth + deltaX;
-      onUpdateColumnWidth(colIndex, newWidth);
+      // 取消之前的 RAF
+      if (rafIdRef.current) {
+        cancelAnimationFrame(rafIdRef.current);
+      }
+
+      // 使用 RAF 优化性能
+      rafIdRef.current = requestAnimationFrame(() => {
+        const deltaX = e.clientX - dragStartX;
+        const newWidth = dragStartWidth + deltaX;
+
+        // 只更新临时宽度，不触发状态更新
+        setTempWidth(newWidth);
+      });
     };
 
     const handleMouseUp = () => {
+      // 拖拽结束，应用最终宽度
+      if (tempWidth !== null) {
+        onUpdateColumnWidth(colIndex, tempWidth);
+      }
       setResizingColumn(null);
     };
 
@@ -619,8 +674,11 @@ function SimpleTableCell({
     return () => {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
+      if (rafIdRef.current) {
+        cancelAnimationFrame(rafIdRef.current);
+      }
     };
-  }, [isResizing, dragStartX, dragStartWidth]);
+  }, [isResizing, dragStartX, dragStartWidth, tempWidth, colIndex, onUpdateColumnWidth]);
 
   // 计算边框样式
   const getBorderStyle = () => {

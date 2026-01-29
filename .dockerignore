@@ -1,40 +1,89 @@
-# Node modules
+# Dependencies
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+.pnpm-debug.log*
 
-# Next.js
+# Next.js build output
 .next/
 out/
+
+# Python
+venv/
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+.venv/
 
 # Environment variables
 .env
 .env.local
-.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
 
 # Git
 .git/
 .gitignore
+.gitattributes
 
-# IDE
+# IDE / Editor
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+.project
+.classpath
+.settings/
 
 # OS
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
 
-# Documentation
+# Documentation (keep README)
 *.md
 !README.md
 
-# Screenshots
-screenshots/
+# Test files
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+__tests__/
+coverage/
+.nyc_output/
 
-# Temp files
+# Screenshots and temp files
+screenshots/
 temp/
 *.tmp
+*.temp
+*.log
+
+# Docker (don't include Docker files in build context recursively)
+Dockerfile*
+docker-compose*.yml
+.docker/
+
+# Build artifacts
+dist/
+build/
+*.tsbuildinfo
+
+# Misc
+*.bak
+*.backup
+LICENSE
+CHANGELOG.md
+CONTRIBUTING.md

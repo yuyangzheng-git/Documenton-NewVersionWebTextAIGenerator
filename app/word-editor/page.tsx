@@ -1,38 +1,47 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStore } from '@/store/useStore';
 import { AIChat } from '@/components/AIChat';
 import { TextSelectionToolbar } from '@/components/TextSelectionToolbar';
 import { NotionEditor, NotionBlock } from '@/components/NotionEditor';
 import { SettingsModal } from '@/components/SettingsModal';
-import { ChevronLeft, Palette, Download, Upload, Settings, FileText } from 'lucide-react';
-import { WORD_TEMPLATES } from '@/lib/word-templates';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { ChevronLeft, Download, Upload, Settings, FileText, Wand2 } from 'lucide-react';
 import { StreamingMarkdownParser } from '@/lib/streaming-markdown-parser';
 import { StreamingMarkdownHandler } from '@/lib/streaming-markdown-handler';
+import { logger } from '@/lib/logger';
 
 export default function WordEditorPage() {
   const router = useRouter();
   const { outline, documentTitle, setDocumentTitle, updateItem } = useStore();
-  const [selectedTemplate, setSelectedTemplate] = useState('simple-white');
-  const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   const [blocks, setBlocks] = useState<NotionBlock[]>([]);
+  const blocksRef = useRef<NotionBlock[]>(blocks); // Track current blocks value
+
+  // Update ref whenever blocks changes
+  useEffect(() => {
+    blocksRef.current = blocks;
+  }, [blocks]);
   const [documentTopic, setDocumentTopic] = useState('');
   const [customTemplateId, setCustomTemplateId] = useState<string | null>(null);
   const [customTemplateName, setCustomTemplateName] = useState<string | null>(null);
   const [showCustomTemplate, setShowCustomTemplate] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
+  // 追踪正在生成的章节ID
+  const [generatingIds, setGeneratingIds] = useState<Set<string>>(new Set());
+  const [isBatchGenerating, setIsBatchGenerating] = useState(false);
+
     // Handle block updates and sync with outline
   const handleBlockUpdate = (id: string, updates: Partial<NotionBlock>) => {
-    console.log('handleBlockUpdate called:', { id, updates });
+    logger.log('handleBlockUpdate called:', { id, updates });
 
     setBlocks(prev => {
       const newBlocks = prev.map(block =>
         block.id === id ? { ...block, ...updates } : block
       );
-      console.log('handleBlockUpdate blocks:', { prevLen: prev.length, newLen: newBlocks.length });
+      logger.log('handleBlockUpdate blocks:', { prevLen: prev.length, newLen: newBlocks.length });
       return newBlocks;
     });
 
@@ -88,7 +97,7 @@ export default function WordEditorPage() {
 
   const handleRewriteText = (text: string) => {
     // Handle AI rewrite request - could open a dialog with the AI chat
-    console.log('Rewrite text:', text);
+    logger.log('Rewrite text:', text);
   };
 
   // Handle generate section button click
@@ -99,16 +108,19 @@ export default function WordEditorPage() {
     // Find the outline item
     const outlineItem = outline.find(item => item.id === outlineItemId);
     if (!outlineItem) {
-      console.error('Outline item not found:', outlineItemId);
+      logger.error('Outline item not found:', outlineItemId);
       alert('找不到对应的大纲项');
       return;
     }
+
+    // 标记为正在生成
+    setGeneratingIds(prev => new Set(prev).add(outlineItemId));
 
     // Find the guide block to get requirements
     const guideBlock = blocks.find(b => b.id === `guide-${outlineItemId}`);
     const requirements = guideBlock?.content || outlineItem.requirements || '';
 
-    console.log('Generating section:', {
+    logger.log('Generating section:', {
       outlineItemId,
       title: outlineItem.title,
       requirements
@@ -182,7 +194,7 @@ export default function WordEditorPage() {
         // 使用 StreamingMarkdownParser 实时解析
         const parser = new StreamingMarkdownParser();
         const markdownBlocks = parser.parseComplete(currentMarkdown);
-        console.log('🔄 Streaming blocks:', markdownBlocks.map(b => ({ type: b.type, hasTableData: !!b.properties?.tableData })));
+        logger.log('🔄 Streaming blocks:', markdownBlocks.map(b => ({ type: b.type, hasTableData: !!b.properties?.tableData })));
 
         // 实时更新块结构（AppFlowy 的增量更新机制）
         setBlocks(prevBlocks => {
@@ -333,26 +345,26 @@ export default function WordEditorPage() {
           // 使用流式处理器追加内容（会自动处理节流和解析）
           markdownHandler.append(chunk);
           generatedContent += chunk;
-          console.log('Received chunk:', chunk);
+          logger.log('Received chunk:', chunk);
         },
         () => {
           // On complete, convert markdown to blocks and replace streaming blocks
-          console.log('Generation complete. Final content:', generatedContent);
+          logger.log('Generation complete. Final content:', generatedContent);
 
           // Use streaming markdown parser for final block conversion
           const parser = new StreamingMarkdownParser();
           const markdownBlocks = parser.parseComplete(generatedContent);
-          console.log('📊 Parsed markdown blocks:', markdownBlocks.map(b => ({ type: b.type, hasTableData: !!b.properties?.tableData })));
+          logger.log('📊 Parsed markdown blocks:', markdownBlocks.map(b => ({ type: b.type, hasTableData: !!b.properties?.tableData })));
 
           const newContentBlocks = StreamingMarkdownParser.toNotionBlocks(markdownBlocks, `generated-${outlineItemId}`);
-          console.log('📊 Converted notion blocks:', newContentBlocks.map(b => ({ type: b.type, hasTableData: !!b.properties?.tableData })));
+          logger.log('📊 Converted notion blocks:', newContentBlocks.map(b => ({ type: b.type, hasTableData: !!b.properties?.tableData })));
 
           // Mark all generated blocks as isGenerated (remove isGenerating flag)
           newContentBlocks.forEach(block => {
             block.properties = { ...block.properties, isGenerated: true, isGenerating: false };
           });
 
-          console.log('📊 After marking as generated:', newContentBlocks.map(b => ({ type: b.type, hasTableData: !!b.properties?.tableData })));
+          logger.log('📊 After marking as generated:', newContentBlocks.map(b => ({ type: b.type, hasTableData: !!b.properties?.tableData })));
 
           // Replace streaming blocks with final structured blocks
           setBlocks(prevBlocks => {
@@ -362,7 +374,7 @@ export default function WordEditorPage() {
             const guideBlockId = `guide-${outlineItemId}`;
             const guideBlockIndex = newBlocks.findIndex(b => b.id === guideBlockId);
 
-            console.log('📍 Guide block index:', guideBlockIndex);
+            logger.log('📍 Guide block index:', guideBlockIndex);
 
             if (guideBlockIndex !== -1) {
               // Remove all blocks after guide block that belong to this outline item
@@ -386,10 +398,10 @@ export default function WordEditorPage() {
                 }
               }
 
-              console.log('🗑️ Removing', removeCount, 'blocks');
-              console.log('➕ Adding', newContentBlocks.length, 'blocks');
-              console.log('➕ New blocks types:', newContentBlocks.map(b => b.type));
-              console.log('➕ New blocks with tableData:', newContentBlocks.filter(b => b.properties?.tableData).length);
+              logger.log('🗑️ Removing', removeCount, 'blocks');
+              logger.log('➕ Adding', newContentBlocks.length, 'blocks');
+              logger.log('➕ New blocks types:', newContentBlocks.map(b => b.type));
+              logger.log('➕ New blocks with tableData:', newContentBlocks.filter(b => b.properties?.tableData).length);
 
               // Replace with final blocks
               newBlocks.splice(guideBlockIndex + 1, removeCount, ...newContentBlocks);
@@ -401,6 +413,13 @@ export default function WordEditorPage() {
           // Update outline with generated content
           updateItem(outlineItemId, { content: generatedContent, paragraphs: newContentBlocks.filter(b => b.type === 'paragraph').map(b => b.content) });
 
+          // 移除生成中标记
+          setGeneratingIds(prev => {
+            const next = new Set(prev);
+            next.delete(outlineItemId);
+            return next;
+          });
+
           // Show success toast
           showToast('✅ 章节内容生成完成!', 'success');
 
@@ -410,8 +429,15 @@ export default function WordEditorPage() {
         },
         requirements,
         (error) => {
-          console.error('Generation error:', error);
+          logger.error('Generation error:', error);
           showToast(`❌ 生成失败: ${error.message}`, 'error');
+
+          // 移除生成中标记
+          setGeneratingIds(prev => {
+            const next = new Set(prev);
+            next.delete(outlineItemId);
+            return next;
+          });
 
           // Remove loading placeholder
           setBlocks(prevBlocks => prevBlocks.filter(b => !b.properties.loading));
@@ -421,12 +447,53 @@ export default function WordEditorPage() {
         }
       );
     } catch (error) {
-      console.error('Error generating section:', error);
+      logger.error('Error generating section:', error);
       showToast(`❌ 生成失败: ${error instanceof Error ? error.message : '未知错误'}`, 'error');
+
+      // 移除生成中标记
+      setGeneratingIds(prev => {
+        const next = new Set(prev);
+        next.delete(outlineItemId);
+        return next;
+      });
 
       // Remove loading placeholder
       setBlocks(prevBlocks => prevBlocks.filter(b => !b.properties.loading));
     }
+  };
+
+  // 一键生成所有章节
+  const handleBatchGenerate = async () => {
+    // 获取所有有写作指导但没有内容的章节
+    const chaptersToGenerate = outline.filter(item =>
+      (item.level === 2 || item.level === 3) &&
+      item.requirements &&
+      !item.content
+    );
+
+    if (chaptersToGenerate.length === 0) {
+      alert('没有需要生成的章节');
+      return;
+    }
+
+    const confirm = window.confirm(
+      `将按顺序生成 ${chaptersToGenerate.length} 个章节，是否继续？\n\n` +
+      chaptersToGenerate.map((item, idx) => `${idx + 1}. ${item.title}`).join('\n')
+    );
+
+    if (!confirm) return;
+
+    setIsBatchGenerating(true);
+
+    // 按顺序依次生成
+    for (const item of chaptersToGenerate) {
+      const headingBlockId = `heading-${item.id}`;
+      await handleGenerateSection(headingBlockId);
+      // 等待1秒再生成下一个
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+
+    setIsBatchGenerating(false);
   };
 
   const handleRewriteSection = (sectionId: string, newContent: string) => {
@@ -478,7 +545,7 @@ export default function WordEditorPage() {
         seenIds.add(item.id);
         uniqueOutline.push(item);
       } else {
-        console.warn('Removing duplicate outline item:', item.id);
+        logger.warn('Removing duplicate outline item:', item.id);
       }
     });
 
@@ -493,7 +560,7 @@ export default function WordEditorPage() {
 
       // Check for duplicate heading block ID and skip if already added
       if (generatedBlockIds.has(headingBlockId)) {
-        console.warn('Skipping duplicate heading block:', headingBlockId);
+        logger.warn('Skipping duplicate heading block:', headingBlockId);
         return;
       }
       generatedBlockIds.add(headingBlockId);
@@ -516,7 +583,7 @@ export default function WordEditorPage() {
       // IMPORTANT: Don't check !item.content because content is set after generation completes
       if ((item.level === 2 || item.level === 3) && item.requirements && !hasNextItemAsChild) {
         // Check if this guide block already exists and preserve user's edits
-        const existingBlock = blocks.find(b => b.id === `guide-${item.id}`);
+        const existingBlock = blocksRef.current.find(b => b.id === `guide-${item.id}`);
         const guideBlockId = `guide-${item.id}`;
 
         if (existingBlock) {
@@ -538,14 +605,14 @@ export default function WordEditorPage() {
 
         // Insert generated blocks for this item right after the guide block
         // This ensures generated content appears immediately after the guide block
-        const itemGeneratedBlocks = blocks.filter(b =>
+        const itemGeneratedBlocks = blocksRef.current.filter(b =>
           b.id.startsWith(`generated-${item.id}-`) &&
           b.properties?.isGenerated &&
           !generatedBlockIds.has(b.id)
         );
 
         if (itemGeneratedBlocks.length > 0) {
-          console.log(`📦 Adding ${itemGeneratedBlocks.length} generated blocks after guide-${item.id}`);
+          logger.log(`📦 Adding ${itemGeneratedBlocks.length} generated blocks after guide-${item.id}`);
           itemGeneratedBlocks.forEach(genBlock => {
             notionBlocks.push(genBlock);
             generatedBlockIds.add(genBlock.id);
@@ -555,7 +622,7 @@ export default function WordEditorPage() {
 
       // Add content blocks if exists
       // But skip if we already have generated blocks for this item (to avoid duplication)
-      const hasGeneratedBlocks = blocks.some(b =>
+      const hasGeneratedBlocks = blocksRef.current.some(b =>
         b.id.startsWith(`generated-${item.id}-`) && b.properties?.isGenerated
       );
 
@@ -567,12 +634,12 @@ export default function WordEditorPage() {
 
             // Check for duplicate paragraph block ID
             if (generatedBlockIds.has(blockId)) {
-              console.warn('Skipping duplicate paragraph block:', blockId);
+              logger.warn('Skipping duplicate paragraph block:', blockId);
               return;
             }
 
             // Check if this block already exists to preserve user's edits
-            const existingBlock = blocks.find(b => b.id === blockId);
+            const existingBlock = blocksRef.current.find(b => b.id === blockId);
             if (existingBlock) {
               // Keep the existing block
               notionBlocks.push(existingBlock);
@@ -593,11 +660,11 @@ export default function WordEditorPage() {
 
           // Check for duplicate content block ID
           if (generatedBlockIds.has(blockId)) {
-            console.warn('Skipping duplicate content block:', blockId);
+            logger.warn('Skipping duplicate content block:', blockId);
             return;
           }
 
-          const existingBlock = blocks.find(b => b.id === blockId);
+          const existingBlock = blocksRef.current.find(b => b.id === blockId);
           if (existingBlock) {
             notionBlocks.push(existingBlock);
           } else {
@@ -642,7 +709,7 @@ export default function WordEditorPage() {
 
     // Find user-created blocks
     // Exclude blocks that are generated from streaming (start with "generated-")
-    const userCreatedBlocks = blocks.filter(b =>
+    const userCreatedBlocks = blocksRef.current.filter(b =>
       !outlineItemIds.has(b.id) && !b.id.startsWith('generated-')
     );
 
@@ -651,16 +718,16 @@ export default function WordEditorPage() {
     userCreatedBlocks.forEach(userBlock => {
       // Skip if this block ID is already in notionBlocks
       if (generatedBlockIds.has(userBlock.id)) {
-        console.warn('Skipping duplicate user-created block:', userBlock.id);
+        logger.warn('Skipping duplicate user-created block:', userBlock.id);
         return;
       }
 
       // Find where this block was in the current blocks array
-      const currentIndex = blocks.findIndex(b => b.id === userBlock.id);
+      const currentIndex = blocksRef.current.findIndex(b => b.id === userBlock.id);
       if (currentIndex === -1) return;
 
       // Find the block before this user block in the current array
-      const previousBlockId = currentIndex > 0 ? blocks[currentIndex - 1].id : null;
+      const previousBlockId = currentIndex > 0 ? blocksRef.current[currentIndex - 1].id : null;
 
       if (previousBlockId) {
         // Find the position in notionBlocks where we should insert this user block
@@ -684,7 +751,7 @@ export default function WordEditorPage() {
     // These are blocks that might not have a guide block (edge case)
     // Only keep blocks that belong to outline items that still exist
     const validOutlineIds = new Set(uniqueOutline.map(item => item.id));
-    const remainingGeneratedBlocks = blocks.filter(b => {
+    const remainingGeneratedBlocks = blocksRef.current.filter(b => {
       if (!b.id.startsWith('generated-') || !b.properties?.isGenerated) {
         return false;
       }
@@ -704,8 +771,8 @@ export default function WordEditorPage() {
       return validOutlineIds.has(outlineItemId);
     });
 
-    console.log('🔍 Remaining generated blocks to insert:', {
-      total: blocks.filter(b => b.id.startsWith('generated-')).length,
+    logger.log('🔍 Remaining generated blocks to insert:', {
+      total: blocksRef.current.filter(b => b.id.startsWith('generated-')).length,
       alreadyInserted: Array.from(generatedBlockIds).filter(id => id.startsWith('generated-')).length,
       remaining: remainingGeneratedBlocks.length,
       remainingIds: remainingGeneratedBlocks.map(b => b.id)
@@ -714,11 +781,11 @@ export default function WordEditorPage() {
     // Insert remaining generated blocks at their correct positions (fallback)
     remainingGeneratedBlocks.forEach(genBlock => {
       // Find where this block was in the current blocks array
-      const currentIndex = blocks.findIndex(b => b.id === genBlock.id);
+      const currentIndex = blocksRef.current.findIndex(b => b.id === genBlock.id);
       if (currentIndex === -1) return;
 
       // Find the block before this generated block in the current array
-      const previousBlockId = currentIndex > 0 ? blocks[currentIndex - 1].id : null;
+      const previousBlockId = currentIndex > 0 ? blocksRef.current[currentIndex - 1].id : null;
 
       if (previousBlockId) {
         // Find the position in notionBlocks where we should insert this generated block
@@ -726,12 +793,12 @@ export default function WordEditorPage() {
         if (insertPosition !== -1) {
           notionBlocks.splice(insertPosition + 1, 0, genBlock);
           generatedBlockIds.add(genBlock.id);
-          console.log(`📌 Inserted generated block ${genBlock.id} after ${previousBlockId}`);
+          logger.log(`📌 Inserted generated block ${genBlock.id} after ${previousBlockId}`);
         } else {
           // If we can't find the position, add it at the end
           notionBlocks.push(genBlock);
           generatedBlockIds.add(genBlock.id);
-          console.warn(`⚠️ Could not find position for ${genBlock.id}, added at end`);
+          logger.warn(`⚠️ Could not find position for ${genBlock.id}, added at end`);
         }
       } else {
         // Add at the beginning
@@ -752,22 +819,22 @@ export default function WordEditorPage() {
     });
 
     if (duplicateBlocks.length > 0) {
-      console.error('Duplicate block IDs found:', duplicateBlocks);
-      console.error('All block IDs:', notionBlocks.map(b => b.id));
+      logger.error('Duplicate block IDs found:', duplicateBlocks);
+      logger.error('All block IDs:', notionBlocks.map(b => b.id));
     }
 
     // Only update if blocks are different to avoid unnecessary re-renders
-    const currentIds = new Set(blocks.map(b => b.id));
+    const currentIds = new Set(blocksRef.current.map(b => b.id));
     const newIds = new Set(notionBlocks.map(b => b.id));
 
     // Check if any new blocks were added (user created them)
     const hasNewBlocks = notionBlocks.some(b => !currentIds.has(b.id));
 
     // Check if any blocks from current state are missing in new state
-    const hasMissingBlocks = blocks.some(b => !newIds.has(b.id));
+    const hasMissingBlocks = blocksRef.current.some(b => !newIds.has(b.id));
 
-    console.log('useEffect outline -> blocks:', {
-      prevLen: blocks.length,
+    logger.log('useEffect outline -> blocks:', {
+      prevLen: blocksRef.current.length,
       newLen: notionBlocks.length,
       hasNewBlocks,
       hasMissingBlocks,
@@ -782,16 +849,16 @@ export default function WordEditorPage() {
     );
 
     if (duplicateBlocks.length > 0) {
-      console.warn('Removing duplicate blocks:', duplicateBlocks);
+      logger.warn('Removing duplicate blocks:', duplicateBlocks);
     }
 
     // Update if: new blocks were added OR blocks are missing OR there are duplicates
     if (hasNewBlocks || hasMissingBlocks || duplicateBlocks.length > 0) {
-      console.log('Updating blocks (preserving user edits)');
+      logger.log('Updating blocks (preserving user edits)');
       setBlocks(uniqueNotionBlocks);
-    } else if (JSON.stringify(notionBlocks.map(b => b.id)) !== JSON.stringify(blocks.map(b => b.id))) {
+    } else if (JSON.stringify(notionBlocks.map(b => b.id)) !== JSON.stringify(blocksRef.current.map(b => b.id))) {
       // If only order changed, update
-      console.log('Updating blocks (order changed)');
+      logger.log('Updating blocks (order changed)');
       setBlocks(uniqueNotionBlocks);
     }
   }, [outline]);
@@ -814,8 +881,9 @@ export default function WordEditorPage() {
           outline,
           blocks,
           documentTitle,
-          templateId: selectedTemplate,
-          customTemplateId: showCustomTemplate ? customTemplateId : null,
+          usePandoc: true, // 使用 Pandoc 导出（亚信模板）
+          templateId: null,
+          customTemplateId: null,
         }),
       });
 
@@ -834,7 +902,7 @@ export default function WordEditorPage() {
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Export error:', error);
+      logger.error('Export error:', error);
       alert('导出文档失败：' + (error instanceof Error ? error.message : '请重试'));
     }
   };
@@ -868,25 +936,24 @@ export default function WordEditorPage() {
       setShowCustomTemplate(true);
       alert('模板上传成功！');
     } catch (error) {
-      console.error('Template upload error:', error);
+      logger.error('Template upload error:', error);
       alert('模板上传失败：' + (error instanceof Error ? error.message : '请重试'));
     }
   };
 
-  const currentTemplate = WORD_TEMPLATES.find((t) => t.id === selectedTemplate) || WORD_TEMPLATES[0];
-
   return (
-    <div
-      style={{
-        backgroundColor: '#fff',
-        fontFamily:
-          'ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Helvetica, "PingFang SC", "Microsoft YaHei", Helvetica, "Apple Color Emoji", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol"',
-        WebkitFontSmoothing: 'auto',
-        color: 'rgba(55, 53, 47, 1)',
-        lineHeight: 1.5,
-        minHeight: '100vh',
-      }}
-    >
+    <ErrorBoundary>
+      <div
+        style={{
+          backgroundColor: '#fff',
+          fontFamily:
+            'ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Helvetica, "PingFang SC", "Microsoft YaHei", Helvetica, "Apple Color Emoji", Arial, sans-serif, "Segoe UI Emoji", "Segoe UI Symbol"',
+          WebkitFontSmoothing: 'auto',
+          color: 'rgba(55, 53, 47, 1)',
+          lineHeight: 1.5,
+          minHeight: '100vh',
+        }}
+      >
       {/* Top Navigation Bar */}
       <nav
         style={{
@@ -956,12 +1023,14 @@ export default function WordEditorPage() {
         />
 
         <div style={{ position: 'relative', display: 'flex', flexShrink: 0, alignItems: 'center', gap: '4px' }}>
+          {/* 一键生成按钮 */}
           <button
-            onClick={() => setShowTemplateSelector(!showTemplateSelector)}
+            onClick={handleBatchGenerate}
+            disabled={isBatchGenerating}
             style={{
               userSelect: 'none',
               transition: 'background 20ms ease-in',
-              cursor: 'pointer',
+              cursor: isBatchGenerating ? 'not-allowed' : 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -972,15 +1041,18 @@ export default function WordEditorPage() {
               fontSize: '14px',
               fontWeight: 500,
               lineHeight: 1.2,
-              color: 'rgba(55, 53, 47, 1)',
-              background: 'transparent',
+              color: isBatchGenerating ? 'rgba(255, 255, 255, 0.7)' : 'white',
+              background: isBatchGenerating
+                ? 'linear-gradient(135deg, #999 0%, #666 100%)'
+                : 'linear-gradient(135deg, #7C3AED 0%, #5B21B6 100%)',
               gap: '6px',
               border: 'none',
+              opacity: isBatchGenerating ? 0.6 : 1,
             }}
-            className="nav-button template-button"
+            className="nav-button batch-generate-button"
           >
-            <Palette style={{ width: '20px', height: '20px', display: 'block', fill: 'rgba(55, 53, 47, 0.65)', flexShrink: 0 }} />
-            <span className="button-text">{currentTemplate.name}</span>
+            <Wand2 style={{ width: '16px', height: '16px', display: 'block', flexShrink: 0 }} />
+            <span className="button-text">{isBatchGenerating ? '生成中...' : '一键生成'}</span>
           </button>
 
           <button
@@ -1034,123 +1106,6 @@ export default function WordEditorPage() {
           </button>
         </div>
       </nav>
-
-      {/* Template Selector */}
-      {showTemplateSelector && (
-        <div
-          style={{
-            borderBottom: '1px solid rgba(55, 53, 47, 0.09)',
-            backgroundColor: 'white',
-            animation: 'fadeIn 200ms ease-in-out',
-          }}
-        >
-          <div style={{ padding: '16px 24px', maxWidth: '1168px', margin: '0 auto' }}>
-            {/* Custom Template Section */}
-            <div style={{ marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid rgba(55, 53, 47, 0.09)' }}>
-              <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px', color: 'rgba(55, 53, 47, 1)' }}>
-                自定义模板
-              </div>
-              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-                {customTemplateName ? (
-                  <div
-                    onClick={() => {
-                      setShowCustomTemplate(true);
-                      setShowTemplateSelector(false);
-                    }}
-                    style={{
-                      padding: '8px 16px',
-                      backgroundColor: showCustomTemplate ? 'rgba(35, 131, 226, 0.1)' : 'rgba(0, 0, 0, 0.04)',
-                      borderRadius: '8px',
-                      fontSize: '13px',
-                      color: 'rgba(55, 53, 47, 1)',
-                      cursor: 'pointer',
-                      border: showCustomTemplate ? '2px solid #2383E2' : '1px solid transparent',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                    }}
-                  >
-                    <FileText style={{ width: '16px', height: '16px' }} />
-                    <span>{customTemplateName}</span>
-                  </div>
-                ) : null}
-                <label
-                  style={{
-                    padding: '8px 16px',
-                    backgroundColor: 'rgba(35, 131, 226, 0.08)',
-                    borderRadius: '8px',
-                    fontSize: '13px',
-                    color: '#2383E2',
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    transition: 'background 20ms ease-in',
-                  }}
-                >
-                  <input
-                    type="file"
-                    accept=".docx"
-                    onChange={handleTemplateUpload}
-                    style={{ display: 'none' }}
-                  />
-                  <Upload style={{ width: '16px', height: '16px' }} />
-                  <span>上传模板</span>
-                </label>
-                <span style={{ fontSize: '12px', color: 'rgba(55, 53, 47, 0.5)' }}>
-                  支持 .docx 格式 • 本地存储 • 无需联网
-                </span>
-              </div>
-            </div>
-
-            {/* Built-in Templates */}
-            <div style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px', color: 'rgba(55, 53, 47, 1)' }}>
-              内置模板
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '12px' }}>
-              {WORD_TEMPLATES.map((template) => (
-                <button
-                  key={template.id}
-                  onClick={() => {
-                    setSelectedTemplate(template.id);
-                    setShowCustomTemplate(false);
-                    setShowTemplateSelector(false);
-                  }}
-                  style={{
-                    userSelect: 'none',
-                    transition: 'background 20ms ease-in',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'flex-start',
-                    gap: '10px',
-                    padding: '12px',
-                    borderRadius: '16px',
-                    whiteSpace: 'nowrap',
-                    color: 'rgba(55, 53, 47, 1)',
-                    backgroundColor: selectedTemplate === template.id && !showCustomTemplate ? 'rgba(35, 131, 226, 0.08)' : 'rgba(0, 0, 0, 0.02)',
-                    border: selectedTemplate === template.id && !showCustomTemplate ? '1px solid rgba(35, 131, 226, 0.3)' : '1px solid transparent',
-                    flexBasis: 0,
-                    flexGrow: 1,
-                    textAlign: 'left',
-                  }}
-                >
-                  <div
-                    style={{
-                      width: '100%',
-                      height: '48px',
-                      borderRadius: '8px',
-                      marginBottom: '8px',
-                      backgroundColor: template.paperBg,
-                    }}
-                  />
-                  <div style={{ fontSize: '12px', fontWeight: 500, lineHeight: 1.2 }}>{template.name}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Main Content Area - Centered Canvas */}
       <div
@@ -1230,6 +1185,7 @@ export default function WordEditorPage() {
                   }}
                   onBlockUpdate={handleBlockUpdate}
                   onGenerate={handleGenerateSection}
+                  generatingIds={generatingIds}
                   documentTitle={documentTitle}
                 />
               )}
@@ -1241,13 +1197,13 @@ export default function WordEditorPage() {
                 padding: '12px 48px',
                 fontSize: '14px',
                 fontWeight: 400,
-                textAlign: currentTemplate.footer?.alignment || 'center',
-                backgroundColor: currentTemplate.footer?.backgroundColor || 'transparent',
-                color: currentTemplate.footer?.textColor || 'gray',
+                textAlign: 'center',
+                backgroundColor: 'transparent',
+                color: 'gray',
                 borderTop: '1px solid rgba(55, 53, 47, 0.09)',
               }}
             >
-              {currentTemplate.footer?.text?.replace('{page}', '1') || '第 1 页'}
+              第 1 页
             </div>
           </div>
         </main>
@@ -1290,5 +1246,6 @@ export default function WordEditorPage() {
         }
       `}</style>
     </div>
+    </ErrorBoundary>
   );
 }

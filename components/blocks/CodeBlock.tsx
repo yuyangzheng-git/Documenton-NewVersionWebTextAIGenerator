@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Copy, Check, ChevronDown } from 'lucide-react';
 import Prism from 'prismjs';
+import { createSafeHtml } from '@/lib/html-sanitizer';
 
 // 导入常用语言的语法高亮
 import 'prismjs/themes/prism-tomorrow.css';
@@ -388,7 +389,7 @@ export function CodeBlock({
                 <code
                   ref={codeRef}
                   className={`language-${getPrismLanguage(language)}`}
-                  dangerouslySetInnerHTML={{ __html: highlightedCode }}
+                  dangerouslySetInnerHTML={createSafeHtml(highlightedCode)}
                 />
               </pre>
 
@@ -434,7 +435,7 @@ export function CodeBlock({
             >
               <code
                 className={`language-${getPrismLanguage(language)}`}
-                dangerouslySetInnerHTML={{ __html: highlightedCode }}
+                dangerouslySetInnerHTML={createSafeHtml(highlightedCode)}
               />
             </pre>
           )}

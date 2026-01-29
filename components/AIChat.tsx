@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { MessageSquare, Send, X, Minus, Maximize2, Loader2 } from 'lucide-react';
 import { useStore } from '@/store/useStore';
+import { logger } from '@/lib/logger';
 
 interface NotionBlock {
   id: string;
@@ -116,7 +117,7 @@ export function AIChat({ onRewriteText, onRewriteSection, blocks, outline }: AIC
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ error: '未知错误' }));
-        console.error('API 请求失败:', response.status, errorData);
+        logger.error('API 请求失败:', response.status, errorData);
         throw new Error(`API 请求失败: ${errorData.error || response.statusText}`);
       }
 
@@ -162,7 +163,7 @@ export function AIChat({ onRewriteText, onRewriteSection, blocks, outline }: AIC
         onRewriteSection(rewriteCommand.sectionId, fullContent);
       }
     } catch (error) {
-      console.error('AI chat error:', error);
+      logger.error('AI chat error:', error);
       const errorMessage: Message = {
         role: 'assistant',
         content: error instanceof Error ? error.message : '抱歉，连接 AI 服务失败，请稍后重试。',

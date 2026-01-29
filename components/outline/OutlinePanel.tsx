@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { generateSectionWithWorker, getDifyAppParameters } from '@/lib/dify-api';
 import { createAIProvider } from '@/lib/ai/provider-factory';
 import { OutlineItem } from '@/store/useStore';
+import { logger } from '@/lib/logger';
 
 interface OutlinePanelProps {
     onClose?: () => void;
@@ -26,10 +27,10 @@ export function OutlinePanel({ onClose, show = true, documentTopic = '' }: Outli
         if (aiPlatform === 'dify' && chapterApiKey) {
             getDifyAppParameters(chapterApiKey)
                 .then(params => {
-                    console.log('Chapter bot parameters:', params);
+                    logger.log('Chapter bot parameters:', params);
                 })
                 .catch(err => {
-                    console.error('Failed to get chapter bot parameters:', err);
+                    logger.error('Failed to get chapter bot parameters:', err);
                 });
         }
     }, [chapterApiKey, aiPlatform]);
@@ -57,11 +58,11 @@ export function OutlinePanel({ onClose, show = true, documentTopic = '' }: Outli
             // Build full outline as string
             const fullOutline = outline.map(i => `${i.number ? i.number + ' ' : ''}${i.title}`).join('\n');
 
-            console.log('Generating chapter for:', item.title);
-            console.log('Document topic:', documentTopic);
-            console.log('Full outline:', fullOutline);
-            console.log('Requirements:', item.requirements || '(none)');
-            console.log('Using platform:', aiPlatform);
+            logger.log('Generating chapter for:', item.title);
+            logger.log('Document topic:', documentTopic);
+            logger.log('Full outline:', fullOutline);
+            logger.log('Requirements:', item.requirements || '(none)');
+            logger.log('Using platform:', aiPlatform);
 
             let accumulatedContent = '';
             let paragraphBuffer = '';
@@ -75,7 +76,7 @@ export function OutlinePanel({ onClose, show = true, documentTopic = '' }: Outli
                     (text: string) => {
                         accumulatedContent += text;
                         paragraphBuffer += text;
-                        console.log('Received chunk:', text.substring(0, 50) + '...');
+                        logger.log('Received chunk:', text.substring(0, 50) + '...');
                         // Real-time update of content in outline
                         updateItem(itemId, { content: accumulatedContent });
                     },
@@ -96,11 +97,11 @@ export function OutlinePanel({ onClose, show = true, documentTopic = '' }: Outli
                             paragraphs: paragraphs
                         });
                         setIsGenerating(false);
-                        console.log('Chapter generation completed, paragraphs:', paragraphs.length);
+                        logger.log('Chapter generation completed, paragraphs:', paragraphs.length);
                     },
                     item.requirements,
                     (error: Error) => {
-                        console.error('生成章节失败:', error);
+                        logger.error('生成章节失败:', error);
                         updateItem(itemId, { status: 'pending' });
                         setIsGenerating(false);
                         alert(`生成失败: ${error.message}`);
@@ -155,10 +156,10 @@ export function OutlinePanel({ onClose, show = true, documentTopic = '' }: Outli
                             paragraphs: paragraphs
                         });
                         setIsGenerating(false);
-                        console.log('Chapter generation completed, paragraphs:', paragraphs.length);
+                        logger.log('Chapter generation completed, paragraphs:', paragraphs.length);
                     },
                     (error: Error) => {
-                        console.error('生成章节失败:', error);
+                        logger.error('生成章节失败:', error);
                         updateItem(itemId, { status: 'pending' });
                         setIsGenerating(false);
                         alert(`生成失败: ${error.message}`);
@@ -166,7 +167,7 @@ export function OutlinePanel({ onClose, show = true, documentTopic = '' }: Outli
                 );
             }
         } catch (error) {
-            console.error('生成章节失败:', error);
+            logger.error('生成章节失败:', error);
             updateItem(itemId, { status: 'pending' });
             setIsGenerating(false);
             alert(`生成失败: ${error instanceof Error ? error.message : '未知错误'}`);
@@ -192,7 +193,7 @@ export function OutlinePanel({ onClose, show = true, documentTopic = '' }: Outli
             }
         }
 
-        console.log(`Found ${childItems.length} child sections to generate for ${outline[parentIndex].title}`);
+        logger.log(`Found ${childItems.length} child sections to generate for ${outline[parentIndex].title}`);
 
         // Get provider config based on platform
         let config: any;
@@ -220,7 +221,7 @@ export function OutlinePanel({ onClose, show = true, documentTopic = '' }: Outli
         // Generate each child section sequentially
         for (const childItem of childItems) {
             if (childItem.content) {
-                console.log(`Skipping ${childItem.title} - already has content`);
+                logger.log(`Skipping ${childItem.title} - already has content`);
                 continue;
             }
 
@@ -230,8 +231,8 @@ export function OutlinePanel({ onClose, show = true, documentTopic = '' }: Outli
 
                 const fullOutline = outline.map(i => `${i.number ? i.number + ' ' : ''}${i.title}`).join('\n');
 
-                console.log('Generating chapter for:', childItem.title);
-                console.log('Requirements:', childItem.requirements || '(none)');
+                logger.log('Generating chapter for:', childItem.title);
+                logger.log('Requirements:', childItem.requirements || '(none)');
 
                 let accumulatedContent = '';
 
@@ -261,11 +262,11 @@ export function OutlinePanel({ onClose, show = true, documentTopic = '' }: Outli
                                 content: accumulatedContent,
                                 paragraphs: paragraphList
                             });
-                            console.log('Chapter generation completed:', childItem.title, 'paragraphs:', paragraphList.length);
+                            logger.log('Chapter generation completed:', childItem.title, 'paragraphs:', paragraphList.length);
                         },
                         childItem.requirements,
                         (error: Error) => {
-                            console.error('生成章节失败:', error);
+                            logger.error('生成章节失败:', error);
                             updateItem(childItem.id, { status: 'pending' });
                             alert(`生成失败: ${childItem.title} - ${error.message}`);
                         }
@@ -297,24 +298,24 @@ export function OutlinePanel({ onClose, show = true, documentTopic = '' }: Outli
                                 content: accumulatedContent,
                                 paragraphs: paragraphList
                             });
-                            console.log('Chapter generation completed:', childItem.title, 'paragraphs:', paragraphList.length);
+                            logger.log('Chapter generation completed:', childItem.title, 'paragraphs:', paragraphList.length);
                         },
                         (error: Error) => {
-                            console.error('生成章节失败:', error);
+                            logger.error('生成章节失败:', error);
                             updateItem(childItem.id, { status: 'pending' });
                             alert(`生成失败: ${childItem.title} - ${error.message}`);
                         }
                     );
                 }
             } catch (error) {
-                console.error('生成章节失败:', error);
+                logger.error('生成章节失败:', error);
                 updateItem(childItem.id, { status: 'pending' });
                 alert(`生成失败: ${childItem.title} - ${error instanceof Error ? error.message : '未知错误'}`);
             }
         }
 
         setIsGenerating(false);
-        console.log('All child chapters generation completed');
+        logger.log('All child chapters generation completed');
     };
 
     if (!show) return null;

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { autoCloseMarkdown } from '@/lib/streaming-markdown-handler';
+import { createSafeHtml } from '@/lib/html-sanitizer';
 
 interface StreamingMarkdownRendererProps {
   markdown: string;
@@ -268,7 +269,7 @@ export const StreamingMarkdownRenderer = function StreamingMarkdownRenderer({ ma
     <div
       ref={containerRef}
       className={`streaming-markdown-renderer ${className}`}
-      dangerouslySetInnerHTML={{ __html: html }}
+      dangerouslySetInnerHTML={createSafeHtml(html)}
       style={{
         lineHeight: '1.7',
         fontSize: '15px',
