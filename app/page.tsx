@@ -150,10 +150,21 @@ export default function Home() {
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text',
-              letterSpacing: '-0.02em'
+              letterSpacing: '-0.02em',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              justifyContent: 'center'
             }}
           >
-            {isGenerating ? '正在为您生成文档大纲...' : 'AI 驱动的超长文本生成器'}
+            {isGenerating ? (
+              <>
+                <Loader2 className="animate-spin" style={{ width: '32px', height: '32px', color: '#2383E2' }} />
+                <span>正在为您生成文档大纲...</span>
+              </>
+            ) : (
+              'AI 驱动的超长文本生成器'
+            )}
           </h1>
 
           <p
@@ -516,6 +527,48 @@ export default function Home() {
         </div>
       </div>
 
+      {/* Loading Overlay */}
+      {isGenerating && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(255, 255, 255, 0.9)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 9999,
+            animation: 'fadeIn 0.3s ease-in-out'
+          }}
+        >
+          <Loader2 className="animate-spin" style={{ width: '64px', height: '64px', color: '#2383E2', marginBottom: '24px' }} />
+          <h2
+            style={{
+              fontSize: '24px',
+              fontWeight: 600,
+              color: 'rgba(55, 53, 47, 0.9)',
+              margin: '0 0 12px 0'
+            }}
+          >
+            正在为您生成文档大纲...
+          </h2>
+          <p
+            style={{
+              fontSize: '16px',
+              color: 'rgba(55, 53, 47, 0.6)',
+              margin: 0
+            }}
+          >
+            AI 正在分析您的需求，这可能需要一点时间
+          </p>
+        </div>
+      )}
+
       <style jsx global>{`
         .empty-placeholder:empty:before {
           content: attr(data-placeholder);
@@ -535,6 +588,14 @@ export default function Home() {
         }
         .animate-spin {
           animation: spin 1s linear infinite;
+        }
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
         }
       `}</style>
     </div>

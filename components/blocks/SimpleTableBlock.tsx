@@ -328,7 +328,7 @@ export function SimpleTableBlock({
       {/* 外层容器：实现 Notion 风格的表格滚动 */}
       <div
         style={{
-          width: '100%',
+          width: '100%', // 与正文块等宽
           marginTop: '8px',
           marginBottom: '8px',
           overflowX: 'auto', // 横向滚动

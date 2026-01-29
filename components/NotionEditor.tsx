@@ -70,16 +70,16 @@ export function NotionEditor({ blocks, setBlocks, onBlockUpdate, onGenerate, gen
 
   const addBlock = (parentId: string | null, position: number, type: BlockType, initialContent?: string): string | undefined => {
     const newBlockId = `block-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
-    
+
     // For paragraphs, add default indent (2 full-width spaces) only if initialContent is undefined
     let content = initialContent !== undefined ? initialContent : '';
     if (type === 'paragraph' && initialContent === undefined) {
       content = '　　';
     }
-    
+
     logger.log('addBlock START:', { parentId, position, type, initialContent, content, blocksLength: blocks.length });
     console.trace('addBlock call stack');
-    
+
     const newBlock: NotionBlock = {
       id: newBlockId,
       type,
@@ -100,6 +100,28 @@ export function NotionEditor({ blocks, setBlocks, onBlockUpdate, onGenerate, gen
       // Insert at the specified position
       const newBlocks = [...blocks.slice(0, position), newBlock, ...blocks.slice(position)];
       logger.log('addBlock setBlocks (position):', { position, newBlockId, newBlockContent: newBlock.content, blocksLength: newBlocks.length });
+      setBlocks(newBlocks);
+    }
+
+    return newBlockId;
+  };
+
+  const insertBeforeBlock = (beforeBlockId: string, type: BlockType, content: string): string | undefined => {
+    const newBlockId = `block-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+
+    const newBlock: NotionBlock = {
+      id: newBlockId,
+      type,
+      content,
+      properties: {},
+      children: [],
+    };
+
+    // Find the index of the target block and insert before it
+    const targetIndex = blocks.findIndex((b) => b.id === beforeBlockId);
+    if (targetIndex !== -1) {
+      const newBlocks = [...blocks.slice(0, targetIndex), newBlock, ...blocks.slice(targetIndex)];
+      logger.log('insertBeforeBlock setBlocks:', { beforeBlockId, targetIndex, newBlockId, newBlockContent: newBlock.content, blocksLength: newBlocks.length });
       setBlocks(newBlocks);
     }
 
@@ -131,7 +153,13 @@ export function NotionEditor({ blocks, setBlocks, onBlockUpdate, onGenerate, gen
             block={block}
             onUpdate={updateBlock}
             onDelete={deleteBlock}
-            onAdd={(parentId, type, initialContent) => addBlock(parentId, blocks.length, type, initialContent)}
+            onAdd={(parentId, type, initialContent, insertBefore) => {
+              if (insertBefore) {
+                insertBeforeBlock(parentId || block.id, type, initialContent || '');
+              } else {
+                addBlock(parentId, blocks.length, type, initialContent);
+              }
+            }}
             onGenerate={onGenerate}
             generatingIds={generatingIds}
             allBlocks={blocks}

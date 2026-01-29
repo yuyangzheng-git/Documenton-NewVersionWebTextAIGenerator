@@ -271,13 +271,13 @@ function blocksToHtml(blocks: any[]): string {
       case 'table':
         // 处理表格 - 检查是否有 tableData
         if (block.properties?.tableData) {
-          result.push(renderTableToHtml(block.properties.tableData));
+          result.push(`<p style="text-align: center;">${renderTableToHtml(block.properties.tableData)}</p>`);
         } else if (block.content && block.content.includes('<table')) {
-          // 如果 content 是 HTML 表格，直接使用
-          result.push(block.content);
+          // 如果 content 是 HTML 表格，直接使用（添加居中）
+          result.push(`<p style="text-align: center;">${block.content}</p>`);
         } else if (block.content && block.content.includes('|')) {
-          // 如果 content 是 Markdown 表格，转换为 HTML
-          result.push(markdownTableToHtml(block.content));
+          // 如果 content 是 Markdown 表格，转换为 HTML（添加居中）
+          result.push(`<p style="text-align: center;">${markdownTableToHtml(block.content)}</p>`);
         }
         break;
       case 'callout':

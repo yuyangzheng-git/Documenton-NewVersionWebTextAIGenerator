@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, lazy, Suspense } from 'react';
-import { ChevronDown, ChevronUp, Check } from 'lucide-react';
+import { ChevronDown, ChevronUp, Check, Plus, Trash2 } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import Prism from 'prismjs';
@@ -25,7 +25,6 @@ import {
   Quote,
   Minus,
   Image as ImageIcon,
-  Plus,
   GripVertical,
   CheckCircle2,
   Copy,
@@ -69,7 +68,7 @@ interface NotionBlockProps {
   editable?: boolean;
   onUpdate: (id: string, updates: Partial<NotionBlock>) => void;
   onDelete: (id: string) => void;
-  onAdd: (parentId: string | null, type: BlockType, initialContent?: string) => string | undefined;
+  onAdd: (parentId: string | null, type: BlockType, initialContent?: string, insertBefore?: boolean) => string | undefined;
   onFocusNext?: () => void;
   onGenerate?: (blockId: string) => void;
   generatingIds?: Set<string>;
@@ -235,6 +234,7 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
   const [showSlashMenu, setShowSlashMenu] = useState(false);
   const [editContent, setEditContent] = useState(block.content);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const [isSelected, setIsSelected] = useState(false);
   const editorRef = useRef<HTMLTextAreaElement | HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const blockRef = useRef<HTMLDivElement>(null);
@@ -273,6 +273,35 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showSlashMenu]);
+
+  // Handle block selection and Backspace to delete
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Check if block is selected and Backspace is pressed
+      if (e.key === 'Backspace' && isSelected && !e.shiftKey) {
+        // Don't delete if the user is typing in an editable element
+        const activeElement = document.activeElement;
+        const isTyping = activeElement && (
+          activeElement.tagName === 'INPUT' ||
+          activeElement.tagName === 'TEXTAREA' ||
+          activeElement.isContentEditable
+        );
+
+        // For table and image blocks, allow deletion
+        if ((block.type === 'table' || block.type === 'image') && isSelected && !isTyping) {
+          e.preventDefault();
+          if (confirm(`确定要删除这个${block.type === 'table' ? '表格' : '图片'}块吗？`)) {
+            onDelete(block.id);
+          }
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isSelected, block.type, onDelete]);
 
   const {
     attributes,
@@ -316,39 +345,13 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
       logger.log('NotionBlock handleKeyDown onUpdate (current block):', { blockId: block.id, content: beforeCursor });
       onUpdate(block.id, { content: beforeCursor });
 
-      // Determine the type for the new block (Notion behavior)
-      let newBlockType: BlockType = 'paragraph';
+      // Always create a default paragraph block (not same type)
+      const newBlockType: BlockType = 'paragraph';
       let initialContent: string | undefined = afterCursor;
 
-      if (block.type === 'code') {
-        // For code blocks, Enter creates new line in same block
-        newBlockType = 'code';
-        initialContent = undefined;
-      } else if (block.type === 'table') {
-        // For table blocks, Enter creates new table block
-        newBlockType = 'table';
-        initialContent = generateEmptyTable();
-      } else if (block.type === 'h1' || block.type === 'h2' || block.type === 'h3') {
-        // For headings, Enter creates new paragraph
-        newBlockType = 'paragraph';
-      } else if (block.type === 'bullet') {
-        // For bullet lists, Enter creates new bullet item
-        newBlockType = 'bullet';
-      } else if (block.type === 'numbered') {
-        // For numbered lists, Enter creates new numbered item
-        newBlockType = 'numbered';
-      } else if (block.type === 'todo') {
-        // For todo items, Enter creates new todo item
-        newBlockType = 'todo';
-      } else if (block.type === 'quote') {
-        // For quotes, Enter creates new quote
-        newBlockType = 'quote';
-      } else if (block.type === 'callout') {
-        // For callouts, Enter creates new callout
-        newBlockType = 'callout';
-      } else {
-        // For paragraphs, Enter creates new paragraph with default indent
-        newBlockType = 'paragraph';
+      // Add default indent for new paragraph blocks if content is empty
+      if (newBlockType === 'paragraph' && initialContent === undefined) {
+        initialContent = '　　';
       }
 
       // Add new block with content after cursor and get its ID
@@ -369,12 +372,8 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
           const newBlockElement = document.querySelector(`[data-block-id="${newBlockId}"] textarea`) as HTMLTextAreaElement;
           if (newBlockElement) {
             newBlockElement.focus();
-            // Set cursor after default indent for paragraphs with default indent
-            if (newBlockType === 'paragraph' && initialContent === undefined) {
-              newBlockElement.setSelectionRange(2, 2);
-            } else {
-              newBlockElement.setSelectionRange(0, 0);
-            }
+            // Set cursor at the first position of the new block
+            newBlockElement.setSelectionRange(0, 0);
             // Trigger auto-resize
             const resizeEvent = new Event('input', { bubbles: true });
             newBlockElement.dispatchEvent(resizeEvent);
@@ -384,7 +383,7 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
           }
         };
 
-        setTimeout(() => focusNewBlock(0), 0);
+          setTimeout(() => focusNewBlock(0), 0);
       }
     } else if (e.key === 'Enter' && e.shiftKey) {
       // Shift+Enter - insert newline in current block (for multi-line content)
@@ -708,60 +707,54 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
     switch (block.type) {
       case 'h1':
         return (
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', width: '100%' }}>
-            <textarea
-              ref={editorRef as any}
-              value={editContent}
-              onChange={(e) => {
-                setEditContent(e.target.value);
-                onUpdate(block.id, { content: e.target.value });
-              }}
-              onFocus={handleFocus}
-              onBlur={handleBlur}
-              onKeyDown={handleKeyDown}
-              style={{ ...baseStyle, width: '100%', resize: 'none', overflow: 'hidden', height: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word', marginTop: '2px' }}
-              placeholder="标题 1"
-              rows={1}
-            />
-          </div>
+          <textarea
+            ref={editorRef as any}
+            value={editContent}
+            onChange={(e) => {
+              setEditContent(e.target.value);
+              onUpdate(block.id, { content: e.target.value });
+            }}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
+            style={{ ...baseStyle, width: '100%', resize: 'none', overflow: 'hidden', height: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word', marginTop: '2px' }}
+            placeholder="标题 1"
+            rows={1}
+          />
         );
       case 'h2':
         return (
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', width: '100%' }}>
-            <textarea
-              ref={editorRef as any}
-              value={editContent}
-              onChange={(e) => {
-                setEditContent(e.target.value);
-                onUpdate(block.id, { content: e.target.value });
-              }}
-              onFocus={handleFocus}
-              onBlur={handleBlur}
-              onKeyDown={handleKeyDown}
-              style={{ ...baseStyle, width: '100%', resize: 'none', overflow: 'hidden', height: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word', marginTop: '2px' }}
-              placeholder="标题 2"
-              rows={1}
-            />
-          </div>
+          <textarea
+            ref={editorRef as any}
+            value={editContent}
+            onChange={(e) => {
+              setEditContent(e.target.value);
+              onUpdate(block.id, { content: e.target.value });
+            }}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
+            style={{ ...baseStyle, width: '100%', resize: 'none', overflow: 'hidden', height: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word', marginTop: '2px' }}
+            placeholder="标题 2"
+            rows={1}
+          />
         );
       case 'h3':
         return (
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', width: '100%' }}>
-            <textarea
-              ref={editorRef as any}
-              value={editContent}
-              onChange={(e) => {
-                setEditContent(e.target.value);
-                onUpdate(block.id, { content: e.target.value });
-              }}
-              onFocus={handleFocus}
-              onBlur={handleBlur}
-              onKeyDown={handleKeyDown}
-              style={{ ...baseStyle, width: '100%', resize: 'none', overflow: 'hidden', height: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word', marginTop: '2px' }}
-              placeholder="标题 3"
-              rows={1}
-            />
-          </div>
+          <textarea
+            ref={editorRef as any}
+            value={editContent}
+            onChange={(e) => {
+              setEditContent(e.target.value);
+              onUpdate(block.id, { content: e.target.value });
+            }}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
+            style={{ ...baseStyle, width: '100%', resize: 'none', overflow: 'hidden', height: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word', marginTop: '2px' }}
+            placeholder="标题 3"
+            rows={1}
+          />
         );
       case 'bullet':
         return (
@@ -1057,7 +1050,7 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
             onDrop={handleFileDrop}
           >
             {editContent ? (
-              <div style={{ position: 'relative', width: '100%' }}>
+              <div style={{ position: 'relative', width: '100%', display: 'flex', justifyContent: 'center' }}>
                 <img
                   src={editContent}
                   alt="插入的图片"
@@ -1359,7 +1352,7 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
         }
 
         return (
-          <div style={{ flex: 1, marginTop: '8px', width: '100%' }}>
+          <div style={{ flex: 1, marginTop: '8px', width: '100%', display: 'flex', justifyContent: 'center' }}>
             <SimpleTableBlock
               node={tableData}
               editable={editable}
@@ -1408,6 +1401,20 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
       }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      onClick={() => {
+        // Toggle selection for table and image blocks
+        if (block.type === 'table' || block.type === 'image') {
+          setIsSelected(!isSelected);
+        }
+      }}
+      style={{
+        ...style,
+        position: 'relative',
+        padding: '0',
+        transition: 'opacity 150ms ease-in-out',
+        border: isSelected && (block.type === 'table' || block.type === 'image') ? '2px solid #7C3AED' : 'transparent',
+        borderRadius: isSelected ? '4px' : '0'
+      }}
       {...attributes}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
