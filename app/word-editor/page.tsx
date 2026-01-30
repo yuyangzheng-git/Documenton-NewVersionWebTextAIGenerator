@@ -627,9 +627,59 @@ export default function WordEditorPage() {
     }));
   };
 
-  // Convert outline to Notion blocks
+  // 辅助函数：生成带类型前缀的 ID
+  const generateBlockId = (type: string) => {
+    const typePrefix = (type === 'h1' || type === 'h2' || type === 'h3') ? 'heading' : type;
+    return `${typePrefix}-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+  };
+
+  // Convert outline to Notion blocks (只执行一次)
   useEffect(() => {
-    // Check for duplicate IDs in outline and deduplicate
+    // 只在首次进入且 blocks 为空时执行
+    if (blocks.length > 0) return;
+    if (outline.length === 0) return;
+
+    logger.log('📝 首次从 outline 生成 blocks');
+
+    const notionBlocks: NotionBlock[] = [];
+
+    outline.forEach((item) => {
+      // 1. 添加标题块
+      const titleWithNumber = item.number ? `${item.number} ${item.title}` : item.title;
+      const headingType = item.level === 1 ? 'h1' : item.level === 2 ? 'h2' : 'h3';
+
+      notionBlocks.push({
+        id: generateBlockId(headingType),
+        type: headingType,
+        content: titleWithNumber,
+        properties: {},
+        children: [],
+      });
+
+      // 2. 如果有 requirements，添加写作指导块
+      if (item.requirements) {
+        notionBlocks.push({
+          id: generateBlockId('guide'),
+          type: 'guide',
+          content: item.requirements,
+          properties: {},
+          children: [],
+        });
+      }
+    });
+
+    setBlocks(notionBlocks);
+    logger.log('✅ Blocks 生成完成，共', notionBlocks.length, '个块');
+  }, []); // 空依赖数组，只执行一次
+
+  // Redirect to home if no outline
+  useEffect(() => {
+    if (outline.length === 0) {
+      router.push('/');
+    }
+  }, [outline, router]);
+
+  const handleExport = async () => {
     const seenIds = new Set<string>();
     const uniqueOutline: typeof outline = [];
     outline.forEach((item) => {
