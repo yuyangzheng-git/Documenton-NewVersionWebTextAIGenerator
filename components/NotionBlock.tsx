@@ -335,55 +335,117 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
 
       const textarea = e.currentTarget;
       const cursorPosition = textarea.selectionStart;
-      const beforeCursor = editContent.slice(0, cursorPosition);
-      const afterCursor = editContent.slice(cursorPosition);
+      const isAtEnd = cursorPosition === editContent.length;
 
-      // Update local state first to immediately show the change
-      setEditContent(beforeCursor);
+      // 判断是否在块的最后
+      if (isAtEnd) {
+        // 在块的最后回车：新建同类型空块，光标放在新块中
+        const newBlockType: BlockType = block.type;
 
-      // Then update the parent state
-      logger.log('NotionBlock handleKeyDown onUpdate (current block):', { blockId: block.id, content: beforeCursor });
-      onUpdate(block.id, { content: beforeCursor });
+        // For paragraph blocks, add default indent
+        let initialContent: string | undefined = undefined;
+        if (newBlockType === 'paragraph') {
+          initialContent = '　　';
+        }
 
-      // Always create a default paragraph block (not same type)
-      const newBlockType: BlockType = 'paragraph';
-      let initialContent: string | undefined = afterCursor;
+        // Add new block and get its ID
+        logger.log('About to call onAdd (at end of block):', {
+          onAddExists: !!onAdd,
+          newBlockType,
+          initialContent,
+          blockId: block.id
+        });
+        const newBlockId = onAdd ? onAdd(block.id, newBlockType, initialContent) : undefined;
+        logger.log('onAdd result:', { newBlockId });
 
-      // Add default indent for new paragraph blocks if content is empty
-      if (newBlockType === 'paragraph' && initialContent === undefined) {
-        initialContent = '　　';
-      }
+        // Focus the new block after it's created
+        if (newBlockId) {
+          // Use multiple attempts to find and focus the new block
+          const focusNewBlock = (attempts = 0) => {
+            const newBlockElement = document.querySelector(`[data-block-id="${newBlockId}"] textarea`) as HTMLTextAreaElement;
+            if (newBlockElement) {
+              newBlockElement.focus();
 
-      // Add new block with content after cursor and get its ID
-      logger.log('About to call onAdd:', {
-        onAddExists: !!onAdd,
-        newBlockType,
-        initialContent,
-        afterCursor,
-        blockId: block.id
-      });
-      const newBlockId = onAdd ? onAdd(block.id, newBlockType, initialContent) : undefined;
-      logger.log('onAdd result:', { newBlockId });
+              // 计算光标位置：在有初始内容时，放在内容后面
+              let cursorPosition = 0;
+              if (initialContent && initialContent.length > 0) {
+                cursorPosition = initialContent.length;
+              }
 
-      // Focus the new block after it's created
-      if (newBlockId) {
-        // Use multiple attempts to find and focus the new block
-        const focusNewBlock = (attempts = 0) => {
-          const newBlockElement = document.querySelector(`[data-block-id="${newBlockId}"] textarea`) as HTMLTextAreaElement;
-          if (newBlockElement) {
-            newBlockElement.focus();
-            // Set cursor at the first position of the new block
-            newBlockElement.setSelectionRange(0, 0);
-            // Trigger auto-resize
-            const resizeEvent = new Event('input', { bubbles: true });
-            newBlockElement.dispatchEvent(resizeEvent);
-          } else if (attempts < 10) {
-            // Retry with a longer delay
-            setTimeout(() => focusNewBlock(attempts + 1), (attempts + 1) * 20);
-          }
-        };
+              // Set cursor at the appropriate position of the new block
+              newBlockElement.setSelectionRange(cursorPosition, cursorPosition);
 
-          setTimeout(() => focusNewBlock(0), 0);
+              // Trigger auto-resize
+              const resizeEvent = new Event('input', { bubbles: true });
+              newBlockElement.dispatchEvent(resizeEvent);
+            } else if (attempts < 10) {
+              // Retry with a longer delay
+              setTimeout(() => focusNewBlock(attempts + 1), (attempts + 1) * 50);
+            }
+          };
+
+          setTimeout(() => focusNewBlock(0), 50);
+        }
+      } else {
+        // 在块中间回车：分割内容
+        const beforeCursor = editContent.slice(0, cursorPosition);
+        const afterCursor = editContent.slice(cursorPosition);
+
+        // Update local state first to immediately show the change
+        setEditContent(beforeCursor);
+
+        // Then update the parent state
+        logger.log('NotionBlock handleKeyDown onUpdate (current block):', { blockId: block.id, content: beforeCursor });
+        onUpdate(block.id, { content: beforeCursor });
+
+        // Create a new block with the same type as current block
+        const newBlockType: BlockType = block.type;
+
+        // For paragraph blocks, add default indent if content is empty
+        let initialContent: string | undefined = afterCursor;
+        if (newBlockType === 'paragraph' && initialContent === undefined) {
+          initialContent = '　　';
+        }
+
+        // Add new block with content after cursor and get its ID
+        logger.log('About to call onAdd (middle of block):', {
+          onAddExists: !!onAdd,
+          newBlockType,
+          initialContent,
+          afterCursor,
+          blockId: block.id
+        });
+        const newBlockId = onAdd ? onAdd(block.id, newBlockType, initialContent) : undefined;
+        logger.log('onAdd result:', { newBlockId });
+
+        // Focus the new block after it's created
+        if (newBlockId) {
+          // Use multiple attempts to find and focus the new block
+          const focusNewBlock = (attempts = 0) => {
+            const newBlockElement = document.querySelector(`[data-block-id="${newBlockId}"] textarea`) as HTMLTextAreaElement;
+            if (newBlockElement) {
+              newBlockElement.focus();
+
+              // 计算光标位置：在有初始内容时，放在内容后面
+              let cursorPosition = 0;
+              if (initialContent && initialContent.length > 0) {
+                cursorPosition = initialContent.length;
+              }
+
+              // Set cursor at the appropriate position of the new block
+              newBlockElement.setSelectionRange(cursorPosition, cursorPosition);
+
+              // Trigger auto-resize
+              const resizeEvent = new Event('input', { bubbles: true });
+              newBlockElement.dispatchEvent(resizeEvent);
+            } else if (attempts < 10) {
+              // Retry with a longer delay
+              setTimeout(() => focusNewBlock(attempts + 1), (attempts + 1) * 50);
+            }
+          };
+
+          setTimeout(() => focusNewBlock(0), 50);
+        }
       }
     } else if (e.key === 'Enter' && e.shiftKey) {
       // Shift+Enter - insert newline in current block (for multi-line content)
@@ -1209,13 +1271,14 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
 
               {/* 生成/重写按钮 - 右上角 */}
               {onGenerate && (() => {
-                // 从 guide-{itemId} 中提取 itemId
+                // 直接使用 guide 块 ID（新逻辑：写作指导点击生成只需要 requirements）
                 const outlineItemId = block.id.replace('guide-', '');
 
-                // 判断状态
-                const isGenerating = generatingIds?.has(outlineItemId) || false;
+                // 判断状态 - 使用 headingBlockId 来判断生成状态
+                const headingBlockId = `heading-${outlineItemId}`;
+                const isGenerating = generatingIds?.has(headingBlockId) || false;
                 const hasGenerated = allBlocks?.some(b =>
-                  b.id.startsWith(`generated-${outlineItemId}-`) &&
+                  b.id.startsWith(`generated-${headingBlockId}-`) &&
                   b.properties?.isGenerated
                 ) || false;
 
@@ -1245,7 +1308,8 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
                       if (!isGenerating) {
                         e.preventDefault();
                         e.stopPropagation();
-                        onGenerate(headingBlockId);
+                        // 直接传入 guide 块 ID
+                        onGenerate(block.id);
                       }
                     }}
                     disabled={isGenerating}

@@ -236,6 +236,7 @@ export async function generateOutlineWithPlanner(
     const outputText = result.data?.outputs?.text ||
                       result.data?.outputs?.output ||
                       result.data?.outputs?.Construction ||
+                      result.data?.outputs?.Constructure ||
                       result.data?.outputs?.result ||
                       '';
 
@@ -251,6 +252,32 @@ export async function generateOutlineWithPlanner(
     // We need to extract the JSON array from the text
     let jsonStr = outputText;
 
+    // First, try to parse outputText as a JSON object and look for array fields
+    // Dify might return { "Construction": "[...]" } or similar
+    try {
+      const possibleObj = JSON.parse(outputText);
+      if (typeof possibleObj === 'object' && possibleObj !== null) {
+        // Look for first field that contains an array
+        for (const key of Object.keys(possibleObj)) {
+          const value = possibleObj[key];
+          if (Array.isArray(value)) {
+            jsonStr = JSON.stringify(value);
+            console.log('Found array field in output:', key, 'with', value.length, 'items');
+            break;
+          }
+          // Also check if value is a string that looks like a JSON array
+          if (typeof value === 'string' && value.trim().startsWith('[')) {
+            jsonStr = value;
+            console.log('Found JSON array string in field:', key);
+            break;
+          }
+        }
+      }
+    } catch (e) {
+      // Not a JSON object, continue with original text extraction
+      console.log('Output is not a JSON object, will extract array from text');
+    }
+
     // Try to find a well-formed JSON array in the text
     // Use a more sophisticated approach to find complete JSON arrays
     const jsonMatches: string[] = [];
@@ -259,8 +286,8 @@ export async function generateOutlineWithPlanner(
     let inString = false;
     let escapeNext = false;
 
-    for (let i = 0; i < outputText.length; i++) {
-      const char = outputText[i];
+    for (let i = 0; i < jsonStr.length; i++) {
+      const char = jsonStr[i];
 
       if (escapeNext) {
         escapeNext = false;
@@ -286,7 +313,7 @@ export async function generateOutlineWithPlanner(
         } else if (char === ']') {
           depth--;
           if (depth === 0 && startIdx >= 0) {
-            const jsonCandidate = outputText.substring(startIdx, i + 1);
+            const jsonCandidate = jsonStr.substring(startIdx, i + 1);
             jsonMatches.push(jsonCandidate);
             startIdx = -1;
           }
@@ -295,12 +322,15 @@ export async function generateOutlineWithPlanner(
     }
 
     if (jsonMatches.length > 0) {
-      // Use the last complete JSON array found
-      jsonStr = jsonMatches[jsonMatches.length - 1];
-      console.log('Found JSON in text:', jsonStr.substring(0, 200) + '...');
+      // Use the longest complete JSON array found (more likely to be complete)
+      const longestMatch = jsonMatches.reduce((longest, current) =>
+        current.length > longest.length ? current : longest
+      );
+      jsonStr = longestMatch;
+      console.log('Found JSON array in text with', jsonStr.length, 'characters');
     } else {
       // If no JSON array found, try to clean up the text
-      jsonStr = outputText
+      jsonStr = jsonStr
         .replace(/```json\n?/g, '')
         .replace(/```\n?/g, '')
         .trim();
