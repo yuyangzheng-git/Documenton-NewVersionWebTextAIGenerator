@@ -142,7 +142,7 @@ export default function WordEditorPage() {
         return `${indent}${item.title}`;
       }).join('\n');
 
-      // 5. 删除 guide 块后到下一个 heading 之间的所有旧段落
+      // 5. 删除 guide 块后到下一个 heading 之间的所有旧段落，并添加 loading 占位符
       setBlocks(prev => {
         const newBlocks = [...prev];
         const currentGuideIndex = newBlocks.findIndex(b => b.id === guideBlockId);
@@ -164,11 +164,23 @@ export default function WordEditorPage() {
           newBlocks.splice(currentGuideIndex + 1, deleteCount);
           logger.log('Deleted', deleteCount, 'old blocks after guide block');
         }
+
+        // 添加一个 loading 占位符块用于显示流式内容
+        const loadingBlockId = `loading-${guideBlockId}`;
+        newBlocks.splice(currentGuideIndex + 1, 0, {
+          id: loadingBlockId,
+          type: 'paragraph',
+          content: '',
+          properties: { loading: true, isGenerated: true },
+          children: [],
+        });
+
         return newBlocks;
       });
 
       // Track generated content
       let generatedContent = '';
+      const loadingBlockId = `loading-${guideBlockId}`;
 
       // Generate content
       await generateSectionWithWorker(
@@ -179,14 +191,25 @@ export default function WordEditorPage() {
         (chunk) => {
           generatedContent += chunk;
           logger.log('Received chunk:', chunk.substring(0, 50));
+
+          // 实时更新 loading 块的内容以显示流式输出
+          setBlocks(prev => prev.map(b =>
+            b.id === loadingBlockId
+              ? { ...b, content: generatedContent }
+              : b
+          ));
         },
         () => {
-          // 生成完成：将内容按段落分割并插入新的 paragraph 块
+          // 生成完成：删除 loading 块并插入最终的段落块
           logger.log('Generation complete. Final content length:', generatedContent.length);
 
           if (!generatedContent || generatedContent.trim().length === 0) {
             logger.warn('⚠️ No content generated');
             showToast('⚠️ 未生成内容，请检查写作指导', 'info');
+
+            // 删除 loading 块
+            setBlocks(prev => prev.filter(b => b.id !== loadingBlockId));
+
             setGeneratingIds(prev => {
               const next = new Set(prev);
               next.delete(guideBlockId);
@@ -208,17 +231,18 @@ export default function WordEditorPage() {
             id: generateBlockId('paragraph'),
             type: 'paragraph',
             content: paragraph,
-            properties: {},
+            properties: { isGenerated: true },
             children: [],
           }));
 
-          // 插入新段落块到 guide 块后面
+          // 替换 loading 块为最终的段落块
           setBlocks(prev => {
             const newBlocks = [...prev];
-            const currentGuideIndex = newBlocks.findIndex(b => b.id === guideBlockId);
-            if (currentGuideIndex !== -1) {
-              newBlocks.splice(currentGuideIndex + 1, 0, ...newParagraphBlocks);
-              logger.log('Inserted', newParagraphBlocks.length, 'new paragraph blocks after guide block');
+            const loadingIndex = newBlocks.findIndex(b => b.id === loadingBlockId);
+            if (loadingIndex !== -1) {
+              // 删除 loading 块，插入新段落块
+              newBlocks.splice(loadingIndex, 1, ...newParagraphBlocks);
+              logger.log('Replaced loading block with', newParagraphBlocks.length, 'paragraph blocks');
             }
             return newBlocks;
           });
@@ -236,6 +260,10 @@ export default function WordEditorPage() {
         (error) => {
           logger.error('Generation error:', error);
           showToast(`❌ 生成失败: ${error.message}`, 'error');
+
+          // 删除 loading 块
+          setBlocks(prev => prev.filter(b => b.id !== loadingBlockId));
+
           setGeneratingIds(prev => {
             const next = new Set(prev);
             next.delete(guideBlockId);
@@ -246,6 +274,11 @@ export default function WordEditorPage() {
     } catch (error) {
       logger.error('Error generating section:', error);
       showToast(`❌ 生成失败: ${error instanceof Error ? error.message : '未知错误'}`, 'error');
+
+      // 删除 loading 块（如果存在）
+      const loadingBlockId = `loading-${guideBlockId}`;
+      setBlocks(prev => prev.filter(b => b.id !== loadingBlockId));
+
       setGeneratingIds(prev => {
         const next = new Set(prev);
         next.delete(guideBlockId);
