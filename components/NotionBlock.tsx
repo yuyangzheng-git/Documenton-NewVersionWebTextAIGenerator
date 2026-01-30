@@ -624,6 +624,46 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
       cleanContent: cleanContent
     });
 
+    // 限制：两个 heading 之间只能有一个 guide 块
+    if (type === 'guide' && allBlocks) {
+      const currentBlockIndex = allBlocks.findIndex(b => b.id === block.id);
+
+      if (currentBlockIndex !== -1) {
+        // 向前查找最近的 heading 块
+        let prevHeadingIndex = -1;
+        for (let i = currentBlockIndex - 1; i >= 0; i--) {
+          const prevBlock = allBlocks[i];
+          if (prevBlock.type === 'h1' || prevBlock.type === 'h2' || prevBlock.type === 'h3') {
+            prevHeadingIndex = i;
+            break;
+          }
+        }
+
+        // 向后查找下一个 heading 块
+        let nextHeadingIndex = allBlocks.length;
+        for (let i = currentBlockIndex + 1; i < allBlocks.length; i++) {
+          const nextBlock = allBlocks[i];
+          if (nextBlock.type === 'h1' || nextBlock.type === 'h2' || nextBlock.type === 'h3') {
+            nextHeadingIndex = i;
+            break;
+          }
+        }
+
+        // 检查是否已存在 guide 块
+        const startIndex = prevHeadingIndex === -1 ? 0 : prevHeadingIndex + 1;
+        for (let i = startIndex; i < nextHeadingIndex; i++) {
+          const checkBlock = allBlocks[i];
+          // 跳过当前块本身
+          if (checkBlock.id === block.id) continue;
+
+          if (checkBlock.type === 'guide') {
+            alert('两个标题之间只能有一个写作指导块，请删除已有的写作指导块后再添加');
+            return; // 阻止类型转换
+          }
+        }
+      }
+    }
+
     // Generate proper SimpleTableBlockData when switching to table type
     if (type === 'table') {
       const tableData: SimpleTableBlockData = {
