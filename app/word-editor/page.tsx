@@ -9,8 +9,6 @@ import { NotionEditor, NotionBlock } from '@/components/NotionEditor';
 import { SettingsModal } from '@/components/SettingsModal';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ChevronLeft, Download, Upload, Settings, FileText } from 'lucide-react';
-import { StreamingMarkdownParser } from '@/lib/streaming-markdown-parser';
-import { StreamingMarkdownHandler } from '@/lib/streaming-markdown-handler';
 import { logger } from '@/lib/logger';
 
 export default function WordEditorPage() {
@@ -58,74 +56,56 @@ export default function WordEditorPage() {
   };
 
   // Handle generate section button click
-  // headingBlockId can be either 'heading-{itemId}' or 'guide-{itemId}'
-  // If it's a guide ID, we directly use the guide block's content as requirements
-  const handleGenerateSection = async (headingBlockId: string) => {
-    let guideBlock = null;
-    let guideBlockId: string | null = null;
-    let sectionTitle = '';
-    let outlineItemId: string | null = null;
-    let outlineItem: { id: string; title: string; content?: string; requirements?: string } | null = null;
-
-    // 只处理 heading- 开头的 ID
-    if (headingBlockId.startsWith('heading-')) {
-      // 查找 heading block
-      const headingBlock = blocks.find(b => b.id === headingBlockId);
-      if (!headingBlock) {
-        logger.error('Heading block not found:', headingBlockId);
-        alert('找不到标题块');
-        return;
-      }
-
-      sectionTitle = headingBlock.content;
-      outlineItemId = headingBlockId.replace('heading-', '');
-      outlineItem = outline.find(item => item.id === outlineItemId);
-
-      // 在 heading block 后面查找用户手动添加的 guide 块
-      const headingBlockIndex = blocks.findIndex(b => b.id === headingBlockId);
-      if (headingBlockIndex !== -1) {
-        for (let i = headingBlockIndex + 1; i < blocks.length; i++) {
-          const block = blocks[i];
-          // 如果遇到下一个标题，停止查找
-          if (block.type === 'h1' || block.type === 'h2' || block.type === 'h3') {
-            break;
-          }
-          // 查找 guide 类型的块
-          if (block.type === 'guide') {
-            guideBlock = block;
-            guideBlockId = block.id;
-            break;
-          }
-        }
-      }
-    } else {
-      logger.error('Invalid headingBlockId format:', headingBlockId);
-      alert('无效的标题块 ID');
+  // 参数为 guideBlockId（从 guide 块的生成按钮传入）
+  const handleGenerateSection = async (guideBlockId: string) => {
+    // 1. 找到 guide 块的索引
+    const guideBlockIndex = blocks.findIndex(b => b.id === guideBlockId);
+    if (guideBlockIndex === -1) {
+      alert('找不到写作指导块');
       return;
     }
 
-    // Use guide block content as requirements
-    const requirements = guideBlock?.content || '';
+    const guideBlock = blocks[guideBlockIndex];
+    const requirements = guideBlock.content;
 
-    // Use outlineItemId to construct the headingBlockId for generation tracking
-    const generationHeadingBlockId = outlineItemId ? `heading-${outlineItemId}` : headingBlockId;
+    // 2. 向前查找最近的 heading 块（获取章节标题）
+    let sectionTitle = '';
+    for (let i = guideBlockIndex - 1; i >= 0; i--) {
+      const block = blocks[i];
+      if (block.type === 'h1' || block.type === 'h2' || block.type === 'h3') {
+        sectionTitle = block.content;
+        break;
+      }
+    }
 
-    // 标记为正在生成
-    setGeneratingIds(prev => new Set(prev).add(generationHeadingBlockId));
+    if (!sectionTitle) {
+      alert('找不到章节标题');
+      return;
+    }
+
+    // 3. 向后查找下一个 heading 块的索引
+    let nextHeadingIndex = blocks.length;
+    for (let i = guideBlockIndex + 1; i < blocks.length; i++) {
+      const block = blocks[i];
+      if (block.type === 'h1' || block.type === 'h2' || block.type === 'h3') {
+        nextHeadingIndex = i;
+        break;
+      }
+    }
+
+    // 4. 标记为正在生成
+    setGeneratingIds(prev => new Set(prev).add(guideBlockId));
 
     logger.log('Generating section:', {
-      generationHeadingBlockId,
       guideBlockId,
-      outlineItemId,
       sectionTitle,
-      requirements
+      requirements,
+      nextHeadingIndex
     });
 
     // Show toast notification
-    const toastId = `toast-${Date.now()}`;
     const showToast = (message: string, type: 'info' | 'success' | 'error' = 'info') => {
       const toast = document.createElement('div');
-      toast.id = toastId;
       toast.className = `fixed top-4 right-4 px-4 py-2 rounded-lg shadow-lg z-50 transition-all duration-300 ${
         type === 'success' ? 'bg-green-500 text-white' :
         type === 'error' ? 'bg-red-500 text-white' :
@@ -144,16 +124,18 @@ export default function WordEditorPage() {
 
     try {
       // Import the generation function
-      const { generateSectionWithWorker } = await import('@/lib/dify-api');
-      const { getDifyApiBaseUrl } = await import('@/lib/dify-api');
+      const { generateSectionWithWorker, getDifyApiBaseUrl } = await import('@/lib/dify-api');
 
       // Get API configuration from store
-      // Use chapterApiKey for chapter generation, DO NOT fallback to apiKey (outline key)
       const apiKey = useStore.getState().chapterApiKey;
-      const apiUrl = getDifyApiBaseUrl();
 
       if (!apiKey || apiKey === 'app-xxxxxxxxxxxxxxxxxxx') {
         alert('请先在设置中配置"正文写作"的 API Key（NEXT_PUBLIC_DIFY_CHAPTER_KEY）');
+        setGeneratingIds(prev => {
+          const next = new Set(prev);
+          next.delete(guideBlockId);
+          return next;
+        });
         return;
       }
 
@@ -163,220 +145,33 @@ export default function WordEditorPage() {
         return `${indent}${item.title}`;
       }).join('\n');
 
-      // Track the content as it streams in
-      let generatedContent = '';
+      // 5. 删除 guide 块后到下一个 heading 之间的所有旧段落
+      setBlocks(prev => {
+        const newBlocks = [...prev];
+        const currentGuideIndex = newBlocks.findIndex(b => b.id === guideBlockId);
+        if (currentGuideIndex === -1) return newBlocks;
 
-      // 创建流式 Markdown 处理器
-      const markdownHandler = new StreamingMarkdownHandler();
-      markdownHandler.setThrottleDelay(500); // 增加节流延迟到 500ms 减少闪烁
-
-      // 用于跟踪已创建的块ID映射
-      const blockIdMap = new Map<number, string>(); // 索引 -> 块ID
-
-      // 设置解析回调 - 实时解析并更新块（AppFlowy 风格）
-      markdownHandler.setOnComplete(() => {
-        // 获取缓冲区的原始 Markdown
-        const currentMarkdown = markdownHandler.getBuffer();
-
-        // 使用 StreamingMarkdownParser 实时解析
-        const parser = new StreamingMarkdownParser();
-        const markdownBlocks = parser.parseComplete(currentMarkdown);
-        logger.log('🔄 Streaming blocks:', markdownBlocks.map(b => ({ type: b.type, hasTableData: !!b.properties?.tableData })));
-
-        // 实时更新块结构（AppFlowy 的增量更新机制）
-        setBlocks(prevBlocks => {
-          const newBlocks = [...prevBlocks];
-
-          // 找到 guide 块的位置
-          let guideBlockIndex = -1;
-
-          // 如果传入了 guideBlockId，直接使用它
-          if (guideBlockId) {
-            guideBlockIndex = newBlocks.findIndex(b => b.id === guideBlockId);
-          } else {
-            // 否则，从 headingBlockId 开始找 guide 块
-            const headingIndex = newBlocks.findIndex(b => b.id === generationHeadingBlockId);
-            if (headingIndex !== -1) {
-              for (let i = headingIndex + 1; i < newBlocks.length; i++) {
-                const block = newBlocks[i];
-                if (block.type === 'h1' || block.type === 'h2' || block.type === 'h3') {
-                  break;
-                }
-                if (block.type === 'guide' || (block.type === 'callout' && block.properties?.icon === '💡')) {
-                  guideBlockIndex = i;
-                  guideBlockId = block.id; // 设置 guideBlockId 以便后续使用
-                  break;
-                }
-              }
-            }
-          }
-
-          if (guideBlockIndex === -1) return newBlocks;
-
-          // 移除之前的流式生成块（从guide block之后到下一个heading之前）
-          let removeStartIndex = guideBlockIndex + 1;
-          let removeEndIndex = removeStartIndex;
-
-          for (let i = removeStartIndex; i < newBlocks.length; i++) {
-            const block = newBlocks[i];
-            // Stop at next heading
-            if (block.type === 'h1' || block.type === 'h2' || block.type === 'h3') {
-              removeEndIndex = i;
-              break;
-            }
-            // Remove if it's generating, loading, or previously generated for this heading
-            const isGeneratedForThisHeading = block.id.startsWith(`generated-${generationHeadingBlockId}-`) ||
-                                          block.id.startsWith(`streaming-${generationHeadingBlockId}-`);
-            if (block.properties?.isGenerating ||
-                block.properties?.loading ||
-                isGeneratedForThisHeading) {
-              removeEndIndex = i + 1;
-            } else {
-              // Stop if we hit an unrelated block
-              break;
-            }
-          }
-
-          // 删除旧的生成中的块
-          if (removeEndIndex > removeStartIndex) {
-            newBlocks.splice(removeStartIndex, removeEndIndex - removeStartIndex);
-          }
-
-          // 创建新的块（包括表格块）
-          const newContentBlocks = markdownBlocks.map((mdBlock, index) => {
-            // 为每个块生成或复用稳定的ID
-            let blockId = blockIdMap.get(index);
-            if (!blockId) {
-              blockId = `streaming-${generationHeadingBlockId}-${mdBlock.type}-${index}`;
-              blockIdMap.set(index, blockId);
-            }
-
-            const notionBlock: any = {
-              id: blockId,
-              type: mdBlock.type,
-              content: mdBlock.content,
-              properties: {
-                ...(mdBlock.properties || {}),
-                isGenerating: true,
-                isGenerated: true
-              },
-              children: []
-            };
-
-            // 特殊处理表格：解析为 SimpleTableBlockData
-            if (mdBlock.type === 'table' && mdBlock.properties?.tableData) {
-              notionBlock.properties.tableData = mdBlock.properties.tableData;
-            }
-
-            return notionBlock;
-          });
-
-          // 在 guide block 之后插入新块
-          newBlocks.splice(guideBlockIndex + 1, 0, ...newContentBlocks);
-
-          return newBlocks;
-        });
-      });
-
-      // Remove existing content blocks for this section (but keep the guide block)
-      // When called from guide block, start from guide block; otherwise find heading block first
-      setBlocks(prevBlocks => {
-        const newBlocks = [...prevBlocks];
-        let startIndex = -1;
-        let guideBlockIndex = -1;
-        let currentGuideBlockId = guideBlockId;
-
-        if (guideBlockId) {
-          // Called from guide block, start from guide block
-          guideBlockIndex = newBlocks.findIndex(b => b.id === guideBlockId);
-          startIndex = guideBlockIndex;
-          currentGuideBlockId = guideBlockId;
-        } else {
-          // Called from heading block, find heading block and then guide block
-          const headingBlockIndex = newBlocks.findIndex(b => b.id === generationHeadingBlockId);
-          if (headingBlockIndex === -1) return newBlocks;
-          startIndex = headingBlockIndex;
-
-          // Find the next heading block of same or higher level
-          let endIndex = newBlocks.length;
-          for (let i = startIndex + 1; i < newBlocks.length; i++) {
-            const block = newBlocks[i];
-            if (block.type === 'h1' || block.type === 'h2' || block.type === 'h3') {
-              endIndex = i;
-              break;
-            }
-          }
-
-          // Find the guide block after heading block
-          for (let i = startIndex + 1; i < endIndex; i++) {
-            const block = newBlocks[i];
-            if (block.type === 'guide' || (block.type === 'callout' && block.properties?.icon === '💡')) {
-              currentGuideBlockId = block.id;
-              guideBlockIndex = i;
-              break;
-            }
-          }
-        }
-
-        if (startIndex === -1) return newBlocks;
-
-        // Find the next heading block of same or higher level
-        let endIndex = newBlocks.length;
-        for (let i = startIndex + 1; i < newBlocks.length; i++) {
+        // 重新计算下一个 heading 的索引
+        let currentNextHeadingIndex = newBlocks.length;
+        for (let i = currentGuideIndex + 1; i < newBlocks.length; i++) {
           const block = newBlocks[i];
           if (block.type === 'h1' || block.type === 'h2' || block.type === 'h3') {
-            endIndex = i;
+            currentNextHeadingIndex = i;
             break;
           }
         }
 
-        // Remove content blocks except the guide block
-        const blocksToRemove: string[] = [];
-        for (let i = startIndex; i < endIndex; i++) {
-          if (currentGuideBlockId && newBlocks[i].id !== currentGuideBlockId) {
-            blocksToRemove.push(newBlocks[i].id);
-          }
+        // 删除从 guide 块后到下一个 heading 之间的所有块
+        const deleteCount = currentNextHeadingIndex - currentGuideIndex - 1;
+        if (deleteCount > 0) {
+          newBlocks.splice(currentGuideIndex + 1, deleteCount);
+          logger.log('Deleted', deleteCount, 'old blocks after guide block');
         }
-
-        // Remove blocks in reverse order to preserve indices
-        blocksToRemove.reverse().forEach(blockId => {
-          const idx = newBlocks.findIndex(b => b.id === blockId);
-          if (idx !== -1) {
-            newBlocks.splice(idx, 1);
-          }
-        });
-
-        // If guide block doesn't exist, create it
-        if (guideBlockIndex === -1) {
-          const newGuideBlockId = `guide-${generationHeadingBlockId}-${Date.now()}`;
-          newBlocks.splice(startIndex + 1, 0, {
-            id: newGuideBlockId,
-            type: 'callout',
-            content: requirements || '',
-            properties: {
-              icon: '💡',
-              color: '#fff9c4'
-            },
-            children: []
-          });
-          guideBlockIndex = startIndex + 1;
-          currentGuideBlockId = newGuideBlockId;
-        }
-
-        // Add a loading placeholder after the guide block
-        const finalGuideBlockIndex = guideBlockIndex !== -1 ? guideBlockIndex : newBlocks.findIndex(b => b.id === currentGuideBlockId);
-        if (finalGuideBlockIndex !== -1) {
-          newBlocks.splice(finalGuideBlockIndex + 1, 0, {
-            id: `loading-${generationHeadingBlockId}-${Date.now()}`,
-            type: 'paragraph',
-            content: '正在生成内容...',
-            properties: { loading: true, isGenerating: true },
-            children: []
-          });
-        }
-
         return newBlocks;
       });
+
+      // Track generated content
+      let generatedContent = '';
 
       // Generate content
       await generateSectionWithWorker(
@@ -385,167 +180,80 @@ export default function WordEditorPage() {
         documentTopic,
         fullOutline,
         (chunk) => {
-          // 使用流式处理器追加内容（会自动处理节流和解析）
-          markdownHandler.append(chunk);
           generatedContent += chunk;
-          logger.log('Received chunk:', chunk);
+          logger.log('Received chunk:', chunk.substring(0, 50));
         },
         () => {
-          // On complete, convert markdown to blocks and replace streaming blocks
-          logger.log('Generation complete. Final content:', generatedContent);
+          // 生成完成：将内容按段落分割并插入新的 paragraph 块
+          logger.log('Generation complete. Final content length:', generatedContent.length);
 
-          // Check if content is empty
           if (!generatedContent || generatedContent.trim().length === 0) {
-            logger.warn('⚠️ No content generated for:', generationHeadingBlockId);
-            showToast(`⚠️ 章节 "${sectionTitle}" 未生成内容，请检查写作指导`, 'info');
-
-            // Remove loading placeholder
-            setBlocks(prevBlocks => prevBlocks.filter(b => !b.properties.loading || b.id.startsWith(`loading-${generationHeadingBlockId}`)));
-
-            // 移除生成中标记
+            logger.warn('⚠️ No content generated');
+            showToast('⚠️ 未生成内容，请检查写作指导', 'info');
             setGeneratingIds(prev => {
               const next = new Set(prev);
-              next.delete(generationHeadingBlockId);
+              next.delete(guideBlockId);
               return next;
             });
-
-            // Reset handler
-            markdownHandler.reset();
-            blockIdMap.clear();
             return;
           }
 
-          // Use streaming markdown parser for final block conversion
-          const parser = new StreamingMarkdownParser();
-          const markdownBlocks = parser.parseComplete(generatedContent);
-          logger.log('📊 Parsed markdown blocks:', markdownBlocks.map(b => ({ type: b.type, hasTableData: !!b.properties?.tableData })));
+          // 按段落分割内容（按两个换行符分割）
+          const paragraphs = generatedContent
+            .split(/\n\s*\n/)
+            .filter(p => p.trim().length > 0)
+            .map(p => p.trim());
 
-          const newContentBlocks = StreamingMarkdownParser.toNotionBlocks(markdownBlocks, `generated-${generationHeadingBlockId}`);
-          logger.log('📊 Converted notion blocks:', newContentBlocks.map(b => ({ type: b.type, hasTableData: !!b.properties?.tableData })));
+          logger.log('Split into', paragraphs.length, 'paragraphs');
 
-          // Mark all generated blocks as isGenerated (remove isGenerating flag)
-          newContentBlocks.forEach(block => {
-            block.properties = { ...block.properties, isGenerated: true, isGenerating: false };
-          });
+          // 创建新的 paragraph 块
+          const newParagraphBlocks: NotionBlock[] = paragraphs.map(paragraph => ({
+            id: generateBlockId('paragraph'),
+            type: 'paragraph',
+            content: paragraph,
+            properties: {},
+            children: [],
+          }));
 
-          logger.log('📊 After marking as generated:', newContentBlocks.map(b => ({ type: b.type, hasTableData: !!b.properties?.tableData })));
-
-          // Replace streaming blocks with final structured blocks
-          setBlocks(prevBlocks => {
-            const newBlocks = [...prevBlocks];
-
-            // Find the range of streaming/generating blocks
-            // Find guide block (either using guideBlockId or find after heading block)
-            let guideBlockIndex = -1;
-            let currentGuideBlockId = guideBlockId;
-
-            if (guideBlockId) {
-              guideBlockIndex = newBlocks.findIndex(b => b.id === guideBlockId);
-              currentGuideBlockId = guideBlockId;
-            } else {
-              const headingIndex = newBlocks.findIndex(b => b.id === generationHeadingBlockId);
-              if (headingIndex !== -1) {
-                for (let i = headingIndex + 1; i < newBlocks.length; i++) {
-                  const block = newBlocks[i];
-                  if (block.type === 'h1' || block.type === 'h2' || block.type === 'h3') {
-                    break;
-                  }
-                  if (block.type === 'guide' || (block.type === 'callout' && block.properties?.icon === '💡')) {
-                    guideBlockIndex = i;
-                    currentGuideBlockId = block.id;
-                    break;
-                  }
-                }
-              }
+          // 插入新段落块到 guide 块后面
+          setBlocks(prev => {
+            const newBlocks = [...prev];
+            const currentGuideIndex = newBlocks.findIndex(b => b.id === guideBlockId);
+            if (currentGuideIndex !== -1) {
+              newBlocks.splice(currentGuideIndex + 1, 0, ...newParagraphBlocks);
+              logger.log('Inserted', newParagraphBlocks.length, 'new paragraph blocks after guide block');
             }
-
-            logger.log('📍 Guide block index:', guideBlockIndex);
-
-            if (guideBlockIndex !== -1) {
-              // Remove all blocks after guide block that belong to this outline item
-              // This includes: isGenerating, loading, and previously generated blocks
-              let removeCount = 0;
-              for (let i = guideBlockIndex + 1; i < newBlocks.length; i++) {
-                const block = newBlocks[i];
-                // Stop at next heading
-                if (block.type === 'h1' || block.type === 'h2' || block.type === 'h3') {
-                  break;
-                }
-                // Remove if it's generating, loading, or a previously generated block for this heading
-                const isGeneratedForThisHeading = block.id.startsWith(`generated-${generationHeadingBlockId}-`);
-                if (block.properties?.isGenerating ||
-                    block.properties?.loading ||
-                    isGeneratedForThisHeading) {
-                  removeCount++;
-                } else {
-                  // Stop if we hit a block that's not related to this generation
-                  break;
-                }
-              }
-
-              logger.log('🗑️ Removing', removeCount, 'blocks');
-              logger.log('➕ Adding', newContentBlocks.length, 'blocks');
-              logger.log('➕ New blocks types:', newContentBlocks.map(b => b.type));
-              logger.log('➕ New blocks with tableData:', newContentBlocks.filter(b => b.properties?.tableData).length);
-
-              // Replace with final blocks
-              newBlocks.splice(guideBlockIndex + 1, removeCount, ...newContentBlocks);
-            }
-
             return newBlocks;
           });
-
-          // Update outline with generated content (if outlineItemId exists)
-          if (outlineItemId) {
-            updateItem(outlineItemId, { content: generatedContent, paragraphs: newContentBlocks.filter(b => b.type === 'paragraph').map(b => b.content) });
-          }
 
           // 移除生成中标记
           setGeneratingIds(prev => {
             const next = new Set(prev);
-            next.delete(generationHeadingBlockId);
+            next.delete(guideBlockId);
             return next;
           });
 
-          // Show success toast
           showToast('✅ 章节内容生成完成!', 'success');
-
-          // Reset handler for next use
-          markdownHandler.reset();
-          blockIdMap.clear();
         },
         requirements,
         (error) => {
           logger.error('Generation error:', error);
           showToast(`❌ 生成失败: ${error.message}`, 'error');
-
-          // 移除生成中标记
           setGeneratingIds(prev => {
             const next = new Set(prev);
-            next.delete(generationHeadingBlockId);
+            next.delete(guideBlockId);
             return next;
           });
-
-          // Remove loading placeholder
-          setBlocks(prevBlocks => prevBlocks.filter(b => !b.properties.loading));
-
-          // Reset handler
-          markdownHandler.reset();
         }
       );
     } catch (error) {
       logger.error('Error generating section:', error);
       showToast(`❌ 生成失败: ${error instanceof Error ? error.message : '未知错误'}`, 'error');
-
-      // 移除生成中标记
       setGeneratingIds(prev => {
         const next = new Set(prev);
-        next.delete(generationHeadingBlockId);
+        next.delete(guideBlockId);
         return next;
       });
-
-      // Remove loading placeholder
-      setBlocks(prevBlocks => prevBlocks.filter(b => !b.properties.loading));
     }
   };
 
