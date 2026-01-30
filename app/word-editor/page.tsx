@@ -690,12 +690,10 @@ export default function WordEditorPage() {
             generatedBlockIds.add(nextBlock.id);
           }
         }
-      }
 
         // Insert generated blocks for this item right after the guide block
         // This ensures generated content appears immediately after the guide block
         // Note: generated block IDs use format: generated-heading-${outlineItemId}-${type}-${timestamp}-${index}
-        const headingBlockId = `heading-${item.id}`;
         const itemGeneratedBlocks = blocksRef.current.filter(b =>
           b.id.startsWith(`generated-${headingBlockId}-`) &&
           b.properties?.isGenerated &&
@@ -703,7 +701,7 @@ export default function WordEditorPage() {
         );
 
         if (itemGeneratedBlocks.length > 0) {
-          logger.log(`📦 Adding ${itemGeneratedBlocks.length} generated blocks after guide-${item.id}`);
+          logger.log(`📦 Adding ${itemGeneratedBlocks.length} generated blocks after heading-${item.id}`);
           itemGeneratedBlocks.forEach(genBlock => {
             notionBlocks.push(genBlock);
             generatedBlockIds.add(genBlock.id);
