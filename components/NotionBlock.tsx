@@ -342,11 +342,8 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
         // 在块的最后回车：新建同类型空块，光标放在新块中
         const newBlockType: BlockType = block.type;
 
-        // For paragraph blocks, add default indent
+        // No default content for new blocks
         let initialContent: string | undefined = undefined;
-        if (newBlockType === 'paragraph') {
-          initialContent = '　　';
-        }
 
         // Add new block and get its ID
         logger.log('About to call onAdd (at end of block):', {
@@ -366,14 +363,8 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
             if (newBlockElement) {
               newBlockElement.focus();
 
-              // 计算光标位置：在有初始内容时，放在内容后面
-              let cursorPosition = 0;
-              if (initialContent && initialContent.length > 0) {
-                cursorPosition = initialContent.length;
-              }
-
-              // Set cursor at the appropriate position of the new block
-              newBlockElement.setSelectionRange(cursorPosition, cursorPosition);
+              // 光标始终放在新块的开头（标准文本编辑器行为）
+              newBlockElement.setSelectionRange(0, 0);
 
               // Trigger auto-resize
               const resizeEvent = new Event('input', { bubbles: true });
@@ -401,11 +392,8 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
         // Create a new block with the same type as current block
         const newBlockType: BlockType = block.type;
 
-        // For paragraph blocks, add default indent if content is empty
+        // Use content after cursor as initial content
         let initialContent: string | undefined = afterCursor;
-        if (newBlockType === 'paragraph' && initialContent === undefined) {
-          initialContent = '　　';
-        }
 
         // Add new block with content after cursor and get its ID
         logger.log('About to call onAdd (middle of block):', {
@@ -426,14 +414,8 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
             if (newBlockElement) {
               newBlockElement.focus();
 
-              // 计算光标位置：在有初始内容时，放在内容后面
-              let cursorPosition = 0;
-              if (initialContent && initialContent.length > 0) {
-                cursorPosition = initialContent.length;
-              }
-
-              // Set cursor at the appropriate position of the new block
-              newBlockElement.setSelectionRange(cursorPosition, cursorPosition);
+              // 光标始终放在新块的开头（标准文本编辑器行为）
+              newBlockElement.setSelectionRange(0, 0);
 
               // Trigger auto-resize
               const resizeEvent = new Event('input', { bubbles: true });
@@ -452,9 +434,30 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
       // Let the textarea handle the newline naturally
       setTimeout(() => autoResize(), 0);
     } else if (e.key === 'Backspace' && !editContent && !isDragging) {
-      // Block is empty, delete it
+      // Block is empty, delete it and move cursor to end of previous block
       e.preventDefault();
+
+      // Find the index of current block by looking for its data attribute
+      const allBlocks = Array.from(document.querySelectorAll('[data-block-id]'));
+      const currentIndex = allBlocks.findIndex(el => el.getAttribute('data-block-id') === block.id);
+
+      // Delete current block
       onDelete(block.id);
+
+      // Focus the previous block if it exists
+      if (currentIndex > 0) {
+        const previousBlockElement = allBlocks[currentIndex - 1];
+        const prevTextarea = previousBlockElement?.querySelector('textarea');
+
+        if (prevTextarea) {
+          setTimeout(() => {
+            prevTextarea.focus();
+            // Move cursor to the end of previous block
+            const contentLength = prevTextarea.value.length;
+            prevTextarea.setSelectionRange(contentLength, contentLength);
+          }, 50);
+        }
+      }
     } else if (e.key === 'Backspace' && e.currentTarget.selectionStart === 0 && !isDragging) {
       // Cursor at the beginning of the block, merge with previous block
       e.preventDefault();
@@ -654,11 +657,6 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
         }
       });
       return;
-    }
-
-    // Add default indent when switching to paragraph if content is empty
-    if (type === 'paragraph' && cleanContent === '') {
-      cleanContent = '　　';
     }
 
     // Update local state immediately

@@ -71,11 +71,8 @@ export function NotionEditor({ blocks, setBlocks, onBlockUpdate, onGenerate, gen
   const addBlock = (parentId: string | null, position: number, type: BlockType, initialContent?: string): string | undefined => {
     const newBlockId = `block-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
 
-    // For paragraphs, add default indent (2 full-width spaces) only if initialContent is undefined
+    // Use provided initial content or empty string
     let content = initialContent !== undefined ? initialContent : '';
-    if (type === 'paragraph' && initialContent === undefined) {
-      content = '　　';
-    }
 
     logger.log('addBlock START:', { parentId, position, type, initialContent, content, blocksLength: blocks.length });
     console.trace('addBlock call stack');
@@ -155,9 +152,9 @@ export function NotionEditor({ blocks, setBlocks, onBlockUpdate, onGenerate, gen
             onDelete={deleteBlock}
             onAdd={(parentId, type, initialContent, insertBefore) => {
               if (insertBefore) {
-                insertBeforeBlock(parentId || block.id, type, initialContent || '');
+                return insertBeforeBlock(parentId || block.id, type, initialContent || '');
               } else {
-                addBlock(parentId, blocks.length, type, initialContent);
+                return addBlock(parentId, blocks.length, type, initialContent);
               }
             }}
             onGenerate={onGenerate}
