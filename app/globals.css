@@ -88,26 +88,45 @@ html {
 }
 
 /* Notion-style table scrollbar */
+.notion-table-wrapper {
+  /* 确保滚动条始终显示 */
+  overflow-x: auto !important;
+  /* 在 macOS 上始终显示滚动条 */
+  scrollbar-gutter: stable;
+}
+
 .notion-table-wrapper::-webkit-scrollbar {
-  height: 12px;
+  height: 14px;
+  /* 确保滚动条始终可见 */
+  -webkit-appearance: none;
 }
 
 .notion-table-wrapper::-webkit-scrollbar-track {
-  background: transparent;
-  margin: 0 8px;
+  background: rgba(55, 53, 47, 0.08);
+  border-radius: 8px;
+  margin: 4px 8px;
+  /* 轨道始终可见 */
+  visibility: visible;
 }
 
 .notion-table-wrapper::-webkit-scrollbar-thumb {
-  background: rgba(55, 53, 47, 0.16);
-  border-radius: 6px;
-  border: 3px solid transparent;
-  background-clip: content-box;
+  background: rgba(55, 53, 47, 0.35);
+  border-radius: 8px;
+  border: 3px solid rgba(55, 53, 47, 0.08);
+  background-clip: padding-box;
+  min-width: 50px;
+  /* 滑块始终可见 */
+  visibility: visible;
 }
 
 .notion-table-wrapper::-webkit-scrollbar-thumb:hover {
-  background: rgba(55, 53, 47, 0.3);
-  border: 3px solid transparent;
-  background-clip: content-box;
+  background: rgba(55, 53, 47, 0.55);
+  border: 3px solid rgba(55, 53, 47, 0.08);
+  background-clip: padding-box;
+}
+
+.notion-table-wrapper::-webkit-scrollbar-thumb:active {
+  background: rgba(55, 53, 47, 0.7);
 }
 
 .notion-table-wrapper::-webkit-scrollbar-corner {

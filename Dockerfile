@@ -1,95 +1,60 @@
-# =============================================================================
-# AI Document Generator - Docker Build
-# Multi-stage build for Next.js + Python hybrid application
-# =============================================================================
+# Multi-stage build for AI Document Generator
 
-# -----------------------------------------------------------------------------
 # Stage 1: Dependencies
-# -----------------------------------------------------------------------------
 FROM node:20-alpine AS deps
-RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
+# Install system dependencies needed for native modules
+RUN apk add --no-cache libc6-compat
+
 # Copy package files
-COPY package.json package-lock.json* yarn.lock* pnpm-lock.yaml* ./
+COPY package.json package-lock.json* ./
 
-# Install dependencies based on lock file
-RUN \
-  if [ -f yarn.lock ]; then yarn --frozen-lockfile; \
-  elif [ -f package-lock.json ]; then npm ci; \
-  elif [ -f pnpm-lock.yaml ]; then corepack enable pnpm && pnpm i --frozen-lockfile; \
-  else npm install; \
-  fi
+# Install dependencies
+RUN npm ci --legacy-peer-deps
 
-# -----------------------------------------------------------------------------
 # Stage 2: Builder
-# -----------------------------------------------------------------------------
 FROM node:20-alpine AS builder
 WORKDIR /app
 
-# Copy dependencies
+# Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Disable telemetry
+# Set environment variables for build
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_ENV=production
 
 # Build the application
 RUN npm run build
 
-# -----------------------------------------------------------------------------
-# Stage 3: Production Runner
-# -----------------------------------------------------------------------------
-FROM node:20-slim AS runner
+# Stage 3: Runner
+FROM node:20-alpine AS runner
 WORKDIR /app
 
-# Install Python and Pandoc for document generation
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 \
-    python3-pip \
-    python3-venv \
-    pandoc \
-    fonts-noto-cjk \
-    && rm -rf /var/lib/apt/lists/* \
-    && ln -sf /usr/bin/python3 /usr/bin/python
+# Install Pandoc for document export functionality
+RUN apk add --no-cache pandoc
 
-# Set environment
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV PORT=3000
-ENV HOSTNAME="0.0.0.0"
 
 # Create non-root user
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
 
-# Copy Python requirements and install
-COPY requirements.txt ./
-RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt
-
-# Copy Python files
-COPY document_generator.py ./
-COPY cli.py ./
-
-# Copy public assets (templates, etc.)
+# Copy built application
 COPY --from=builder /app/public ./public
-
-# Copy Next.js build output
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
-# Set ownership
+# Set ownership to nextjs user
 RUN chown -R nextjs:nodejs /app
 
-# Switch to non-root user
 USER nextjs
 
-# Expose port
 EXPOSE 3000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:3000/api/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1))" || exit 1
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
 
-# Start the application
 CMD ["node", "server.js"]

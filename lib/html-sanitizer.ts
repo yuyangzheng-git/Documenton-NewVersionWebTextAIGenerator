@@ -20,7 +20,7 @@ export function sanitizeHtml(
     return dirty;
   }
 
-  const config: DOMPurify.Config = {
+  const config = {
     // 允许的标签
     ALLOWED_TAGS: allowedTags || [
       'p', 'br', 'strong', 'em', 'u', 's', 'code', 'pre',

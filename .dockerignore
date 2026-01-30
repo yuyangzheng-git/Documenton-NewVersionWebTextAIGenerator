@@ -1,89 +1,80 @@
 # Dependencies
-node_modules/
+node_modules
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.pnpm-debug.log*
+package-lock.json
 
-# Next.js build output
+# Testing
+coverage
+
+# Next.js
 .next/
 out/
+build
+dist
 
-# Python
-venv/
-__pycache__/
-*.py[cod]
-*.pyo
-*.pyd
-.Python
-pip-log.txt
-pip-delete-this-directory.txt
-.venv/
+# Production
+.vercel
 
-# Environment variables
+# Misc
+.DS_Store
+*.pem
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Local env files
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
 
-# Git
-.git/
-.gitignore
-.gitattributes
-
-# IDE / Editor
-.vscode/
-.idea/
+# IDE
+.vscode
+.idea
 *.swp
 *.swo
 *~
-.project
-.classpath
-.settings/
 
-# OS
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
+# Git
+.git
+.gitignore
 
-# Documentation (keep README)
-*.md
-!README.md
+# Documentation (development reports)
+APPFLOWY_COMPARISON.md
+APPFLOWY_TABLE_ANALYSIS.md
+COMPLETE_OPTIMIZATION_SUMMARY.md
+GENERATE_BUTTON_STATES_FIX.md
+GUIDE_BLOCK_FIX.md
+INTEGRATION_SUMMARY.md
+OPTIMIZATION_PLAN.md
+PANDOC_IMPLEMENTATION_REPORT.md
+PHASE1_OPTIMIZATION_SUMMARY.md
+PRD_IMPLEMENTATION_REPORT.md
+PROJECT_ANALYSIS_REPORT.md
+PROJECT_ISSUES_FULL_REPORT.md
+RESPONSIVE_LAYOUT_FIX.md
+SIMPLETABLEBLOCK_REFACTOR_REPORT.md
+SIMPLETABLEBLOCK_STYLE_ANALYSIS.md
+STREAMING_IMPLEMENTATION.md
+STREAMING_MARKDOWN_GUIDE.md
+STREAMING_OPTIMIZATION.md
+TABLE_FIX_CHECKLIST.md
+TABLE_FIX_COMPARISON.md
+TABLE_FIX_SUMMARY.md
+TABLE_RESIZE_AND_BUTTON_FIX.md
+TABLE_TYPES_SUMMARY.md
+TASK_COMPLETION_REPORT.md
+TEMPLATE_SOLUTIONS_COMPARISON.md
+test-large-table.md
+test-table-final.md
+docs/
 
-# Test files
-*.test.ts
-*.test.tsx
-*.spec.ts
-*.spec.tsx
-__tests__/
-coverage/
-.nyc_output/
-
-# Screenshots and temp files
-screenshots/
-temp/
-*.tmp
-*.temp
-*.log
-
-# Docker (don't include Docker files in build context recursively)
-Dockerfile*
-docker-compose*.yml
-.docker/
-
-# Build artifacts
-dist/
-build/
-*.tsbuildinfo
-
-# Misc
-*.bak
-*.backup
-LICENSE
-CHANGELOG.md
-CONTRIBUTING.md
+# Docker
+Dockerfile
+.dockerignore
+docker-compose.yml

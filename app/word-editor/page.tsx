@@ -10,6 +10,7 @@ import { SettingsModal } from '@/components/SettingsModal';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ChevronLeft, Download, Settings } from 'lucide-react';
 import { logger } from '@/lib/logger';
+import { splitMarkdownTableAndText, parseMarkdownTable } from '@/lib/markdown-table-parser';
 
 export default function WordEditorPage() {
   const router = useRouter();
@@ -233,33 +234,59 @@ export default function WordEditorPage() {
               return;
             }
 
-            // 按段落分割内容（按两个换行符分割）
-            const paragraphs = generatedContent
-              .split(/\n\s*\n/)
-              .filter(p => p.trim().length > 0)
-              .map(p => p.trim());
+            // 使用表格解析器分割表格和文本
+            const segments = splitMarkdownTableAndText(generatedContent);
+            logger.log('Split content into', segments.length, 'segments:', segments.map(s => s.type));
 
-            logger.log('Split into', paragraphs.length, 'paragraphs');
+            // 创建新的块（表格块 + 段落块）
+            const newBlocks: NotionBlock[] = [];
 
-            // 创建新的 paragraph 块
-            const newParagraphBlocks: NotionBlock[] = paragraphs.map(paragraph => ({
-              id: generateBlockId('paragraph'),
-              type: 'paragraph',
-              content: paragraph,
-              properties: { isGenerated: true },
-              children: [],
-            }));
+            for (const segment of segments) {
+              if (segment.type === 'table') {
+                // 解析为表格块
+                const tableData = parseMarkdownTable(segment.content, 'table');
+                if (tableData) {
+                  newBlocks.push({
+                    id: tableData.id,
+                    type: 'table',
+                    content: '',
+                    properties: { tableData, isGenerated: true },
+                    children: [],
+                  });
+                  logger.log('Created table block:', tableData.id, 'with', tableData.rows.length, 'rows');
+                }
+              } else if (segment.type === 'text') {
+                // 按段落分割文本（按两个换行符分割）
+                const paragraphs = segment.content
+                  .split(/\n\s*\n/)
+                  .filter(p => p.trim().length > 0)
+                  .map(p => p.trim());
 
-            // 替换 loading 块为最终的段落块
-            setBlocks(prev => {
-              const newBlocks = [...prev];
-              const loadingIndex = newBlocks.findIndex(b => b.id === loadingBlockId);
-              if (loadingIndex !== -1) {
-                // 删除 loading 块，插入新段落块
-                newBlocks.splice(loadingIndex, 1, ...newParagraphBlocks);
-                logger.log('Replaced loading block with', newParagraphBlocks.length, 'paragraph blocks');
+                for (const paragraph of paragraphs) {
+                  newBlocks.push({
+                    id: generateBlockId('paragraph'),
+                    type: 'paragraph',
+                    content: paragraph,
+                    properties: { isGenerated: true },
+                    children: [],
+                  });
+                }
+                logger.log('Created', paragraphs.length, 'paragraph blocks from text segment');
               }
-              return newBlocks;
+            }
+
+            logger.log('Total blocks created:', newBlocks.length);
+
+            // 替换 loading 块为最终的块
+            setBlocks(prev => {
+              const newBlocksArray = [...prev];
+              const loadingIndex = newBlocksArray.findIndex(b => b.id === loadingBlockId);
+              if (loadingIndex !== -1) {
+                // 删除 loading 块，插入新块
+                newBlocksArray.splice(loadingIndex, 1, ...newBlocks);
+                logger.log('Replaced loading block with', newBlocks.length, 'blocks');
+              }
+              return newBlocksArray;
             });
 
             // 移除生成中标记
@@ -356,7 +383,7 @@ export default function WordEditorPage() {
     if (blocks.length > 0) return;
     if (outline.length === 0) return;
 
-    logger.log('📝 首次从 outline 生成 blocks');
+    logger.log('首次从 outline 生成 blocks');
 
     const notionBlocks: NotionBlock[] = [];
 
@@ -386,7 +413,7 @@ export default function WordEditorPage() {
     });
 
     setBlocks(notionBlocks);
-    logger.log('✅ Blocks 生成完成，共', notionBlocks.length, '个块');
+    logger.log('Blocks 生成完成，共', notionBlocks.length, '个块');
   }, []); // 空依赖数组，只执行一次
 
   // Redirect to home if no outline

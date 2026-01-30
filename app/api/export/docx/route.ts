@@ -288,7 +288,17 @@ function blocksToHtml(blocks: any[]): string {
       default:
         // 段落添加首行缩进（2个中文字符）和1.5倍行距
         if (block.content && block.content.trim()) {
-          result.push(`<p>${escapeHtml(block.content)}</p>`);
+          // 检测是否包含 Markdown 表格（至少2行包含管道符）
+          const lines = block.content.split('\n');
+          const tableLines = lines.filter((line: string) => line.trim().includes('|'));
+
+          if (tableLines.length >= 2 && block.content.includes('|')) {
+            // 这是一个 Markdown 表格，转换为 HTML 表格
+            result.push(`<p style="text-align: center;">${markdownTableToHtml(block.content)}</p>`);
+          } else {
+            // 普通段落
+            result.push(`<p>${escapeHtml(block.content)}</p>`);
+          }
         }
         break;
     }

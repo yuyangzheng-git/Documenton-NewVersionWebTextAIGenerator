@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { saveBlocks } from '@/lib/db';
+import { saveBlocks, BlockData } from '@/lib/db';
 import { NotionBlock } from '@/components/NotionEditor';
 
 interface UseAutoSaveOptions {
@@ -12,7 +12,7 @@ export function useAutoSave(
   options: UseAutoSaveOptions = {}
 ) {
   const { enabled = true, debounceMs = 1000 } = options;
-  const timeoutRef = useRef<NodeJS.Timeout>();
+  const timeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const saveInProgressRef = useRef(false);
 
   useEffect(() => {

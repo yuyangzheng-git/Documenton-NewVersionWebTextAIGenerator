@@ -22,6 +22,8 @@ export function OutlinePanel({ onClose, show = true, documentTopic = '' }: Outli
         kimiApiKey, kimiModel, kimiBaseUrl,
         qwenApiKey, qwenModel, qwenBaseUrl } = useStore();
 
+    const [isGenerating, setIsGenerating] = useState(false);
+
     // Fetch chapter writing bot parameters on mount (only for Dify)
     useEffect(() => {
         if (aiPlatform === 'dify' && chapterApiKey) {

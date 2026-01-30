@@ -284,7 +284,7 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
         const isTyping = activeElement && (
           activeElement.tagName === 'INPUT' ||
           activeElement.tagName === 'TEXTAREA' ||
-          activeElement.isContentEditable
+          (activeElement as HTMLElement).isContentEditable
         );
 
         // For table and image blocks, allow deletion
@@ -668,7 +668,7 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
     if (type === 'table') {
       const tableData: SimpleTableBlockData = {
         id: block.id,
-        type: 'table',
+        type: 'simple_table',
         rows: [
           { cells: [{ content: '' }, { content: '' }, { content: '' }] },
           { cells: [{ content: '' }, { content: '' }, { content: '' }] },
@@ -1437,20 +1437,20 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
       }
       case 'table': {
         // Check if content is a SimpleTableBlockData object
-        logger.log('🎨 Rendering table block:', block.id, 'has tableData:', !!block.properties?.tableData);
+        logger.log('Rendering table block:', block.id, 'has tableData:', !!block.properties?.tableData);
         let tableData: SimpleTableBlockData;
 
         if (typeof block.properties.tableData === 'object' && block.properties.tableData !== null) {
           // Already have proper table data
           tableData = block.properties.tableData as SimpleTableBlockData;
-          logger.log('✅ Using existing tableData with', tableData.rows.length, 'rows');
+          logger.log('Using existing tableData with', tableData.rows.length, 'rows');
         } else {
           // Legacy HTML table or need to create default table
           // For now, create a default 3x3 table
-          logger.log('⚠️ No tableData found, creating default 3x3 table');
+          logger.log('No tableData found, creating default 3x3 table');
           tableData = {
             id: block.id,
-            type: 'table',
+            type: 'simple_table',
             rows: [
               { cells: [{ content: '' }, { content: '' }, { content: '' }] },
               { cells: [{ content: '' }, { content: '' }, { content: '' }] },
@@ -1466,7 +1466,7 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
         }
 
         return (
-          <div style={{ flex: 1, marginTop: '8px', width: '100%', display: 'flex', justifyContent: 'center' }}>
+          <div style={{ flex: 1, marginTop: '8px', width: '100%' }}>
             <SimpleTableBlock
               node={tableData}
               editable={editable}
@@ -1507,12 +1507,6 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
     <div
       ref={setNodeRef}
       data-block-id={block.id}
-      style={{
-        ...style,
-        position: 'relative',
-        padding: '0',
-        transition: 'opacity 150ms ease-in-out'
-      }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onClick={() => {

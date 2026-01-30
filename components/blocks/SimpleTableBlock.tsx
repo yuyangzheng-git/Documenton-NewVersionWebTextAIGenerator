@@ -20,20 +20,27 @@ const SimpleTableConstants = {
   // 尺寸
   defaultColumnWidth: 160.0,
   minimumColumnWidth: 36.0,
-  maximumColumnWidth: 600.0, // 🆕 最大列宽限制
+  maximumColumnWidth: 600.0,
   defaultRowHeight: 36.0,
 
   // 单元格边距（Desktop）
   cellPaddingHorizontal: 9.0,
   cellPaddingVertical: 2.0,
 
-  // 添加行按钮
+  // 表格内边距（参考 AppFlowy）
+  tableHitTestTopPadding: 8.0,      // 顶部
+  tableLeftPadding: 8.0,             // 左侧
+  tableBottomPadding: 28.0,          // 底部（为添加行按钮留空间）
+  tableRightPadding: 24.0,           // 右侧（为添加列按钮留空间）
+
+  // 添加行按钮（参考 AppFlowy）
   addRowButtonHeight: 16.0,
   addRowButtonPadding: 4.0,
 
-  // 添加列按钮
+  // 添加列按钮（参考 AppFlowy）
   addColumnButtonWidth: 16.0,
   addColumnButtonPadding: 2.0,
+  addColumnButtonBottomPadding: 28.0,  // 底部边距
 
   // 调整大小句柄
   resizeHandleWidth: 3.0,
@@ -42,10 +49,7 @@ const SimpleTableConstants = {
   borderWidth: 1.0,
   lightBorderWidth: 0.5,
 
-  // 表格内边距
-  tablePaddingLeft: 8.0,
-
-  // 🆕 编辑器最大宽度（与编辑页一致）
+  // 编辑器最大宽度（与编辑页一致）
   editorMaxWidth: 800.0,
   editorPadding: 96.0 // 左右各 48px
 };
@@ -271,31 +275,12 @@ export function SimpleTableBlock({
     setTableNode({ ...tableNode, rows: newRows });
   };
 
-  // 更新列宽（优化版本，带智能限制）
+  // 更新列宽
   const updateColumnWidth = (colIndex: number, width: number) => {
-    // 计算当前所有列的总宽度
-    const currentTotalWidth = Array.from({ length: columnLength }, (_, i) => {
-      if (i === colIndex) return 0; // 排除当前列
-      return tableNode.columnWidths?.[i] || SimpleTableConstants.defaultColumnWidth;
-    }).reduce((sum, w) => sum + w, 0);
-
-    // 计算可用的最大宽度
-    const maxAvailableWidth = SimpleTableConstants.editorMaxWidth -
-                               SimpleTableConstants.editorPadding -
-                               SimpleTableConstants.tablePaddingLeft -
-                               SimpleTableConstants.addColumnButtonWidth -
-                               SimpleTableConstants.addColumnButtonPadding * 4;
-
-    // 计算该列的最大允许宽度
-    const maxWidthForThisColumn = Math.min(
-      SimpleTableConstants.maximumColumnWidth,
-      maxAvailableWidth - currentTotalWidth - 20 // 留 20px 余量
-    );
-
-    // 限制宽度范围
+    // 限制列宽范围（单列限制，不限制总宽度）
     const clampedWidth = Math.max(
       SimpleTableConstants.minimumColumnWidth,
-      Math.min(width, maxWidthForThisColumn)
+      Math.min(width, SimpleTableConstants.maximumColumnWidth)
     );
 
     setTableNode({
@@ -325,101 +310,80 @@ export function SimpleTableBlock({
 
   return (
     <SimpleTableContext.Provider value={contextValue}>
-      {/* 外层容器：实现 Notion 风格的表格滚动 */}
+      {/* 最外层容器 - 等同于 AppFlowy 的 Stack */}
       <div
         style={{
-          width: '100%', // 与正文块等宽
+          position: 'relative',  // Stack 容器
+          width: '100%',
           marginTop: '8px',
-          marginBottom: '8px',
-          overflowX: 'auto', // 横向滚动
-          overflowY: 'visible',
-          // Notion-style scrollbar
-          scrollbarWidth: 'thin', // Firefox
-          scrollbarColor: 'rgba(55, 53, 47, 0.3) transparent' // Firefox
+          marginBottom: '8px'
         }}
-        className="notion-table-wrapper"
+        onMouseEnter={() => setIsHoveringOnTableBlock(true)}
+        onMouseLeave={() => setIsHoveringOnTableBlock(false)}
       >
+        {/* 滚动容器 - 等同于 AppFlowy 的 Scrollbar + SingleChildScrollView */}
         <div
-          onMouseEnter={() => setIsHoveringOnTableBlock(true)}
-          onMouseLeave={() => setIsHoveringOnTableBlock(false)}
           style={{
-            position: 'relative',
-            width: 'fit-content',
-            minWidth: '100%', // 至少占满容器宽度
-            paddingLeft: `${SimpleTableConstants.tablePaddingLeft}px`,
-            paddingRight: `${SimpleTableConstants.addColumnButtonWidth + SimpleTableConstants.addColumnButtonPadding * 4}px`,
-            paddingBottom: `${SimpleTableConstants.addRowButtonHeight + SimpleTableConstants.addRowButtonPadding * 5}px`
+            width: '100%',
+            overflowX: 'auto',  // 横向滚动
+            overflowY: 'visible',
+            // Notion-style scrollbar
+            scrollbarWidth: 'thin',
+            scrollbarColor: 'rgba(55, 53, 47, 0.3) rgba(55, 53, 47, 0.06)',
+            paddingBottom: '4px',  // 为滚动条留空间
+            boxSizing: 'border-box'
           }}
+          className="notion-table-wrapper"
         >
-        {/* 表格主体 */}
-        <div
-          onMouseEnter={() => setIsHoveringOnTableArea(true)}
-          onMouseLeave={() => setIsHoveringOnTableArea(false)}
-          style={{ position: 'relative' }}
-        >
-          <table
+          {/* 内容容器 - 等同于 AppFlowy 的 Padding + IntrinsicWidth */}
+          <div
             style={{
-              borderCollapse: 'collapse',
-              border: `${SimpleTableConstants.borderWidth}px solid ${SimpleTableColors.border}`,
-              backgroundColor: '#FFFFFF',
-              width: 'auto', // 根据内容自动调整宽度
-              tableLayout: 'auto' // 自动表格布局，根据内容调整列宽
+              width: 'fit-content',  // 内容自适应，无 maxWidth 限制
+              padding: `${SimpleTableConstants.tableHitTestTopPadding}px ${SimpleTableConstants.tableLeftPadding}px ${SimpleTableConstants.tableBottomPadding}px ${SimpleTableConstants.tableLeftPadding}px`,
+              boxSizing: 'border-box'
             }}
           >
-            <tbody>
-              {tableNode.rows.map((row, rowIndex) => (
-                <SimpleTableRow
-                  key={rowIndex}
-                  rowIndex={rowIndex}
-                  row={row}
-                  onUpdateCell={updateCellContent}
-                  onDeleteRow={deleteRow}
-                  onUpdateColumnWidth={updateColumnWidth}
-                />
-              ))}
-            </tbody>
-          </table>
+            {/* 表格主体 */}
+            <div
+              onMouseEnter={() => setIsHoveringOnTableArea(true)}
+              onMouseLeave={() => setIsHoveringOnTableArea(false)}
+              style={{ position: 'relative' }}
+            >
+              <table
+                style={{
+                  borderCollapse: 'collapse',
+                  border: `${SimpleTableConstants.borderWidth}px solid ${SimpleTableColors.border}`,
+                  backgroundColor: '#FFFFFF',
+                  width: 'auto',
+                  tableLayout: 'auto'
+                }}
+              >
+                <tbody>
+                  {tableNode.rows.map((row, rowIndex) => (
+                    <SimpleTableRow
+                      key={rowIndex}
+                      rowIndex={rowIndex}
+                      row={row}
+                      onUpdateCell={updateCellContent}
+                      onDeleteRow={deleteRow}
+                      onUpdateColumnWidth={updateColumnWidth}
+                    />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
 
-        {/* 添加行按钮（底部） */}
-        {editable && isHoveringOnTableBlock && (
-          <div
-            onClick={addRow}
-            style={{
-              position: 'absolute',
-              bottom: `${SimpleTableConstants.addRowButtonPadding * 3}px`,
-              left: `${SimpleTableConstants.tablePaddingLeft}px`,
-              right: `${SimpleTableConstants.addColumnButtonWidth + SimpleTableConstants.addColumnButtonPadding * 4}px`,
-              height: `${SimpleTableConstants.addRowButtonHeight}px`,
-              backgroundColor: SimpleTableColors.moreActionBackground,
-              border: `1px solid ${SimpleTableColors.moreActionBorder}`,
-              borderRadius: '4px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              transition: 'background-color 0.15s'
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = SimpleTableColors.moreActionHover;
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = SimpleTableColors.moreActionBackground;
-            }}
-          >
-            <Plus size={16} style={{ color: '#666' }} />
-          </div>
-        )}
-
-        {/* 添加列按钮（右侧） */}
+        {/* 添加列按钮（右侧）- position: absolute，基于最外层容器 */}
         {editable && isHoveringOnTableBlock && (
           <div
             onClick={addColumn}
             style={{
               position: 'absolute',
-              top: 0,
-              right: `${SimpleTableConstants.addColumnButtonPadding * 2}px`,
-              bottom: `${SimpleTableConstants.addRowButtonHeight + SimpleTableConstants.addRowButtonPadding * 5}px`,
+              top: `${SimpleTableConstants.tableHitTestTopPadding}px`,
+              bottom: `${SimpleTableConstants.addColumnButtonBottomPadding}px`,
+              right: 0,
               width: `${SimpleTableConstants.addColumnButtonWidth}px`,
               backgroundColor: SimpleTableColors.moreActionBackground,
               border: `1px solid ${SimpleTableColors.moreActionBorder}`,
@@ -428,7 +392,8 @@ export function SimpleTableBlock({
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
-              transition: 'background-color 0.15s'
+              transition: 'background-color 0.15s',
+              zIndex: 10
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = SimpleTableColors.moreActionHover;
@@ -441,14 +406,45 @@ export function SimpleTableBlock({
           </div>
         )}
 
-        {/* 添加行列按钮（右下角圆形） */}
+        {/* 添加行按钮（底部）- position: absolute，基于最外层容器 */}
+        {editable && isHoveringOnTableBlock && (
+          <div
+            onClick={addRow}
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              left: `${SimpleTableConstants.tableLeftPadding}px`,
+              right: `${SimpleTableConstants.addColumnButtonWidth + SimpleTableConstants.addColumnButtonPadding * 2}px`,
+              height: `${SimpleTableConstants.addRowButtonHeight}px`,
+              backgroundColor: SimpleTableColors.moreActionBackground,
+              border: `1px solid ${SimpleTableColors.moreActionBorder}`,
+              borderRadius: '4px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              transition: 'background-color 0.15s',
+              zIndex: 10
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.backgroundColor = SimpleTableColors.moreActionHover;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.backgroundColor = SimpleTableColors.moreActionBackground;
+            }}
+          >
+            <Plus size={16} style={{ color: '#666' }} />
+          </div>
+        )}
+
+        {/* 添加行列按钮（右下角圆形）- position: absolute，基于最外层容器 */}
         {editable && isHoveringOnTableBlock && (
           <div
             onClick={addColumnAndRow}
             style={{
               position: 'absolute',
-              bottom: `${SimpleTableConstants.addRowButtonPadding * 2.5}px`,
-              right: `${SimpleTableConstants.addColumnButtonPadding * 2.5}px`,
+              bottom: `${SimpleTableConstants.addRowButtonPadding}px`,
+              right: `${SimpleTableConstants.addColumnButtonPadding}px`,
               width: `${SimpleTableConstants.addRowButtonHeight}px`,
               height: `${SimpleTableConstants.addRowButtonHeight}px`,
               backgroundColor: SimpleTableColors.moreActionBackground,
@@ -458,7 +454,8 @@ export function SimpleTableBlock({
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
-              transition: 'background-color 0.15s'
+              transition: 'background-color 0.15s',
+              zIndex: 10
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = SimpleTableColors.moreActionHover;
@@ -471,17 +468,18 @@ export function SimpleTableBlock({
           </div>
         )}
 
-        {/* 表格工具栏（顶部） */}
+        {/* 表格工具栏（顶部）*/}
         {editable && (
           <div
             style={{
               position: 'absolute',
-              top: '-32px',
-              left: `${SimpleTableConstants.tablePaddingLeft}px`,
+              top: `-32px`,
+              left: `${SimpleTableConstants.tableLeftPadding}px`,
               display: 'flex',
               gap: '8px',
               opacity: isHoveringOnTableBlock ? 1 : 0,
-              transition: 'opacity 0.15s'
+              transition: 'opacity 0.15s',
+              zIndex: 10
             }}
           >
             <button
@@ -517,7 +515,6 @@ export function SimpleTableBlock({
           </div>
         )}
       </div>
-      </div>
     </SimpleTableContext.Provider>
   );
 }
@@ -543,7 +540,7 @@ function SimpleTableRow({
   if (!context) return null;
 
   const { tableNode, selectingRow } = context;
-  const isHeaderRow = tableNode.enableHeaderRow && rowIndex === 0;
+  const isHeaderRow = !!(tableNode.enableHeaderRow && rowIndex === 0);
   const isSelected = selectingRow === rowIndex;
 
   return (
@@ -559,7 +556,7 @@ function SimpleTableRow({
           colIndex={colIndex}
           cell={cell}
           isHeaderRow={isHeaderRow}
-          isHeaderColumn={tableNode.enableHeaderColumn && colIndex === 0}
+          isHeaderColumn={!!(tableNode.enableHeaderColumn && colIndex === 0)}
           onUpdate={(content) => onUpdateCell(rowIndex, colIndex, content)}
           onUpdateColumnWidth={onUpdateColumnWidth}
         />
@@ -607,8 +604,8 @@ function SimpleTableCell({
 
   const [dragStartX, setDragStartX] = useState(0);
   const [dragStartWidth, setDragStartWidth] = useState(0);
-  const [tempWidth, setTempWidth] = useState<number | null>(null); // 🆕 临时宽度用于拖拽预览
-  const rafIdRef = useRef<number | null>(null); // 🆕 RAF ID
+  const [tempWidth, setTempWidth] = useState<number | null>(null); // 临时宽度用于拖拽预览
+  const rafIdRef = useRef<number | null>(null); // RAF ID
 
   const isHeader = isHeaderRow || isHeaderColumn;
   const isHovered = hoveringTableCell?.row === rowIndex && hoveringTableCell?.col === colIndex;
