@@ -1269,37 +1269,28 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
 
               {/* 生成/重写按钮 - 右上角 */}
               {onGenerate && (() => {
-                // 查找当前 guide 块前面最近的 heading 块
-                let headingBlockId: string | null = null;
+                // 判断状态 - 使用 guide 块自己的 ID
+                const isGenerating = generatingIds?.has(block.id) || false;
 
-                // 从所有块中找到当前 guide 块的索引
+                // 检查是否已生成内容（查找下一个块是否是 paragraph 类型）
                 const currentBlockIndex = allBlocks?.findIndex(b => b.id === block.id) ?? -1;
+                let hasGenerated = false;
 
                 if (currentBlockIndex !== -1 && allBlocks) {
-                  // 向前查找最近的标题块
-                  for (let i = currentBlockIndex - 1; i >= 0; i--) {
-                    const prevBlock = allBlocks[i];
-                    if (prevBlock.type === 'h1' || prevBlock.type === 'h2' || prevBlock.type === 'h3') {
-                      // 检查是否是 heading- 格式的 ID
-                      if (prevBlock.id.startsWith('heading-')) {
-                        headingBlockId = prevBlock.id;
-                        break;
-                      }
+                  // 向后查找，看是否有 paragraph 块（表示已经生成过）
+                  for (let i = currentBlockIndex + 1; i < allBlocks.length; i++) {
+                    const nextBlock = allBlocks[i];
+                    // 如果遇到下一个标题，停止查找
+                    if (nextBlock.type === 'h1' || nextBlock.type === 'h2' || nextBlock.type === 'h3') {
+                      break;
+                    }
+                    // 如果有 paragraph 块，说明已生成
+                    if (nextBlock.type === 'paragraph' && nextBlock.id.startsWith('paragraph-')) {
+                      hasGenerated = true;
+                      break;
                     }
                   }
                 }
-
-                // 如果没有找到对应的 heading 块，不显示生成按钮
-                if (!headingBlockId) {
-                  return null;
-                }
-
-                // 判断状态 - 使用找到的 headingBlockId 来判断生成状态
-                const isGenerating = generatingIds?.has(headingBlockId) || false;
-                const hasGenerated = allBlocks?.some(b =>
-                  b.id.startsWith(`generated-${headingBlockId}-`) &&
-                  b.properties?.isGenerated
-                ) || false;
 
                 let buttonText = '生成';
                 let buttonColor = '#2383E2';
@@ -1327,8 +1318,8 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
                       if (!isGenerating) {
                         e.preventDefault();
                         e.stopPropagation();
-                        // 传入 heading 块 ID（不再是 guide 块 ID）
-                        onGenerate(headingBlockId!);
+                        // 直接传入 guide 块自己的 ID
+                        onGenerate(block.id);
                       }
                     }}
                     disabled={isGenerating}
