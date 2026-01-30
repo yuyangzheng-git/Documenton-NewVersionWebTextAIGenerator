@@ -181,6 +181,8 @@ export default function WordEditorPage() {
       // Track generated content
       let generatedContent = '';
       const loadingBlockId = `loading-${guideBlockId}`;
+      let lastUpdateTime = 0;
+      const UPDATE_INTERVAL = 300; // 每300ms更新一次，避免更新太频繁
 
       // Generate content
       await generateSectionWithWorker(
@@ -192,69 +194,83 @@ export default function WordEditorPage() {
           generatedContent += chunk;
           logger.log('Received chunk:', chunk.substring(0, 50));
 
-          // 实时更新 loading 块的内容以显示流式输出
+          // 节流更新：每300ms更新一次 loading 块的内容
+          const now = Date.now();
+          if (now - lastUpdateTime > UPDATE_INTERVAL) {
+            lastUpdateTime = now;
+            setBlocks(prev => prev.map(b =>
+              b.id === loadingBlockId
+                ? { ...b, content: generatedContent }
+                : b
+            ));
+          }
+        },
+        () => {
+          // 生成完成：先确保最后的内容也被显示，然后删除 loading 块并插入最终的段落块
+          logger.log('Generation complete. Final content length:', generatedContent.length);
+
+          // 先更新一次最终内容（以防最后几个 chunk 没被节流更新显示）
           setBlocks(prev => prev.map(b =>
             b.id === loadingBlockId
               ? { ...b, content: generatedContent }
               : b
           ));
-        },
-        () => {
-          // 生成完成：删除 loading 块并插入最终的段落块
-          logger.log('Generation complete. Final content length:', generatedContent.length);
 
-          if (!generatedContent || generatedContent.trim().length === 0) {
-            logger.warn('⚠️ No content generated');
-            showToast('⚠️ 未生成内容，请检查写作指导', 'info');
+          // 给一点时间让最终内容显示，然后再替换为段落块
+          setTimeout(() => {
+            if (!generatedContent || generatedContent.trim().length === 0) {
+              logger.warn('⚠️ No content generated');
+              showToast('⚠️ 未生成内容，请检查写作指导', 'info');
 
-            // 删除 loading 块
-            setBlocks(prev => prev.filter(b => b.id !== loadingBlockId));
+              // 删除 loading 块
+              setBlocks(prev => prev.filter(b => b.id !== loadingBlockId));
 
+              setGeneratingIds(prev => {
+                const next = new Set(prev);
+                next.delete(guideBlockId);
+                return next;
+              });
+              return;
+            }
+
+            // 按段落分割内容（按两个换行符分割）
+            const paragraphs = generatedContent
+              .split(/\n\s*\n/)
+              .filter(p => p.trim().length > 0)
+              .map(p => p.trim());
+
+            logger.log('Split into', paragraphs.length, 'paragraphs');
+
+            // 创建新的 paragraph 块
+            const newParagraphBlocks: NotionBlock[] = paragraphs.map(paragraph => ({
+              id: generateBlockId('paragraph'),
+              type: 'paragraph',
+              content: paragraph,
+              properties: { isGenerated: true },
+              children: [],
+            }));
+
+            // 替换 loading 块为最终的段落块
+            setBlocks(prev => {
+              const newBlocks = [...prev];
+              const loadingIndex = newBlocks.findIndex(b => b.id === loadingBlockId);
+              if (loadingIndex !== -1) {
+                // 删除 loading 块，插入新段落块
+                newBlocks.splice(loadingIndex, 1, ...newParagraphBlocks);
+                logger.log('Replaced loading block with', newParagraphBlocks.length, 'paragraph blocks');
+              }
+              return newBlocks;
+            });
+
+            // 移除生成中标记
             setGeneratingIds(prev => {
               const next = new Set(prev);
               next.delete(guideBlockId);
               return next;
             });
-            return;
-          }
 
-          // 按段落分割内容（按两个换行符分割）
-          const paragraphs = generatedContent
-            .split(/\n\s*\n/)
-            .filter(p => p.trim().length > 0)
-            .map(p => p.trim());
-
-          logger.log('Split into', paragraphs.length, 'paragraphs');
-
-          // 创建新的 paragraph 块
-          const newParagraphBlocks: NotionBlock[] = paragraphs.map(paragraph => ({
-            id: generateBlockId('paragraph'),
-            type: 'paragraph',
-            content: paragraph,
-            properties: { isGenerated: true },
-            children: [],
-          }));
-
-          // 替换 loading 块为最终的段落块
-          setBlocks(prev => {
-            const newBlocks = [...prev];
-            const loadingIndex = newBlocks.findIndex(b => b.id === loadingBlockId);
-            if (loadingIndex !== -1) {
-              // 删除 loading 块，插入新段落块
-              newBlocks.splice(loadingIndex, 1, ...newParagraphBlocks);
-              logger.log('Replaced loading block with', newParagraphBlocks.length, 'paragraph blocks');
-            }
-            return newBlocks;
-          });
-
-          // 移除生成中标记
-          setGeneratingIds(prev => {
-            const next = new Set(prev);
-            next.delete(guideBlockId);
-            return next;
-          });
-
-          showToast('✅ 章节内容生成完成!', 'success');
+            showToast('✅ 章节内容生成完成!', 'success');
+          }, 500); // 等待500ms让用户看到完整的流式内容
         },
         requirements,
         (error) => {

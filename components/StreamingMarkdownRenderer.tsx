@@ -246,7 +246,21 @@ export const StreamingMarkdownRenderer = function StreamingMarkdownRenderer({ ma
       // 检查是否加载了 Prism
       if (typeof window !== 'undefined' && (window as any).Prism) {
         const Prism = (window as any).Prism;
-        Prism.highlightAllUnder(containerRef.current);
+        // 检查 highlightAllUnder 方法是否存在
+        if (typeof Prism.highlightAllUnder === 'function') {
+          try {
+            Prism.highlightAllUnder(containerRef.current);
+          } catch (error) {
+            console.warn('Prism highlighting failed:', error);
+          }
+        } else if (typeof Prism.highlightAll === 'function') {
+          // 降级使用 highlightAll
+          try {
+            Prism.highlightAll();
+          } catch (error) {
+            console.warn('Prism highlighting failed:', error);
+          }
+        }
       }
     }
   }, [markdown, isComplete]);
