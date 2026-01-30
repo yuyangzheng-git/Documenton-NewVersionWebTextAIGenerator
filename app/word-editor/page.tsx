@@ -121,7 +121,7 @@ export default function WordEditorPage() {
 
     try {
       // Import the generation function
-      const { generateSectionWithWorker, getDifyApiBaseUrl } = await import('@/lib/dify-api');
+      const { generateSectionWithWorker } = await import('@/lib/dify-api');
 
       // Get API configuration from store
       const apiKey = useStore.getState().chapterApiKey;
