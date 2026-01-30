@@ -672,22 +672,39 @@ export default function WordEditorPage() {
                                  uniqueOutline[index + 1].level > item.level;
 
       // 如果有 requirements，查找标题下方第一个用户手动添加的 guide 块并填充内容
-      // 不再自动创建 guide-{itemId} 格式的块
+      // 如果有 requirements，自动创建写作指导块（使用普通 block ID）
       if ((item.level === 2 || item.level === 3) && item.requirements && !hasNextItemAsChild) {
         // 找到当前heading块在原blocks中的位置
         const headingIndex = blocksRef.current.findIndex(b => b.id === headingBlockId);
+        let guideBlockFound = false;
 
+        // 检查heading块后面是否已经有guide块
         if (headingIndex !== -1 && headingIndex + 1 < blocksRef.current.length) {
-          // 检查heading块后面的第一个块是否是guide类型
           const nextBlock = blocksRef.current[headingIndex + 1];
 
           if (nextBlock && nextBlock.type === 'guide' && !generatedBlockIds.has(nextBlock.id)) {
-            // 找到用户手动添加的guide块，填充requirements内容
+            // 找到已存在的guide块，填充requirements内容
             notionBlocks.push({
               ...nextBlock,
               content: item.requirements, // 用大纲的requirements覆盖
             });
             generatedBlockIds.add(nextBlock.id);
+            guideBlockFound = true;
+          }
+        }
+
+        // 如果没有找到guide块，自动创建一个（使用普通 block ID）
+        if (!guideBlockFound) {
+          const newGuideBlockId = `block-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+          if (!generatedBlockIds.has(newGuideBlockId)) {
+            notionBlocks.push({
+              id: newGuideBlockId,
+              type: 'guide',
+              content: item.requirements,
+              properties: {},
+              children: [],
+            });
+            generatedBlockIds.add(newGuideBlockId);
           }
         }
 
