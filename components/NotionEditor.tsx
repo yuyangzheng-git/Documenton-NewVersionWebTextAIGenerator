@@ -69,12 +69,14 @@ export function NotionEditor({ blocks, setBlocks, onBlockUpdate, onGenerate, gen
   };
 
   const addBlock = (parentId: string | null, position: number, type: BlockType, initialContent?: string): string | undefined => {
-    const newBlockId = `block-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+    // 根据类型生成对应前缀的 ID
+    const typePrefix = (type === 'h1' || type === 'h2' || type === 'h3') ? 'heading' : type;
+    const newBlockId = `${typePrefix}-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
 
     // Use provided initial content or empty string
     let content = initialContent !== undefined ? initialContent : '';
 
-    logger.log('addBlock START:', { parentId, position, type, initialContent, content, blocksLength: blocks.length });
+    logger.log('addBlock START:', { parentId, position, type, typePrefix, initialContent, content, blocksLength: blocks.length });
     console.trace('addBlock call stack');
 
     const newBlock: NotionBlock = {
@@ -104,7 +106,9 @@ export function NotionEditor({ blocks, setBlocks, onBlockUpdate, onGenerate, gen
   };
 
   const insertBeforeBlock = (beforeBlockId: string, type: BlockType, content: string): string | undefined => {
-    const newBlockId = `block-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
+    // 根据类型生成对应前缀的 ID
+    const typePrefix = (type === 'h1' || type === 'h2' || type === 'h3') ? 'heading' : type;
+    const newBlockId = `${typePrefix}-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
 
     const newBlock: NotionBlock = {
       id: newBlockId,
