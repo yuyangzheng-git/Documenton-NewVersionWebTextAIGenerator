@@ -44,16 +44,8 @@ export default function WordEditorPage() {
       return newBlocks;
     });
 
-    // If updating guide block, sync to outline (for level 2 items before generation)
-    // Only sync if the guide block ID matches an outline item (guide-{outlineItemId})
-    if (id.startsWith('guide-')) {
-      const outlineItemId = id.replace('guide-', '');
-      const outlineItem = outline.find(item => item.id === outlineItemId);
-      // Only update outline if this guide block corresponds to an outline item
-      if (outlineItem && updates.content !== undefined) {
-        updateItem(outlineItemId, { requirements: updates.content });
-      }
-    }
+    // 删除原来的 guide-{itemId} 同步逻辑
+    // guide 块现在都是用户手动添加的，不再与大纲关联
 
     // If updating content block, sync to outline
     // Also clear requirements when content is updated (content replaces requirements)
@@ -112,15 +104,9 @@ export default function WordEditorPage() {
     let outlineItemId: string | null = null;
     let outlineItem: { id: string; title: string; content?: string; requirements?: string } | null = null;
 
-    // Check if the input is a guide block ID
-    if (headingBlockId.startsWith('guide-')) {
-      guideBlockId = headingBlockId;
-      guideBlock = blocks.find(b => b.id === headingBlockId);
-      outlineItemId = headingBlockId.replace('guide-', '');
-      outlineItem = outline.find(item => item.id === outlineItemId);
-      sectionTitle = outlineItem?.title || '';
-    } else if (headingBlockId.startsWith('heading-')) {
-      // Original logic: find heading block and then guide block
+    // 只处理 heading- 开头的 ID
+    if (headingBlockId.startsWith('heading-')) {
+      // 查找 heading block
       const headingBlock = blocks.find(b => b.id === headingBlockId);
       if (!headingBlock) {
         logger.error('Heading block not found:', headingBlockId);
@@ -132,21 +118,27 @@ export default function WordEditorPage() {
       outlineItemId = headingBlockId.replace('heading-', '');
       outlineItem = outline.find(item => item.id === outlineItemId);
 
-      // Find the next guide block after heading block
+      // 在 heading block 后面查找用户手动添加的 guide 块
       const headingBlockIndex = blocks.findIndex(b => b.id === headingBlockId);
       if (headingBlockIndex !== -1) {
         for (let i = headingBlockIndex + 1; i < blocks.length; i++) {
           const block = blocks[i];
+          // 如果遇到下一个标题，停止查找
           if (block.type === 'h1' || block.type === 'h2' || block.type === 'h3') {
             break;
           }
-          if (block.type === 'guide' || (block.type === 'callout' && block.properties?.icon === '💡')) {
+          // 查找 guide 类型的块
+          if (block.type === 'guide') {
             guideBlock = block;
             guideBlockId = block.id;
             break;
           }
         }
       }
+    } else {
+      logger.error('Invalid headingBlockId format:', headingBlockId);
+      alert('无效的标题块 ID');
+      return;
     }
 
     // Use guide block content as requirements
@@ -679,29 +671,26 @@ export default function WordEditorPage() {
       const hasNextItemAsChild = index + 1 < uniqueOutline.length &&
                                  uniqueOutline[index + 1].level > item.level;
 
-      // Add guide block and generated content for items with requirements
-      // IMPORTANT: Don't check !item.content because content is set after generation completes
+      // 如果有 requirements，查找标题下方第一个用户手动添加的 guide 块并填充内容
+      // 不再自动创建 guide-{itemId} 格式的块
       if ((item.level === 2 || item.level === 3) && item.requirements && !hasNextItemAsChild) {
-        // Check if this guide block already exists and preserve user's edits
-        const existingBlock = blocksRef.current.find(b => b.id === `guide-${item.id}`);
-        const guideBlockId = `guide-${item.id}`;
+        // 找到当前heading块在原blocks中的位置
+        const headingIndex = blocksRef.current.findIndex(b => b.id === headingBlockId);
 
-        if (existingBlock) {
-          // Keep the existing block only if it hasn't been added yet
-          if (!generatedBlockIds.has(existingBlock.id)) {
-            notionBlocks.push(existingBlock);
-            generatedBlockIds.add(existingBlock.id);
+        if (headingIndex !== -1 && headingIndex + 1 < blocksRef.current.length) {
+          // 检查heading块后面的第一个块是否是guide类型
+          const nextBlock = blocksRef.current[headingIndex + 1];
+
+          if (nextBlock && nextBlock.type === 'guide' && !generatedBlockIds.has(nextBlock.id)) {
+            // 找到用户手动添加的guide块，填充requirements内容
+            notionBlocks.push({
+              ...nextBlock,
+              content: item.requirements, // 用大纲的requirements覆盖
+            });
+            generatedBlockIds.add(nextBlock.id);
           }
-        } else if (!generatedBlockIds.has(guideBlockId)) {
-          notionBlocks.push({
-            id: guideBlockId,
-            type: 'guide',
-            content: item.requirements,
-            properties: {},
-            children: [],
-          });
-          generatedBlockIds.add(guideBlockId);
         }
+      }
 
         // Insert generated blocks for this item right after the guide block
         // This ensures generated content appears immediately after the guide block
@@ -805,7 +794,7 @@ export default function WordEditorPage() {
     const outlineItemIds = new Set([
       ...uniqueOutline.map(item => item.id),
       ...uniqueOutline.map(item => `heading-${item.id}`), // Add heading IDs
-      ...uniqueOutline.map(item => `guide-${item.id}`),
+      // 不再包括 guide-{item.id}，因为guide块现在都是用户手动添加的
       ...uniqueOutline.flatMap(item => item.paragraphs ? item.paragraphs.map((_, idx) => `content-${item.id}-p${idx}`) : []),
       ...uniqueOutline.map(item => `content-${item.id}`),
       ...uniqueOutline.map(item => `placeholder-${item.id}`),

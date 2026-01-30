@@ -1269,11 +1269,32 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
 
               {/* 生成/重写按钮 - 右上角 */}
               {onGenerate && (() => {
-                // 直接使用 guide 块 ID（新逻辑：写作指导点击生成只需要 requirements）
-                const outlineItemId = block.id.replace('guide-', '');
+                // 查找当前 guide 块前面最近的 heading 块
+                let headingBlockId: string | null = null;
 
-                // 判断状态 - 使用 headingBlockId 来判断生成状态
-                const headingBlockId = `heading-${outlineItemId}`;
+                // 从所有块中找到当前 guide 块的索引
+                const currentBlockIndex = allBlocks?.findIndex(b => b.id === block.id) ?? -1;
+
+                if (currentBlockIndex !== -1 && allBlocks) {
+                  // 向前查找最近的标题块
+                  for (let i = currentBlockIndex - 1; i >= 0; i--) {
+                    const prevBlock = allBlocks[i];
+                    if (prevBlock.type === 'h1' || prevBlock.type === 'h2' || prevBlock.type === 'h3') {
+                      // 检查是否是 heading- 格式的 ID
+                      if (prevBlock.id.startsWith('heading-')) {
+                        headingBlockId = prevBlock.id;
+                        break;
+                      }
+                    }
+                  }
+                }
+
+                // 如果没有找到对应的 heading 块，不显示生成按钮
+                if (!headingBlockId) {
+                  return null;
+                }
+
+                // 判断状态 - 使用找到的 headingBlockId 来判断生成状态
                 const isGenerating = generatingIds?.has(headingBlockId) || false;
                 const hasGenerated = allBlocks?.some(b =>
                   b.id.startsWith(`generated-${headingBlockId}-`) &&
@@ -1306,8 +1327,8 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
                       if (!isGenerating) {
                         e.preventDefault();
                         e.stopPropagation();
-                        // 直接传入 guide 块 ID
-                        onGenerate(block.id);
+                        // 传入 heading 块 ID（不再是 guide 块 ID）
+                        onGenerate(headingBlockId!);
                       }
                     }}
                     disabled={isGenerating}
