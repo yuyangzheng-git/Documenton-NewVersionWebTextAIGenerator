@@ -8,12 +8,12 @@ import { TextSelectionToolbar } from '@/components/TextSelectionToolbar';
 import { NotionEditor, NotionBlock } from '@/components/NotionEditor';
 import { SettingsModal } from '@/components/SettingsModal';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { ChevronLeft, Download, Upload, Settings, FileText } from 'lucide-react';
+import { ChevronLeft, Download, Settings } from 'lucide-react';
 import { logger } from '@/lib/logger';
 
 export default function WordEditorPage() {
   const router = useRouter();
-  const { outline, documentTitle, setDocumentTitle, updateItem } = useStore();
+  const { outline, documentTitle, setDocumentTitle } = useStore();
   const [blocks, setBlocks] = useState<NotionBlock[]>([]);
   const blocksRef = useRef<NotionBlock[]>(blocks); // Track current blocks value
 
@@ -22,9 +22,6 @@ export default function WordEditorPage() {
     blocksRef.current = blocks;
   }, [blocks]);
   const [documentTopic, setDocumentTopic] = useState('');
-  const [customTemplateId, setCustomTemplateId] = useState<string | null>(null);
-  const [customTemplateName, setCustomTemplateName] = useState<string | null>(null);
-  const [showCustomTemplate, setShowCustomTemplate] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
   // 追踪正在生成的章节ID
@@ -735,40 +732,6 @@ export default function WordEditorPage() {
     } catch (error) {
       logger.error('Export error:', error);
       alert('导出文档失败：' + (error instanceof Error ? error.message : '请重试'));
-    }
-  };
-
-  const handleTemplateUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.name.endsWith('.docx')) {
-      alert('请上传 .docx 格式的 Word 文档');
-      return;
-    }
-
-    try {
-      const formData = new FormData();
-      formData.append('template', file);
-
-      const response = await fetch('/api/template/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || '模板上传失败');
-      }
-
-      const result = await response.json();
-      setCustomTemplateId(result.templateId);
-      setCustomTemplateName(result.templateName);
-      setShowCustomTemplate(true);
-      alert('模板上传成功！');
-    } catch (error) {
-      logger.error('Template upload error:', error);
-      alert('模板上传失败：' + (error instanceof Error ? error.message : '请重试'));
     }
   };
 
