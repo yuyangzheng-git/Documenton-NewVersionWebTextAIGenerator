@@ -32,7 +32,7 @@ export default function WordEditorPage() {
   // 追踪正在生成的章节ID
   const [generatingIds, setGeneratingIds] = useState<Set<string>>(new Set());
 
-    // Handle block updates and sync with outline
+    // Handle block updates (不再同步到 outline)
   const handleBlockUpdate = (id: string, updates: Partial<NotionBlock>) => {
     logger.log('handleBlockUpdate called:', { id, updates });
 
@@ -43,43 +43,6 @@ export default function WordEditorPage() {
       logger.log('handleBlockUpdate blocks:', { prevLen: prev.length, newLen: newBlocks.length });
       return newBlocks;
     });
-
-    // 删除原来的 guide-{itemId} 同步逻辑
-    // guide 块现在都是用户手动添加的，不再与大纲关联
-
-    // If updating content block, sync to outline
-    // Also clear requirements when content is updated (content replaces requirements)
-    if (id.startsWith('content-')) {
-      // Check if this is a paragraph block (content-{itemId}-p{index})
-      const paragraphMatch = id.match(/^content-([^-]+)-p(\d+)$/);
-      if (paragraphMatch) {
-        // This is a paragraph block
-        const outlineItemId = paragraphMatch[1];
-        const paragraphIndex = parseInt(paragraphMatch[2], 10);
-
-        if (updates.content !== undefined) {
-          // Get the current outline item
-          const currentItem = outline.find(item => item.id === outlineItemId);
-          if (currentItem && currentItem.paragraphs) {
-            // Update the specific paragraph
-            const newParagraphs = [...currentItem.paragraphs];
-            newParagraphs[paragraphIndex] = updates.content;
-
-            // Recombine paragraphs into content
-            const newContent = newParagraphs.join('\n\n');
-
-            // Update outline with new paragraphs and content
-            updateItem(outlineItemId, { paragraphs: newParagraphs, content: newContent, requirements: '' });
-          }
-        }
-      } else {
-        // This is a legacy content block (single block)
-        const outlineItemId = id.replace('content-', '');
-        if (updates.content !== undefined) {
-          updateItem(outlineItemId, { content: updates.content, requirements: '' });
-        }
-      }
-    }
   };
 
   // Get document topic from URL or first outline item
