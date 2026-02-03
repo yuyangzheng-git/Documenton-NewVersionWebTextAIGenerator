@@ -136,6 +136,14 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
     setEditContent(block.content);
   }, [block.content, block.type]);
 
+  // Resize textarea when entering edit mode
+  useEffect(() => {
+    if (isEditing) {
+      // Use setTimeout to ensure textarea is rendered and can be measured
+      setTimeout(() => autoResize(), 0);
+    }
+  }, [isEditing]);
+
   // Handle click outside to close menu
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
