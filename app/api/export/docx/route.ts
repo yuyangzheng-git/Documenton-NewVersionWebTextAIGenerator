@@ -146,7 +146,7 @@ async function exportWithBuiltinTemplate(
           alignment: AlignmentType.CENTER,
           spacing: { after: 400 },
         }),
-        // 内容 - 只导出标题，不导出用户输入的段落内容
+        // 内容 - 导出标题、图片和表格，不导出用户输入的段落内容
         ...blocks.map(block => {
           if (block.type.startsWith('h')) {
             const level = block.type === 'h1' ? HeadingLevel.HEADING_1 :
@@ -163,7 +163,7 @@ async function exportWithBuiltinTemplate(
               spacing: { before: 200, after: 100 },
             });
           }
-          // 不导出段落和其他内容块
+          // 不导出段落和其他文本内容块，但保留图片
           return null;
         }).filter((block): block is any => block !== null),
       ],
@@ -199,12 +199,12 @@ async function exportWithLocalTemplate(
 }
 
 // Convert blocks to HTML string
-// 仅导出标题结构，不导出用户编辑的内容
+// 导出标题、图片和表格，不导出用户编辑的文本内容
 function blocksToHtml(blocks: any[]): string {
   const result: string[] = [];
 
   blocks.forEach((block) => {
-    // 只导出标题块，其他内容块不导出
+    // 导出标题、图片和表格，排除文本内容块
     switch (block.type) {
       case 'h1':
         result.push(`<h1>${escapeHtml(block.content)}</h1>`);
@@ -215,8 +215,24 @@ function blocksToHtml(blocks: any[]): string {
       case 'h3':
         result.push(`<h3>${escapeHtml(block.content)}</h3>`);
         break;
+      case 'image':
+        // 导出图片（base64 或 URL）
+        if (block.content) {
+          result.push(`<p style="text-align: center;"><img src="${block.content}" alt="图片" /></p>`);
+        }
+        break;
+      case 'table':
+        // 导出表格
+        if (block.properties?.tableData) {
+          result.push(`<p style="text-align: center;">${renderTableToHtml(block.properties.tableData)}</p>`);
+        } else if (block.content && block.content.includes('<table')) {
+          result.push(`<p style="text-align: center;">${block.content}</p>`);
+        } else if (block.content && block.content.includes('|')) {
+          result.push(`<p style="text-align: center;">${markdownTableToHtml(block.content)}</p>`);
+        }
+        break;
       default:
-        // 不导出段落、列表、表格等其他块
+        // 不导出段落、列表、引用、代码块等文本内容
         break;
     }
   });
@@ -235,8 +251,90 @@ function escapeHtml(text: string): string {
     .replace(/'/g, '&#039;');
 }
 
+// 渲染表格数据为 HTML
+// 支持两种格式：
+// 1. SimpleTableBlockData: { rows: [{cells: [{content}]}], enableHeaderRow }
+// 2. Legacy format: { headers: string[], rows: string[][] }
+function renderTableToHtml(tableData: any): string {
+  if (!tableData) return '';
+
+  let html = '<table>';
+
+  // 检查是否是 SimpleTableBlockData 格式（有 rows 数组，每个 row 有 cells）
+  if (tableData.rows && Array.isArray(tableData.rows) && tableData.rows[0]?.cells) {
+    const rows = tableData.rows;
+    const enableHeaderRow = tableData.enableHeaderRow !== false; // 默认第一行是表头
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const isHeader = enableHeaderRow && i === 0;
+      const tag = isHeader ? 'th' : 'td';
+      const rowStyle = isHeader ? ' style="background-color: #f0f0f0;"' : '';
+
+      html += `<tr${rowStyle}>`;
+      for (const cell of row.cells || []) {
+        const content = cell.content || '';
+        html += `<${tag}>${escapeHtml(content)}</${tag}>`;
+      }
+      html += '</tr>';
+    }
+  }
+  // Legacy format: { headers, rows }
+  else if (tableData.headers && Array.isArray(tableData.headers)) {
+    // 表头
+    html += '<tr style="background-color: #f0f0f0;">';
+    for (const header of tableData.headers) {
+      html += `<th>${escapeHtml(header)}</th>`;
+    }
+    html += '</tr>';
+
+    // 表体
+    for (const row of tableData.rows || []) {
+      html += '<tr>';
+      for (const cell of row) {
+        html += `<td>${escapeHtml(cell)}</td>`;
+      }
+      html += '</tr>';
+    }
+  }
+
+  html += '</table>';
+  return html;
+}
+
+// Markdown 表格转 HTML
+function markdownTableToHtml(markdown: string): string {
+  const lines = markdown.trim().split('\n').filter(line => line.includes('|'));
+  if (lines.length < 2) return `<p>${escapeHtml(markdown)}</p>`;
+
+  let html = '<table>';
+
+  // 解析表头（第一行）
+  const headerCells = lines[0].split('|').map(cell => cell.trim()).filter(cell => cell);
+  html += '<tr style="background-color: #f0f0f0;">';
+  for (const cell of headerCells) {
+    html += `<th>${escapeHtml(cell)}</th>`;
+  }
+  html += '</tr>';
+
+  // 跳过分隔行（第二行），解析数据行
+  for (let i = 2; i < lines.length; i++) {
+    const cells = lines[i].split('|').map(cell => cell.trim()).filter(cell => cell);
+    if (cells.length > 0) {
+      html += '<tr>';
+      for (const cell of cells) {
+        html += `<td>${escapeHtml(cell)}</td>`;
+      }
+      html += '</tr>';
+    }
+  }
+
+  html += '</table>';
+  return html;
+}
+
 // Prepare data for template rendering
-// 仅导出标题结构，不导出用户编辑的内容
+// 导出标题、图片和表格，不导出用户编辑的文本内容
 function prepareTemplateData(blocks: any[], outline: any[], title: string) {
   const date = new Date().toLocaleDateString('zh-CN');
   const year = String(new Date().getFullYear());
@@ -268,7 +366,7 @@ function prepareTemplateData(blocks: any[], outline: any[], title: string) {
         paragraphs: [],
       };
     }
-    // 不处理其他块的内容
+    // 不处理文本内容块，但图片和表格在 blocksToHtml 中处理
   });
 
   if (currentSection) {
@@ -371,7 +469,7 @@ function prepareTemplateData(blocks: any[], outline: any[], title: string) {
         title: item.title,
         level: item.level,
       })),
-      htmlContent: blocksToHtml(blocks),  // 仅包含标题
+      htmlContent: blocksToHtml(blocks),  // 包含标题、图片和表格
     },
     title,
     date,
@@ -384,7 +482,7 @@ function prepareTemplateData(blocks: any[], outline: any[], title: string) {
       title: item.title,
       level: item.level,
     })),
-    htmlContent: blocksToHtml(blocks),  // 仅包含标题
+    htmlContent: blocksToHtml(blocks),  // 包含标题、图片和表格
   };
 }
 
