@@ -13,6 +13,11 @@ services:
       - NEXT_TELEMETRY_DISABLED=1
     env_file:
       - .env.local
+    volumes:
+      # 持久化用户上传的模板
+      - ./store:/app/store
+      # 持久化模板文件（可选）
+      - ./public/templates:/app/public/templates
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]

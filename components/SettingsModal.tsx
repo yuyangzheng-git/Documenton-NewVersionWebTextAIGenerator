@@ -132,6 +132,7 @@ export function SettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
       onClick={onClose}
     >
       <div
+        className="settings-modal-content"
         style={{
           backgroundColor: 'white',
           borderRadius: '16px',

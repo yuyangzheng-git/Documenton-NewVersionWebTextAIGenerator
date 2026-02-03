@@ -331,22 +331,38 @@ class DocumentGenerator:
             # 排除：标题、表格、图片等
             heading_style_ids = ['47', '48', '49', '50', '2', '3', '4', '5', 'TOC', 'Heading']
 
+            # 先找到所有表格的位置范围
+            table_ranges = []
+            for table_match in re.finditer(r'<w:tbl\b[^>]*>.*?</w:tbl>', doc_content, re.DOTALL):
+                table_ranges.append((table_match.start(), table_match.end()))
+
+            print(f"[DocumentGenerator]   找到 {len(table_ranges)} 个表格")
+
             # 添加首行缩进到没有首行缩进的正文段落
             # 匹配 <w:pPr> 块，如果没有 <w:ind 或者没有 firstLineChars，则添加
             indent_added = 0
 
+            def is_in_table(para_start, para_end):
+                """检查段落是否在表格内"""
+                for table_start, table_end in table_ranges:
+                    if table_start <= para_start and para_end <= table_end:
+                        return True
+                return False
+
             def add_first_line_indent(match):
                 nonlocal indent_added
                 para_content = match.group(0)
+                para_start = match.start()
+                para_end = match.end()
+
+                # 跳过表格内的段落
+                if is_in_table(para_start, para_end):
+                    return para_content
 
                 # 跳过标题段落
                 for style_id in heading_style_ids:
                     if f'w:val="{style_id}"' in para_content:
                         return para_content
-
-                # 跳过表格内容
-                if '<w:tbl' in para_content or '</w:tbl>' in para_content:
-                    return para_content
 
                 # 检查是否已有首行缩进
                 if 'firstLineChars' in para_content or 'firstLine=' in para_content:

@@ -8,9 +8,9 @@ import { TextSelectionToolbar } from '@/components/TextSelectionToolbar';
 import { NotionEditor, NotionBlock } from '@/components/NotionEditor';
 import { SettingsModal } from '@/components/SettingsModal';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { ChevronLeft, Download, Settings } from 'lucide-react';
+import { ChevronLeft, Download, Settings, Sparkles } from 'lucide-react';
 import { logger } from '@/lib/logger';
-import { splitMarkdownTableAndText, parseMarkdownTable } from '@/lib/markdown-table-parser';
+import { extractTablesFromContent } from '@/lib/table-parser';
 
 export default function WordEditorPage() {
   const router = useRouter();
@@ -27,6 +27,23 @@ export default function WordEditorPage() {
 
   // 追踪正在生成的章节ID
   const [generatingIds, setGeneratingIds] = useState<Set<string>>(new Set());
+
+  // Toast notification helper
+  const showToast = (message: string, type: 'info' | 'success' | 'error' = 'info') => {
+    const toast = document.createElement('div');
+    toast.className = `toast-notification fixed top-4 right-4 px-4 py-2 rounded-lg shadow-lg z-50 transition-all duration-300 ${
+      type === 'success' ? 'bg-green-500 text-white' :
+      type === 'error' ? 'bg-red-500 text-white' :
+      'bg-blue-500 text-white'
+    }`;
+    toast.textContent = message;
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      setTimeout(() => toast.remove(), 300);
+    }, 3000);
+  };
 
     // Handle block updates (不再同步到 outline)
   const handleBlockUpdate = (id: string, updates: Partial<NotionBlock>) => {
@@ -59,8 +76,7 @@ export default function WordEditorPage() {
     // 1. 找到 guide 块的索引
     const guideBlockIndex = blocks.findIndex(b => b.id === guideBlockId);
     if (guideBlockIndex === -1) {
-      alert('找不到写作指导块');
-      return;
+      throw new Error('找不到写作指导块');
     }
 
     const guideBlock = blocks[guideBlockIndex];
@@ -77,8 +93,7 @@ export default function WordEditorPage() {
     }
 
     if (!sectionTitle) {
-      alert('找不到章节标题');
-      return;
+      throw new Error('找不到章节标题');
     }
 
     // 3. 向后查找下一个 heading 块的索引
@@ -100,23 +115,6 @@ export default function WordEditorPage() {
       requirements,
       nextHeadingIndex
     });
-
-    // Show toast notification
-    const showToast = (message: string, type: 'info' | 'success' | 'error' = 'info') => {
-      const toast = document.createElement('div');
-      toast.className = `fixed top-4 right-4 px-4 py-2 rounded-lg shadow-lg z-50 transition-all duration-300 ${
-        type === 'success' ? 'bg-green-500 text-white' :
-        type === 'error' ? 'bg-red-500 text-white' :
-        'bg-blue-500 text-white'
-      }`;
-      toast.textContent = message;
-      document.body.appendChild(toast);
-
-      setTimeout(() => {
-        toast.style.opacity = '0';
-        setTimeout(() => toast.remove(), 300);
-      }, 3000);
-    };
 
     showToast('🚀 正在生成章节内容...', 'info');
 
@@ -234,48 +232,34 @@ export default function WordEditorPage() {
               return;
             }
 
-            // 使用表格解析器分割表格和文本
-            const segments = splitMarkdownTableAndText(generatedContent);
-            logger.log('Split content into', segments.length, 'segments:', segments.map(s => s.type));
+            // 按段落分割文本，并检测表格
+            const { blocks: contentBlocks } = extractTablesFromContent(generatedContent);
 
-            // 创建新的块（表格块 + 段落块）
-            const newBlocks: NotionBlock[] = [];
-
-            for (const segment of segments) {
-              if (segment.type === 'table') {
-                // 解析为表格块
-                const tableData = parseMarkdownTable(segment.content, 'table');
-                if (tableData) {
-                  newBlocks.push({
-                    id: tableData.id,
-                    type: 'table',
-                    content: '',
-                    properties: { tableData, isGenerated: true },
-                    children: [],
-                  });
-                  logger.log('Created table block:', tableData.id, 'with', tableData.rows.length, 'rows');
-                }
-              } else if (segment.type === 'text') {
-                // 按段落分割文本（按两个换行符分割）
-                const paragraphs = segment.content
-                  .split(/\n\s*\n/)
-                  .filter(p => p.trim().length > 0)
-                  .map(p => p.trim());
-
-                for (const paragraph of paragraphs) {
-                  newBlocks.push({
-                    id: generateBlockId('paragraph'),
-                    type: 'paragraph',
-                    content: paragraph,
-                    properties: { isGenerated: true },
-                    children: [],
-                  });
-                }
-                logger.log('Created', paragraphs.length, 'paragraph blocks from text segment');
+            // 创建新的块（包括段落和表格）
+            const newBlocks: NotionBlock[] = contentBlocks.map(block => {
+              if (block.type === 'table' && block.tableData) {
+                return {
+                  id: generateBlockId('table'),
+                  type: 'table',
+                  content: '',
+                  properties: {
+                    isGenerated: true,
+                    tableData: block.tableData,
+                  },
+                  children: [],
+                };
+              } else {
+                return {
+                  id: generateBlockId('paragraph'),
+                  type: 'paragraph',
+                  content: block.content,
+                  properties: { isGenerated: true },
+                  children: [],
+                };
               }
-            }
+            });
 
-            logger.log('Total blocks created:', newBlocks.length);
+            logger.log('Created', newBlocks.length, 'paragraph blocks');
 
             // 替换 loading 块为最终的块
             setBlocks(prev => {
@@ -330,6 +314,85 @@ export default function WordEditorPage() {
     }
   };
 
+  // 批量生成全文 - 简化版：直接循环调用现有生成按钮
+  const handleBulkGenerate = async () => {
+    // 检查是否有正在生成的章节
+    if (generatingIds.size > 0) {
+      alert('有章节正在生成，请等待完成后再使用批量生成');
+      return;
+    }
+
+    // 检查 API Key
+    const apiKey = useStore.getState().chapterApiKey;
+    if (!apiKey || apiKey === 'app-xxxxxxxxxxxxxxxxxxx') {
+      alert('请先在设置中配置"正文写作"的 API Key');
+      setShowSettings(true);
+      return;
+    }
+
+    // 找到所有 guide 块
+    const allGuides = blocks.filter(b => b.type === 'guide');
+
+    if (allGuides.length === 0) {
+      alert('文档中没有章节，请先生成大纲');
+      return;
+    }
+
+    // 询问用户确认
+    const confirmed = confirm(`准备生成 ${allGuides.length} 个章节的内容，确定继续吗？\n\n提示：生成过程可能需要较长时间，请耐心等待。`);
+    if (!confirmed) return;
+
+    showToast(`🚀 开始批量生成，共 ${allGuides.length} 个章节`, 'info');
+
+    let successCount = 0;
+    let failCount = 0;
+
+    // 依次生成每个章节
+    for (let i = 0; i < allGuides.length; i++) {
+      const guide = allGuides[i];
+
+      // 获取章节标题
+      const guideIndex = blocks.findIndex(b => b.id === guide.id);
+      let chapterTitle = '未知章节';
+      for (let j = guideIndex - 1; j >= 0; j--) {
+        if (['h1', 'h2', 'h3'].includes(blocks[j].type)) {
+          chapterTitle = blocks[j].content;
+          break;
+        }
+      }
+
+      try {
+        // 直接调用生成函数
+        await handleGenerateSection(guide.id);
+        successCount++;
+        showToast(`✅ 第 ${i + 1}/${allGuides.length} 章生成完成: ${chapterTitle}`, 'success');
+      } catch (error) {
+        failCount++;
+        showToast(`❌ 第 ${i + 1}/${allGuides.length} 章生成失败: ${chapterTitle}`, 'error');
+
+        const errorMessage = error instanceof Error ? error.message : '未知错误';
+        const shouldContinue = confirm(
+          `第 ${i + 1} 章 "${chapterTitle}" 生成失败：\n\n${errorMessage}\n\n是否继续生成剩余章节？`
+        );
+
+        if (!shouldContinue) {
+          break;
+        }
+      }
+
+      // 每 5 个章节暂停 3 秒
+      if ((i + 1) % 5 === 0 && i + 1 < allGuides.length) {
+        showToast('⏸️ 批次休息 3 秒，避免 API 限流...', 'info');
+        await new Promise(resolve => setTimeout(resolve, 3000));
+      }
+    }
+
+    // 显示总结
+    showToast(
+      `🎉 批量生成完成！成功 ${successCount} 个，失败 ${failCount} 个`,
+      failCount === 0 ? 'success' : 'info'
+    );
+  };
 
 
   const handleRewriteSection = (sectionId: string, newContent: string) => {
@@ -418,8 +481,16 @@ export default function WordEditorPage() {
 
   // Redirect to home if no outline
   useEffect(() => {
+    console.log('[WordEditor] useEffect triggered with outline:', { length: outline.length });
+
     if (outline.length === 0) {
-      router.push('/');
+      console.warn('[WordEditor] No outline found, will redirect to home');
+      // Use a small delay to ensure state is fully synced
+      const timer = setTimeout(() => {
+        console.warn('[WordEditor] Actually redirecting to home now');
+        router.push('/');
+      }, 100);
+      return () => clearTimeout(timer);
     }
   }, [outline, router]);
 
@@ -543,6 +614,34 @@ export default function WordEditorPage() {
         />
 
         <div style={{ position: 'relative', display: 'flex', flexShrink: 0, alignItems: 'center', gap: '4px' }}>
+          {/* 批量生成按钮 */}
+          <button
+            onClick={handleBulkGenerate}
+            style={{
+              userSelect: 'none',
+              transition: 'background 20ms ease-in',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: '28px',
+              paddingInline: '12px',
+              borderRadius: '50px',
+              whiteSpace: 'nowrap',
+              fontSize: '14px',
+              fontWeight: 500,
+              lineHeight: 1.2,
+              color: 'white',
+              background: 'linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)',
+              gap: '6px',
+              border: 'none',
+            }}
+            className="nav-button bulk-generate-button"
+          >
+            <Sparkles style={{ width: '20px', height: '20px', display: 'block', flexShrink: 0 }} />
+            <span className="button-text">生成全文</span>
+          </button>
+
           <button
             onClick={handleExport}
             style={{
@@ -602,7 +701,7 @@ export default function WordEditorPage() {
           position: 'relative',
           minHeight: 'calc(100vh - 44px)',
           backgroundColor: '#f7f7f5',
-          overflowX: 'auto', // 允许横向滚动
+          overflowX: 'hidden', // 禁止页面级别横向滚动，让表格自己处理
           overflowY: 'auto', // 允许纵向滚动
         }}
         className="main-content-wrapper"

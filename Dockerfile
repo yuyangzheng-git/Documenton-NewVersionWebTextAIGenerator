@@ -32,8 +32,8 @@ RUN npm run build
 FROM node:20-alpine AS runner
 WORKDIR /app
 
-# Install Pandoc for document export functionality
-RUN apk add --no-cache pandoc
+# Install Pandoc and Python3 for document export functionality
+RUN apk add --no-cache pandoc python3
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -46,6 +46,12 @@ RUN adduser --system --uid 1001 nextjs
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
+
+# Copy Python CLI for Pandoc export
+COPY --from=builder /app/cli.py ./cli.py
+
+# Create directories for user uploads and templates
+RUN mkdir -p /app/store/templates && chown -R nextjs:nodejs /app/store
 
 # Set ownership to nextjs user
 RUN chown -R nextjs:nodejs /app

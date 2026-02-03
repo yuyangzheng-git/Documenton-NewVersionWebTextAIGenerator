@@ -4,16 +4,11 @@
  */
 
 export { ImageBlock, type ImageBlockData, ImageType } from './ImageBlock';
-export {
-  SimpleTableBlock,
-  parseMarkdownTable,
-  parseHTMLTable,
-  type SimpleTableBlockData,
-  type TableRowData,
-  type TableCellData
-} from './SimpleTableBlock';
+
 export {
   CodeBlock,
   SUPPORTED_LANGUAGES,
   type CodeBlockData
 } from './CodeBlock';
+
+export { TableBlock, type TableBlockData } from './TableBlock';

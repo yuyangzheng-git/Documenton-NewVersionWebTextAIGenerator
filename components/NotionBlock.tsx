@@ -31,10 +31,10 @@ import {
   Lightbulb,
   Sparkles,
   Upload,
-  Table as TableIcon,
+  Grid3x3,
 } from 'lucide-react';
-import { SimpleTableBlock, type SimpleTableBlockData } from '@/components/blocks';
 import { logger } from '@/lib/logger';
+import { TableBlock } from './blocks/TableBlock';
 
 // Lazy load StreamingMarkdownRenderer to avoid circular dependencies
 const StreamingMarkdownRenderer = lazy(() => import('@/components/StreamingMarkdownRenderer').then(m => ({ default: m.StreamingMarkdownRenderer })));
@@ -88,132 +88,9 @@ const BLOCK_ICONS: Record<BlockType, React.ComponentType<React.SVGProps<SVGSVGEl
   divider: Minus,
   callout: Type,
   image: ImageIcon,
-  table: TableIcon,
+  table: Grid3x3,
   guide: Lightbulb,
 };
-
-// Helper function to generate empty 3x3 table HTML
-function generateEmptyTable(): string {
-  let html = '<table style="border-collapse: collapse; width: 100%; border: 1px solid #e0e0e0;">';
-  for (let i = 0; i < 3; i++) {
-    html += '<tr>';
-    for (let j = 0; j < 3; j++) {
-      html += `<td style="border: 1px solid #e0e0e0; padding: 8px; min-width: 80px; height: 40px; vertical-align: top;"></td>`;
-    }
-    html += '</tr>';
-  }
-  html += '</table>';
-  return html;
-}
-
-// Helper function to parse table HTML and manipulate rows/cols
-function addTableRow(html: string): string {
-  const tbodyMatch = html.match(/<table[^>]*>([\s\S]*?)<\/table>/);
-  if (!tbodyMatch) return html;
-
-  const tableContent = tbodyMatch[1];
-  const trCount = (tableContent.match(/<tr>/g) || []).length;
-  const tdCount = tableContent.match(/<td>/g)?.length || 3;
-
-  let newTr = '<tr>';
-  for (let i = 0; i < Math.floor(tdCount / trCount); i++) {
-    newTr += `<td style="border: 1px solid #e0e0e0; padding: 8px; min-width: 80px; height: 40px; vertical-align: top;"></td>`;
-  }
-  newTr += '</tr>';
-
-  return html.replace(/<\/table>/, `${newTr}</table>`);
-}
-
-function removeTableRow(html: string): string {
-  const tbodyMatch = html.match(/<table[^>]*>([\s\S]*?)<\/table>/);
-  if (!tbodyMatch) return html;
-
-  const tableContent = tbodyMatch[1];
-  const trMatches = tableContent.match(/<tr>[\s\S]*?<\/tr>/g);
-
-  if (!trMatches || trMatches.length <= 1) return html;
-
-  // Remove last row
-  const newTableContent = tableContent.replace(/<tr>[\s\S]*?<\/tr>$/, '');
-
-  return html.replace(/<table[^>]*>[\s\S]*?<\/table>/, `<table style="border-collapse: collapse; width: 100%; border: 1px solid #e0e0e0;">${newTableContent}</table>`);
-}
-
-function addTableColumn(html: string): string {
-  const tbodyMatch = html.match(/<table[^>]*>([\s\S]*?)<\/table>/);
-  if (!tbodyMatch) return html;
-
-  const tableContent = tbodyMatch[1];
-  // Add a td to each tr
-  const newTableContent = tableContent.replace(/<\/tr>/g, `<td style="border: 1px solid #e0e0e0; padding: 8px; min-width: 80px; height: 40px; vertical-align: top;"></td></tr>`);
-
-  return html.replace(/<table[^>]*>[\s\S]*?<\/table>/, `<table style="border-collapse: collapse; width: 100%; border: 1px solid #e0e0e0;">${newTableContent}</table>`);
-}
-
-function removeTableColumn(html: string): string {
-  const tbodyMatch = html.match(/<table[^>]*>([\s\S]*?)<\/table>/);
-  if (!tbodyMatch) return html;
-
-  const tableContent = tbodyMatch[1];
-  const trMatches = tableContent.match(/<tr>[\s\S]*?<\/tr>/g);
-
-  if (!trMatches || trMatches.length === 0) return html;
-
-  // Check if each row has at least 2 cells
-  for (const tr of trMatches) {
-    const cellCount = (tr.match(/<td[^>]*>/g) || []).length;
-    if (cellCount <= 1) return html;
-  }
-
-  // Remove last cell from each tr
-  const newTableContent = tableContent.replace(/<td[^>]*>[\s\S]*?<\/td><\/tr>/g, '</tr>');
-
-  return html.replace(/<table[^>]*>[\s\S]*?<\/table>/, `<table style="border-collapse: collapse; width: 100%; border: 1px solid #e0e0e0;">${newTableContent}</table>`);
-}
-
-// Table control button component
-function TableControlButton({
-  onClick,
-  icon,
-  title,
-  position,
-}: {
-  onClick: () => void;
-  icon: React.ReactNode;
-  title: string;
-  position: 'top-right' | 'bottom-right';
-}) {
-  return (
-    <button
-      onClick={onClick}
-      title={title}
-      style={{
-        position: 'absolute',
-        width: '16px',
-        height: '16px',
-        borderRadius: '50%',
-        backgroundColor: '#2383E2',
-        color: 'white',
-        border: 'none',
-        cursor: 'pointer',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: '10px',
-        zIndex: 10,
-        ...(position === 'top-right' ? {
-          top: '-4px',
-          right: '-4px',
-        } : {
-          bottom: '-4px',
-          right: '-4px',
-        }),
-      }}
-    >
-      {icon}
-    </button>
-  );
-}
 
 const BLOCK_TYPES = [
   { type: 'paragraph' as BlockType, label: '文本' },
@@ -225,8 +102,8 @@ const BLOCK_TYPES = [
   { type: 'todo' as BlockType, label: '待办事项' },
   { type: 'code' as BlockType, label: '代码' },
   { type: 'quote' as BlockType, label: '引用' },
-  { type: 'table' as BlockType, label: '表格' },
   { type: 'image' as BlockType, label: '图片' },
+  { type: 'table' as BlockType, label: '表格' },
 ];
 
 export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd, onGenerate, generatingIds, allBlocks }: NotionBlockProps) {
@@ -287,10 +164,10 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
           (activeElement as HTMLElement).isContentEditable
         );
 
-        // For table and image blocks, allow deletion
-        if ((block.type === 'table' || block.type === 'image') && isSelected && !isTyping) {
+        // For image blocks, allow deletion
+        if (block.type === 'image' && isSelected && !isTyping) {
           e.preventDefault();
-          if (confirm(`确定要删除这个${block.type === 'table' ? '表格' : '图片'}块吗？`)) {
+          if (confirm('确定要删除这个图片块吗？')) {
             onDelete(block.id);
           }
         }
@@ -662,41 +539,6 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
           }
         }
       }
-    }
-
-    // Generate proper SimpleTableBlockData when switching to table type
-    if (type === 'table') {
-      const tableData: SimpleTableBlockData = {
-        id: block.id,
-        type: 'simple_table',
-        rows: [
-          { cells: [{ content: '' }, { content: '' }, { content: '' }] },
-          { cells: [{ content: '' }, { content: '' }, { content: '' }] },
-          { cells: [{ content: '' }, { content: '' }, { content: '' }] }
-        ],
-        enableHeaderRow: true,
-        columnWidths: {
-          0: 160,
-          1: 160,
-          2: 160
-        }
-      };
-
-      logger.log('NotionBlock generating empty table data:', tableData);
-      cleanContent = '';  // Clear content for table blocks
-
-      // Update with table data in properties
-      setEditContent(cleanContent);
-      setShowSlashMenu(false);
-      onUpdate(block.id, {
-        type,
-        content: cleanContent,
-        properties: {
-          ...block.properties,
-          tableData
-        }
-      });
-      return;
     }
 
     // Update local state immediately
@@ -1264,6 +1106,17 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
             )}
           </div>
         );
+      case 'table':
+        return (
+          <div style={{ flex: 1, marginTop: '8px', width: '100%' }}>
+            <TableBlock
+              block={block}
+              editable={editable}
+              onUpdate={onUpdate}
+              onDelete={onDelete}
+            />
+          </div>
+        );
       case 'guide': {
         const isGuidanceVisible = block.properties.guidanceVisible !== false;
         // 从 guide-{itemId} 推导出 heading-{itemId}
@@ -1435,57 +1288,6 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
           </div>
         );
       }
-      case 'table': {
-        // Check if content is a SimpleTableBlockData object
-        logger.log('Rendering table block:', block.id, 'has tableData:', !!block.properties?.tableData);
-        let tableData: SimpleTableBlockData;
-
-        if (typeof block.properties.tableData === 'object' && block.properties.tableData !== null) {
-          // Already have proper table data
-          tableData = block.properties.tableData as SimpleTableBlockData;
-          logger.log('Using existing tableData with', tableData.rows.length, 'rows');
-        } else {
-          // Legacy HTML table or need to create default table
-          // For now, create a default 3x3 table
-          logger.log('No tableData found, creating default 3x3 table');
-          tableData = {
-            id: block.id,
-            type: 'simple_table',
-            rows: [
-              { cells: [{ content: '' }, { content: '' }, { content: '' }] },
-              { cells: [{ content: '' }, { content: '' }, { content: '' }] },
-              { cells: [{ content: '' }, { content: '' }, { content: '' }] }
-            ],
-            enableHeaderRow: true,
-            columnWidths: {
-              0: 160,
-              1: 160,
-              2: 160
-            }
-          };
-        }
-
-        return (
-          <div style={{ flex: 1, marginTop: '8px', width: '100%' }}>
-            <SimpleTableBlock
-              node={tableData}
-              editable={editable}
-              onUpdateNode={(updates) => {
-                // Save the entire table data structure
-                onUpdate(block.id, {
-                  properties: {
-                    ...block.properties,
-                    tableData: {
-                      ...tableData,
-                      ...updates
-                    }
-                  }
-                });
-              }}
-            />
-          </div>
-        );
-      }
       default:
         return (
           <textarea
@@ -1510,8 +1312,8 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onClick={() => {
-        // Toggle selection for table and image blocks
-        if (block.type === 'table' || block.type === 'image') {
+        // Toggle selection for image blocks
+        if (block.type === 'image') {
           setIsSelected(!isSelected);
         }
       }}
@@ -1520,7 +1322,7 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
         position: 'relative',
         padding: '0',
         transition: 'opacity 150ms ease-in-out',
-        border: isSelected && (block.type === 'table' || block.type === 'image') ? '2px solid #7C3AED' : 'transparent',
+        border: isSelected && block.type === 'image' ? '2px solid #7C3AED' : 'transparent',
         borderRadius: isSelected ? '4px' : '0'
       }}
       {...attributes}

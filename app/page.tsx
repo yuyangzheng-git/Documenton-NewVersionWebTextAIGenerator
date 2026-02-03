@@ -25,13 +25,27 @@ export default function Home() {
     setIsGenerating(true);
 
     try {
+      console.log('[handleGenerate] Starting generation with prompt:', prompt.slice(0, 50));
       const title = prompt.slice(0, 50) + (prompt.length > 50 ? '...' : '');
       setDocumentTitle(title);
 
-      await generateOutline(prompt);
+      console.log('[handleGenerate] Calling generateOutline...');
+      const generatedOutline = await generateOutline(prompt);
+      console.log('[handleGenerate] generateOutline completed, result:', { count: generatedOutline.length });
+
+      // Verify the outline was saved to the store
+      const storeState = useStore.getState();
+      console.log('[handleGenerate] Verifying state:', { storedCount: storeState.outline.length });
+
+      if (storeState.outline.length === 0) {
+        console.error('[handleGenerate] Outline was not saved to store!');
+        throw new Error('Failed to save outline to store');
+      }
+
+      console.log('[handleGenerate] Outline verified, navigating to /word-editor...');
       router.push('/word-editor');
     } catch (error: any) {
-      console.error('Error generating outline:', error);
+      console.error('[handleGenerate] Error generating outline:', error);
 
       let errorMessage = '大纲生成失败。';
 
@@ -130,6 +144,7 @@ export default function Home() {
       >
         {/* Hero Section */}
         <div
+          className="homepage-hero"
           style={{
             width: '100%',
             maxWidth: '1000px',
@@ -181,6 +196,7 @@ export default function Home() {
 
           {/* Input Area */}
           <div
+            className="homepage-input-area"
             style={{
               width: '100%',
               maxWidth: '800px',
@@ -261,6 +277,7 @@ export default function Home() {
                       }}
                     >
                       <button
+                        className="homepage-generate-btn"
                         aria-disabled={!prompt.trim() || isGenerating}
                         role="button"
                         tabIndex={!prompt.trim() || isGenerating ? -1 : 0}
@@ -340,6 +357,7 @@ export default function Home() {
               return (
                 <div
                   key={idx}
+                  className="process-step"
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -360,6 +378,7 @@ export default function Home() {
                   }}
                 >
                   <div
+                    className="process-step-icon"
                     style={{
                       width: '48px',
                       height: '48px',
@@ -406,6 +425,7 @@ export default function Home() {
 
         {/* Quick Start Section */}
         <div
+          className="quick-start-section"
           style={{
             width: '100%',
             maxWidth: '1000px',
@@ -432,6 +452,7 @@ export default function Home() {
               </div>
 
               <div
+                className="quick-start-grid"
                 style={{
                   display: 'grid',
                   gridTemplateColumns: 'repeat(3, 1fr)',
@@ -463,6 +484,7 @@ export default function Home() {
                   return (
                     <button
                       key={item.id}
+                      className="quick-start-card"
                       role="button"
                       tabIndex={0}
                       onClick={() => {

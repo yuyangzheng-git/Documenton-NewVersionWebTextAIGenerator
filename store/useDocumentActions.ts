@@ -5,8 +5,10 @@ import { OutlineItem } from './useStore';
 
 export const generateOutline = async (prompt: string) => {
   try {
+    console.log('[generateOutline] Starting with prompt:', prompt);
     const state = useStore.getState();
     const { aiPlatform } = state;
+    console.log('[generateOutline] AI Platform:', aiPlatform);
 
     if (aiPlatform === 'dify') {
       const apiKey = state.apiKey;
@@ -14,7 +16,9 @@ export const generateOutline = async (prompt: string) => {
         throw new Error('Please set your Dify API key');
       }
 
+      console.log('[generateOutline] Calling generateDifyOutline...');
       const outline = await generateDifyOutline(apiKey, prompt);
+      console.log('[generateOutline] generateDifyOutline returned:', { count: outline.length });
 
       // Deduplicate outline items by id to avoid React key conflicts
       const seenIds = new Set<string>();
@@ -27,16 +31,29 @@ export const generateOutline = async (prompt: string) => {
           console.warn('Removing duplicate outline item from API response:', item.id, item.title);
         }
       });
+      console.log('[generateOutline] After dedup:', { count: deduplicatedOutline.length });
 
-      const outlineWithStatus: OutlineItem[] = deduplicatedOutline.map((item: DifyOutlineItem) => ({
-        id: item.id,
-        title: item.title,
-        level: item.level as 1 | 2,
-        status: 'pending' as const,
-        requirements: item.requirements,
-      }));
+      const outlineWithStatus: OutlineItem[] = deduplicatedOutline.map((item: DifyOutlineItem) => {
+        // Parse level as number and ensure it's 1, 2, or 3
+        const parsedLevel = parseInt(String(item.level), 10);
+        const level = (parsedLevel === 1 || parsedLevel === 2 || parsedLevel === 3) ? parsedLevel : 1;
 
+        return {
+          id: item.id,
+          title: item.title,
+          level: level as 1 | 2 | 3,
+          status: 'pending' as const,
+          requirements: item.requirements,
+        };
+      });
+      console.log('[generateOutline] After mapping to OutlineItem:', { count: outlineWithStatus.length, items: outlineWithStatus.slice(0, 3) });
+
+      console.log('[generateOutline] Calling setOutline...');
       useStore.getState().setOutline(outlineWithStatus);
+      console.log('[generateOutline] After setOutline, checking state...');
+      const updatedState = useStore.getState();
+      console.log('[generateOutline] Updated outline in store:', { count: updatedState.outline.length });
+
       return outlineWithStatus;
     } else {
       // Use unified AI Provider for other platforms

@@ -400,12 +400,7 @@ export async function generateSectionWithWorker(
 
     const body: any = {
       inputs: {
-        title: documentTopic, // Document title
-        section: sectionTitle, // Chapter section name
         requirements: requirements || '',
-        userinput: {
-          files: files || [],
-        },
       },
       response_mode: 'streaming',
       user: 'user-' + Date.now(),

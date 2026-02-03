@@ -91,32 +91,38 @@ html {
 .notion-table-wrapper {
   /* 确保滚动条始终显示 */
   overflow-x: auto !important;
+  overflow-y: visible !important;
   /* 在 macOS 上始终显示滚动条 */
   scrollbar-gutter: stable;
+  /* 强制显示滚动条（macOS 上也显示） */
+  -webkit-overflow-scrolling: touch;
 }
 
 .notion-table-wrapper::-webkit-scrollbar {
-  height: 14px;
+  height: 14px !important;
   /* 确保滚动条始终可见 */
   -webkit-appearance: none;
+  display: block !important;
 }
 
 .notion-table-wrapper::-webkit-scrollbar-track {
-  background: rgba(55, 53, 47, 0.08);
+  background: rgba(55, 53, 47, 0.08) !important;
   border-radius: 8px;
   margin: 4px 8px;
   /* 轨道始终可见 */
-  visibility: visible;
+  visibility: visible !important;
+  display: block !important;
 }
 
 .notion-table-wrapper::-webkit-scrollbar-thumb {
-  background: rgba(55, 53, 47, 0.35);
+  background: rgba(55, 53, 47, 0.35) !important;
   border-radius: 8px;
   border: 3px solid rgba(55, 53, 47, 0.08);
   background-clip: padding-box;
   min-width: 50px;
   /* 滑块始终可见 */
-  visibility: visible;
+  visibility: visible !important;
+  display: block !important;
 }
 
 .notion-table-wrapper::-webkit-scrollbar-thumb:hover {
@@ -137,7 +143,7 @@ html {
 @media (max-width: 900px) {
   .notion-table-wrapper {
     /* More prominent scrollbar on mobile */
-    scrollbarWidth: 'auto';
+    scrollbar-width: auto;
   }
 
   .notion-table-wrapper::-webkit-scrollbar {
@@ -270,5 +276,188 @@ html {
     max-width: 120px !important;
     min-width: 60px !important;
     padding: 2px 4px !important;
+  }
+}
+
+/* ===== HOMEPAGE MOBILE OPTIMIZATIONS ===== */
+
+/* Mobile: Hero section */
+@media (max-width: 768px) {
+  .homepage-hero {
+    padding: 40px 16px 40px !important;
+  }
+
+  .homepage-hero h1 {
+    font-size: 32px !important;
+    line-height: 1.2 !important;
+  }
+
+  .homepage-hero p {
+    font-size: 16px !important;
+  }
+
+  /* Input area full width on mobile */
+  .homepage-input-area {
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+
+  /* Generate button - larger touch target */
+  .homepage-generate-btn {
+    height: 48px !important;
+    font-size: 16px !important;
+    padding-inline: 24px !important;
+  }
+
+  /* Quick start grid - stack on mobile */
+  .quick-start-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+  }
+
+  .quick-start-card {
+    padding: 24px 20px !important;
+  }
+
+  /* Process steps */
+  .process-step {
+    padding: 16px !important;
+  }
+
+  .process-step-icon {
+    width: 40px !important;
+    height: 40px !important;
+  }
+
+  .process-step-icon svg {
+    width: 20px !important;
+    height: 20px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .homepage-hero {
+    padding: 32px 12px 32px !important;
+  }
+
+  .homepage-hero h1 {
+    font-size: 28px !important;
+  }
+
+  .homepage-hero p {
+    font-size: 14px !important;
+  }
+
+  .homepage-input-area {
+    margin-bottom: 40px !important;
+  }
+
+  .quick-start-section {
+    padding: 0 12px 60px !important;
+  }
+}
+
+/* ===== SETTINGS MODAL MOBILE OPTIMIZATIONS ===== */
+
+@media (max-width: 768px) {
+  .settings-modal-content {
+    width: 95% !important;
+    max-height: 95vh !important;
+    padding: 20px !important;
+  }
+
+  .settings-modal-content h2 {
+    font-size: 16px !important;
+  }
+
+  .settings-modal-content label {
+    font-size: 13px !important;
+  }
+
+  .settings-modal-content input {
+    font-size: 14px !important;
+    padding: 12px !important;
+  }
+
+  .settings-modal-content button {
+    font-size: 14px !important;
+    padding: 12px 18px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .settings-modal-content {
+    padding: 16px !important;
+    border-radius: 12px !important;
+  }
+
+  .settings-modal-content input {
+    font-size: 13px !important;
+  }
+}
+
+/* ===== TOAST NOTIFICATIONS MOBILE ===== */
+
+@media (max-width: 768px) {
+  .toast-notification {
+    top: 60px !important;
+    right: 12px !important;
+    left: 12px !important;
+    font-size: 14px !important;
+    padding: 12px 16px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .toast-notification {
+    top: 50px !important;
+    right: 8px !important;
+    left: 8px !important;
+    font-size: 13px !important;
+    padding: 10px 14px !important;
+  }
+}
+
+/* ===== TOUCH TARGET IMPROVEMENTS ===== */
+
+/* Ensure all interactive elements meet 44x44px minimum */
+@media (max-width: 768px) {
+  button,
+  .button,
+  a[role="button"],
+  [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Exception for icon-only buttons in nav */
+  .nav-button {
+    min-height: 36px;
+    min-width: 36px;
+  }
+}
+
+/* ===== PREVENT TEXT SIZE ADJUSTMENT ===== */
+
+@media (max-width: 768px) {
+  body {
+    -webkit-text-size-adjust: 100%;
+    -moz-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+}
+
+/* ===== SAFE AREA PADDING (for notched phones) ===== */
+
+@supports (padding: env(safe-area-inset-top)) {
+  .top-navbar {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  body {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+    padding-bottom: env(safe-area-inset-bottom);
   }
 }
