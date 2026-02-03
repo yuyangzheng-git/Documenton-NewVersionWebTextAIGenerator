@@ -146,7 +146,7 @@ async function exportWithBuiltinTemplate(
           alignment: AlignmentType.CENTER,
           spacing: { after: 400 },
         }),
-        // 内容 - 导出标题、图片和表格，不导出用户输入的段落内容
+        // 内容 - 导出标题、段落、图片和表格
         ...blocks.map(block => {
           if (block.type.startsWith('h')) {
             const level = block.type === 'h1' ? HeadingLevel.HEADING_1 :
@@ -162,8 +162,16 @@ async function exportWithBuiltinTemplate(
               heading: level,
               spacing: { before: 200, after: 100 },
             });
+          } else if (block.type === 'paragraph' && block.content) {
+            return new Paragraph({
+              children: [
+                new TextRun({
+                  text: block.content,
+                }),
+              ],
+              spacing: { after: 200 },
+            });
           }
-          // 不导出段落和其他文本内容块，但保留图片
           return null;
         }).filter((block): block is any => block !== null),
       ],
@@ -199,12 +207,12 @@ async function exportWithLocalTemplate(
 }
 
 // Convert blocks to HTML string
-// 导出标题、图片和表格，不导出用户编辑的文本内容
+// 导出标题、段落、图片和表格
 function blocksToHtml(blocks: any[]): string {
   const result: string[] = [];
 
   blocks.forEach((block) => {
-    // 导出标题、图片和表格，排除文本内容块
+    // 导出标题、段落、图片和表格
     switch (block.type) {
       case 'h1':
         result.push(`<h1>${escapeHtml(block.content)}</h1>`);
@@ -214,6 +222,11 @@ function blocksToHtml(blocks: any[]): string {
         break;
       case 'h3':
         result.push(`<h3>${escapeHtml(block.content)}</h3>`);
+        break;
+      case 'paragraph':
+        if (block.content && block.content.trim()) {
+          result.push(`<p>${escapeHtml(block.content)}</p>`);
+        }
         break;
       case 'image':
         // 导出图片（base64 或 URL）
@@ -232,7 +245,7 @@ function blocksToHtml(blocks: any[]): string {
         }
         break;
       default:
-        // 不导出段落、列表、引用、代码块等文本内容
+        // 不导出列表、引用、代码块等其他块
         break;
     }
   });
@@ -334,12 +347,12 @@ function markdownTableToHtml(markdown: string): string {
 }
 
 // Prepare data for template rendering
-// 导出标题、图片和表格，不导出用户编辑的文本内容
+// 导出标题、段落、图片和表格
 function prepareTemplateData(blocks: any[], outline: any[], title: string) {
   const date = new Date().toLocaleDateString('zh-CN');
   const year = String(new Date().getFullYear());
 
-  // 只收集标题块
+  // 收集标题和段落块
   const sections: Array<{
     heading: string;
     level: number;
@@ -365,15 +378,25 @@ function prepareTemplateData(blocks: any[], outline: any[], title: string) {
         content: '',
         paragraphs: [],
       };
+    } else if (block.type === 'paragraph' || block.type === 'text') {
+      if (currentSection) {
+        currentSection.paragraphs.push(block.content);
+        currentSection.content = (currentSection.content || '') + block.content;
+      } else {
+        if (!sections[0]) {
+          sections.push({ heading: '', level: 1, content: '', paragraphs: [] });
+        }
+        sections[0].paragraphs.push(block.content);
+        sections[0].content = (sections[0].content || '') + block.content;
+      }
     }
-    // 不处理文本内容块，但图片和表格在 blocksToHtml 中处理
   });
 
   if (currentSection) {
     sections.push(currentSection);
   }
 
-  // 将 outline 组织为 chapters 结构，仅包含标题信息
+  // 将 outline 组织为 chapters 结构
   const chapters: Array<{
     title: string;
     number: string;
@@ -409,7 +432,7 @@ function prepareTemplateData(blocks: any[], outline: any[], title: string) {
         }
         currentSection2 = {
           subtitle: item.title,
-          paragraphs: [],  // 不包含段落内容
+          paragraphs: [],
         };
       }
     }
@@ -430,7 +453,7 @@ function prepareTemplateData(blocks: any[], outline: any[], title: string) {
       level: 1,
       sections: sections.map(sec => ({
         subtitle: sec.heading || '章节',
-        paragraphs: [],  // 不包含段落内容
+        paragraphs: sec.paragraphs.map((p, idx) => ({ text: p, index: idx })),
       })),
     });
   }
@@ -443,7 +466,9 @@ function prepareTemplateData(blocks: any[], outline: any[], title: string) {
     today: new Date().toISOString().split('T')[0],
     chapter_count: chapters.length,
     total_sections: chapters.reduce((sum, ch) => sum + ch.sections.length, 0),
-    total_paragraphs: 0,  // 没有段落内容
+    total_paragraphs: chapters.reduce((sum, ch) =>
+      sum + ch.sections.reduce((s, sec) => s + sec.paragraphs.length, 0), 0
+    ),
     author: '',
     version: '1.0',
   };
@@ -469,7 +494,7 @@ function prepareTemplateData(blocks: any[], outline: any[], title: string) {
         title: item.title,
         level: item.level,
       })),
-      htmlContent: blocksToHtml(blocks),  // 包含标题、图片和表格
+      htmlContent: blocksToHtml(blocks),
     },
     title,
     date,
@@ -482,7 +507,7 @@ function prepareTemplateData(blocks: any[], outline: any[], title: string) {
       title: item.title,
       level: item.level,
     })),
-    htmlContent: blocksToHtml(blocks),  // 包含标题、图片和表格
+    htmlContent: blocksToHtml(blocks),
   };
 }
 
