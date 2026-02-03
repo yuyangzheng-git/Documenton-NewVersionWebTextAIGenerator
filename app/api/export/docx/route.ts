@@ -146,7 +146,7 @@ async function exportWithBuiltinTemplate(
           alignment: AlignmentType.CENTER,
           spacing: { after: 400 },
         }),
-        // 内容
+        // 内容 - 只导出标题，不导出用户输入的段落内容
         ...blocks.map(block => {
           if (block.type.startsWith('h')) {
             const level = block.type === 'h1' ? HeadingLevel.HEADING_1 :
@@ -162,16 +162,8 @@ async function exportWithBuiltinTemplate(
               heading: level,
               spacing: { before: 200, after: 100 },
             });
-          } else if (block.content) {
-            return new Paragraph({
-              children: [
-                new TextRun({
-                  text: block.content,
-                }),
-              ],
-              spacing: { after: 200 },
-            });
           }
+          // 不导出段落和其他内容块
           return null;
         }).filter((block): block is any => block !== null),
       ],
@@ -207,28 +199,12 @@ async function exportWithLocalTemplate(
 }
 
 // Convert blocks to HTML string
-// 中文文档格式：首行缩进2字符，1.5倍行距
+// 仅导出标题结构，不导出用户编辑的内容
 function blocksToHtml(blocks: any[]): string {
-  // 收集连续的列表项
   const result: string[] = [];
-  let currentListType: string | null = null;
-  let currentListItems: string[] = [];
-
-  const flushList = () => {
-    if (currentListItems.length > 0) {
-      const tag = currentListType === 'bullet' ? 'ul' : 'ol';
-      result.push(`<${tag} style="margin-left: 2em; margin-bottom: 12pt; line-height: 1.5;">${currentListItems.join('')}</${tag}>`);
-      currentListItems = [];
-      currentListType = null;
-    }
-  };
 
   blocks.forEach((block) => {
-    // 如果遇到非列表块，先刷新之前的列表
-    if (block.type !== 'bullet' && block.type !== 'numbered') {
-      flushList();
-    }
-
+    // 只导出标题块，其他内容块不导出
     switch (block.type) {
       case 'h1':
         result.push(`<h1>${escapeHtml(block.content)}</h1>`);
@@ -239,73 +215,11 @@ function blocksToHtml(blocks: any[]): string {
       case 'h3':
         result.push(`<h3>${escapeHtml(block.content)}</h3>`);
         break;
-      case 'bullet':
-        if (currentListType !== 'bullet') {
-          flushList();
-          currentListType = 'bullet';
-        }
-        currentListItems.push(`<li style="margin-bottom: 6pt;">${escapeHtml(block.content)}</li>`);
-        break;
-      case 'numbered':
-        if (currentListType !== 'numbered') {
-          flushList();
-          currentListType = 'numbered';
-        }
-        currentListItems.push(`<li style="margin-bottom: 6pt;">${escapeHtml(block.content)}</li>`);
-        break;
-      case 'quote':
-        result.push(`<blockquote>${escapeHtml(block.content)}</blockquote>`);
-        break;
-      case 'divider':
-        result.push('<hr />');
-        break;
-      case 'code':
-        result.push(`<pre><code>${escapeHtml(block.content)}</code></pre>`);
-        break;
-      case 'image':
-        // 处理图片（base64 或 URL）
-        if (block.content) {
-          result.push(`<p style="text-align: center;"><img src="${block.content}" alt="图片" /></p>`);
-        }
-        break;
-      case 'table':
-        // 处理表格 - 检查是否有 tableData
-        if (block.properties?.tableData) {
-          result.push(`<p style="text-align: center;">${renderTableToHtml(block.properties.tableData)}</p>`);
-        } else if (block.content && block.content.includes('<table')) {
-          // 如果 content 是 HTML 表格，直接使用（添加居中）
-          result.push(`<p style="text-align: center;">${block.content}</p>`);
-        } else if (block.content && block.content.includes('|')) {
-          // 如果 content 是 Markdown 表格，转换为 HTML（添加居中）
-          result.push(`<p style="text-align: center;">${markdownTableToHtml(block.content)}</p>`);
-        }
-        break;
-      case 'callout':
-      case 'guide':
-        // 写作指导块不导出
-        break;
-      case 'paragraph':
       default:
-        // 段落添加首行缩进（2个中文字符）和1.5倍行距
-        if (block.content && block.content.trim()) {
-          // 检测是否包含 Markdown 表格（至少2行包含管道符）
-          const lines = block.content.split('\n');
-          const tableLines = lines.filter((line: string) => line.trim().includes('|'));
-
-          if (tableLines.length >= 2 && block.content.includes('|')) {
-            // 这是一个 Markdown 表格，转换为 HTML 表格
-            result.push(`<p style="text-align: center;">${markdownTableToHtml(block.content)}</p>`);
-          } else {
-            // 普通段落
-            result.push(`<p>${escapeHtml(block.content)}</p>`);
-          }
-        }
+        // 不导出段落、列表、表格等其他块
         break;
     }
   });
-
-  // 刷新最后的列表
-  flushList();
 
   return result.filter(html => html).join('\n');
 }
@@ -321,111 +235,25 @@ function escapeHtml(text: string): string {
     .replace(/'/g, '&#039;');
 }
 
-// 渲染表格数据为 HTML
-// 支持两种格式：
-// 1. SimpleTableBlockData: { rows: [{cells: [{content}]}], enableHeaderRow }
-// 2. Legacy format: { headers: string[], rows: string[][] }
-function renderTableToHtml(tableData: any): string {
-  if (!tableData) return '';
-
-  let html = '<table>';
-
-  // 检查是否是 SimpleTableBlockData 格式（有 rows 数组，每个 row 有 cells）
-  if (tableData.rows && Array.isArray(tableData.rows) && tableData.rows[0]?.cells) {
-    const rows = tableData.rows;
-    const enableHeaderRow = tableData.enableHeaderRow !== false; // 默认第一行是表头
-
-    for (let i = 0; i < rows.length; i++) {
-      const row = rows[i];
-      const isHeader = enableHeaderRow && i === 0;
-      const tag = isHeader ? 'th' : 'td';
-      const rowStyle = isHeader ? ' style="background-color: #f0f0f0;"' : '';
-
-      html += `<tr${rowStyle}>`;
-      for (const cell of row.cells || []) {
-        const content = cell.content || '';
-        html += `<${tag}>${escapeHtml(content)}</${tag}>`;
-      }
-      html += '</tr>';
-    }
-  }
-  // Legacy format: { headers, rows }
-  else if (tableData.headers && Array.isArray(tableData.headers)) {
-    // 表头
-    html += '<tr style="background-color: #f0f0f0;">';
-    for (const header of tableData.headers) {
-      html += `<th>${escapeHtml(header)}</th>`;
-    }
-    html += '</tr>';
-
-    // 表体
-    for (const row of tableData.rows || []) {
-      html += '<tr>';
-      for (const cell of row) {
-        html += `<td>${escapeHtml(cell)}</td>`;
-      }
-      html += '</tr>';
-    }
-  }
-
-  html += '</table>';
-  return html;
-}
-
-// Markdown 表格转 HTML
-function markdownTableToHtml(markdown: string): string {
-  const lines = markdown.trim().split('\n').filter(line => line.includes('|'));
-  if (lines.length < 2) return `<p>${escapeHtml(markdown)}</p>`;
-
-  let html = '<table>';
-
-  // 解析表头（第一行）
-  const headerCells = lines[0].split('|').map(cell => cell.trim()).filter(cell => cell);
-  html += '<tr style="background-color: #f0f0f0;">';
-  for (const cell of headerCells) {
-    html += `<th>${escapeHtml(cell)}</th>`;
-  }
-  html += '</tr>';
-
-  // 跳过分隔行（第二行），解析数据行
-  for (let i = 2; i < lines.length; i++) {
-    const cells = lines[i].split('|').map(cell => cell.trim()).filter(cell => cell);
-    if (cells.length > 0) {
-      html += '<tr>';
-      for (const cell of cells) {
-        html += `<td>${escapeHtml(cell)}</td>`;
-      }
-      html += '</tr>';
-    }
-  }
-
-  html += '</table>';
-  return html;
-}
-
 // Prepare data for template rendering
+// 仅导出标题结构，不导出用户编辑的内容
 function prepareTemplateData(blocks: any[], outline: any[], title: string) {
   const date = new Date().toLocaleDateString('zh-CN');
   const year = String(new Date().getFullYear());
 
-  // Convert blocks to structured content with full formatting
+  // 只收集标题块
   const sections: Array<{
     heading: string;
     level: number;
     content: string;
     paragraphs: string[];
-    lists?: Array<{ type: string; items: string[] }>;
-    quotes?: string[];
-    rawContent?: string;  // Raw HTML content for full formatting
   }> = [];
+
   let currentSection: {
     heading: string;
     level: number;
     content: string;
     paragraphs: string[];
-    lists?: Array<{ type: string; items: string[] }>;
-    quotes?: string[];
-    rawContent?: string;
   } | null = null;
 
   blocks.forEach((block) => {
@@ -438,65 +266,16 @@ function prepareTemplateData(blocks: any[], outline: any[], title: string) {
         level: parseInt(block.type.replace('h', '')),
         content: '',
         paragraphs: [],
-        rawContent: '',  // Will accumulate content with full formatting
       };
-    } else if (block.type === 'paragraph' || block.type === 'text') {
-      if (currentSection) {
-        currentSection.paragraphs.push(block.content);
-        currentSection.rawContent = (currentSection.rawContent || '') + block.content;
-      } else {
-        if (!sections[0]) {
-          sections.push({ heading: '', level: 1, content: '', paragraphs: [], rawContent: '' });
-        }
-        sections[0].paragraphs.push(block.content);
-        sections[0].rawContent = (sections[0].rawContent || '') + block.content;
-      }
-    } else if (block.type === 'bullet' || block.type === 'numbered') {
-      if (currentSection) {
-        if (!currentSection.lists) {
-          currentSection.lists = [];
-        }
-        currentSection.lists.push({
-          type: block.type,
-          items: [block.content],
-        });
-        // Add list item to raw content
-        const listPrefix = block.type === 'bullet' ? '• ' : '1. ';
-        currentSection.rawContent = (currentSection.rawContent || '') + `${listPrefix}${block.content}\n`;
-      }
-    } else if (block.type === 'quote') {
-      if (currentSection) {
-        if (!currentSection.quotes) {
-          currentSection.quotes = [];
-        }
-        currentSection.quotes.push(block.content);
-        // Add quote to raw content
-        currentSection.rawContent = (currentSection.rawContent || '') + `> ${block.content}\n`;
-      }
-    } else if (block.type === 'image') {
-      if (currentSection) {
-        currentSection.rawContent = (currentSection.rawContent || '') + `[图片: ${block.content}]`;
-      }
-    } else if (block.type === 'code') {
-      if (currentSection) {
-        currentSection.rawContent = (currentSection.rawContent || '') + `\`\`\`\n${block.content}\n\`\`\``;
-      }
-    } else if (block.type === 'divider') {
-      if (currentSection) {
-        currentSection.rawContent = (currentSection.rawContent || '') + '---\n';
-      }
-    } else if (block.type === 'callout') {
-      if (currentSection) {
-        currentSection.rawContent = (currentSection.rawContent || '') + `[提示: ${block.content}]`;
-      }
     }
+    // 不处理其他块的内容
   });
 
   if (currentSection) {
     sections.push(currentSection);
   }
 
-  // 将 outline 组织为 chapters 结构，支持 d.chapters[i].title, d.chapters[i].sections[j].subtitle 等格式
+  // 将 outline 组织为 chapters 结构，仅包含标题信息
   const chapters: Array<{
     title: string;
     number: string;
@@ -510,10 +289,8 @@ function prepareTemplateData(blocks: any[], outline: any[], title: string) {
   let currentChapter: typeof chapters[0] | null = null;
   let currentSection2: typeof chapters[0]['sections'][0] | null = null;
 
-  // 先按照层级组织
   outline.forEach((item) => {
     if (item.level === 1) {
-      // 一级标题作为章节
       if (currentChapter) {
         if (currentSection2) {
           currentChapter.sections.push(currentSection2);
@@ -528,30 +305,18 @@ function prepareTemplateData(blocks: any[], outline: any[], title: string) {
         sections: [],
       };
     } else if (item.level === 2) {
-      // 二级标题作为节
       if (currentChapter) {
         if (currentSection2) {
           currentChapter.sections.push(currentSection2);
         }
         currentSection2 = {
           subtitle: item.title,
-          paragraphs: [],
+          paragraphs: [],  // 不包含段落内容
         };
-        // 查找该节对应的段落
-        const itemBlocks = blocks.filter(b =>
-          b.id.startsWith(`heading-${item.id}`) ||
-          b.id.startsWith(`content-${item.id}`)
-        );
-        itemBlocks.forEach(block => {
-          if (block.type === 'paragraph' || block.type === 'text') {
-            currentSection2?.paragraphs.push({ text: block.content, index: currentSection2?.paragraphs.length || 0 });
-          }
-        });
       }
     }
   });
 
-  // 添加最后一个章节
   if (currentChapter) {
     if (currentSection2) {
       (currentChapter as any).sections.push(currentSection2);
@@ -561,14 +326,13 @@ function prepareTemplateData(blocks: any[], outline: any[], title: string) {
 
   // 如果没有 chapters，从 sections 转换
   if (chapters.length === 0 && sections.length > 0) {
-    // 将 sections 映射为 chapters 格式（向后兼容）
     chapters.push({
       title: title,
       number: '1',
       level: 1,
       sections: sections.map(sec => ({
         subtitle: sec.heading || '章节',
-        paragraphs: sec.paragraphs.map((p, idx) => ({ text: p, index: idx })),
+        paragraphs: [],  // 不包含段落内容
       })),
     });
   }
@@ -581,14 +345,11 @@ function prepareTemplateData(blocks: any[], outline: any[], title: string) {
     today: new Date().toISOString().split('T')[0],
     chapter_count: chapters.length,
     total_sections: chapters.reduce((sum, ch) => sum + ch.sections.length, 0),
-    total_paragraphs: chapters.reduce((sum, ch) =>
-      sum + ch.sections.reduce((s, sec) => s + sec.paragraphs.length, 0), 0
-    ),
+    total_paragraphs: 0,  // 没有段落内容
     author: '',
     version: '1.0',
   };
 
-  // 添加辅助变量，方便在模板中直接访问特定元素
   const helpers = {
     first_chapter: chapters.length > 0 ? chapters[0] : null,
     last_chapter: chapters.length > 0 ? chapters[chapters.length - 1] : null,
@@ -596,7 +357,7 @@ function prepareTemplateData(blocks: any[], outline: any[], title: string) {
   };
 
   return {
-    d: {  // 使用 d 作为根对象，支持 d.chapters[i].xxx 格式
+    d: {
       doc_info,
       title,
       date,
@@ -604,16 +365,14 @@ function prepareTemplateData(blocks: any[], outline: any[], title: string) {
       today: new Date().toISOString().split('T')[0],
       chapters,
       helpers,
-      // 保持向后兼容
       sections,
       outline: outline.map((item) => ({
         number: item.number,
         title: item.title,
         level: item.level,
       })),
-      htmlContent: blocksToHtml(blocks),
+      htmlContent: blocksToHtml(blocks),  // 仅包含标题
     },
-    // 同时提供根级别属性（向后兼容）
     title,
     date,
     year,
@@ -625,7 +384,7 @@ function prepareTemplateData(blocks: any[], outline: any[], title: string) {
       title: item.title,
       level: item.level,
     })),
-    htmlContent: blocksToHtml(blocks),
+    htmlContent: blocksToHtml(blocks),  // 仅包含标题
   };
 }
 
