@@ -1,6 +1,7 @@
 version: '3.8'
 
 services:
+  # 主应用
   app:
     build:
       context: .
@@ -11,12 +12,12 @@ services:
     environment:
       - NODE_ENV=production
       - NEXT_TELEMETRY_DISABLED=1
+      - REDIS_URL=redis://redis:6379
+      - CACHE_ENABLED=1
     env_file:
       - .env.local
     volumes:
-      # 持久化用户上传的模板
       - ./store:/app/store
-      # 持久化模板文件（可选）
       - ./public/templates:/app/public/templates
     restart: unless-stopped
     healthcheck:
@@ -25,7 +26,51 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    depends_on:
+      - redis
+    networks:
+      - ai-doc-network
+
+  # Redis 缓存服务
+  redis:
+    image: redis:7-alpine
+    container_name: ai-doc-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - ai-doc-network
+
+  # 可选: Redis Commander - Redis 可视化管理工具
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: ai-doc-redis-commander
+    ports:
+      - "8081:8081"
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    restart: unless-stopped
+    depends_on:
+      - redis
+    networks:
+      - ai-doc-network
+
+volumes:
+  redis-data:
+    driver: local
+  store:
+    driver: local
+  templates:
+    driver: local
 
 networks:
-  default:
-    name: ai-doc-generator-network
+  ai-doc-network:
+    driver: bridge

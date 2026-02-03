@@ -409,6 +409,130 @@ ZHIPU_BASE_URL=https://open.bigmodel.cn/api/paas/v4
 
 ---
 
+# 块组件
+
+## 支持的块类型
+
+| 类型 | 描述 | 功能 |
+|------|------|------|
+| paragraph | 正文段落 | 富文本编辑 |
+| h1/h2/h3 | 标题 | 层级结构，自动生成目录 |
+| bullet | 无序列表 | 自动缩进 |
+| numbered | 有序列表 | 自动编号 |
+| quote | 引用块 | 左侧边框装饰 |
+| callout | 提示块 | 蓝色背景提示 |
+| image | 图片块 | 上传、调整大小、对齐 |
+| table | 表格块 | 编辑、拖拽、Markdown识别 |
+| code | 代码块 | 语法高亮、语言选择 |
+| divider | 分割线 | 内容分隔 |
+
+## 图片块 (ImageBlock)
+
+### 功能特性
+
+- ✅ 图片上传（本地文件、URL）
+- ✅ 拖拽调整大小
+- ✅ 三向对齐（左、中、右）
+- ✅ 双击全屏查看
+- ✅ 图片标题/描述
+- ✅ 工具栏（对齐、全屏、删除）
+
+### 数据结构
+
+```typescript
+interface ImageBlockData {
+  id: string;
+  type: 'image';
+  url: string;
+  imageType: 'local' | 'internal' | 'external';
+  align: 'left' | 'center' | 'right';
+  width?: number;
+  height?: number;
+  caption?: string;
+}
+```
+
+### 交互说明
+
+1. **上传图片**：点击空白占位符，选择本地文件或输入URL
+2. **调整大小**：鼠标悬停时，拖拽左右边缘的蓝色句柄
+3. **改变对齐**：点击工具栏的对齐按钮
+4. **全屏查看**：双击图片或点击工具栏的全屏按钮
+5. **添加标题**：点击图片下方的标题区域输入
+
+---
+
+## 表格块 (TableBlock)
+
+### 功能特性
+
+- ✅ 三层结构（Table → Row → Cell）
+- ✅ 表头行/列切换
+- ✅ 添加/删除行列
+- ✅ 拖拽调整列宽
+- ✅ 单元格编辑
+- ✅ 列对齐（左、中、右）
+- ✅ 行选择和列选择
+
+### 数据结构
+
+```typescript
+interface TableBlockData {
+  id: string;
+  type: 'table';
+  rows: Array<{
+    cells: Array<{ content: string }>;
+  }>;
+  enableHeaderRow?: boolean;
+  columnWidths?: Record<number, number>;
+}
+```
+
+### 交互说明
+
+1. **编辑单元格**：点击单元格进入编辑模式
+2. **调整列宽**：鼠标悬停单元格右边缘，拖拽蓝色句柄
+3. **添加行列**：点击表格下方的"添加行"或"添加列"按钮
+4. **切换表头**：点击工具栏的"表头行"按钮
+5. **退出编辑**：按 Escape 键或点击单元格外部
+
+### Markdown 表格识别
+
+系统会自动识别 Markdown 表格格式：
+
+```markdown
+| 列1 | 列2 | 列3 |
+|-----|-----|-----|
+| 数据1 | 数据2 | 数据3 |
+```
+
+---
+
+## 代码块 (CodeBlock)
+
+### 功能特性
+
+- ✅ 语法高亮（20+ 语言）
+- ✅ 语言选择器（支持搜索）
+- ✅ 一键复制
+- ✅ 行号显示
+- ✅ 自动检测语言
+- ✅ Tab 键缩进
+
+### 支持的语言
+
+```typescript
+const SUPPORTED_LANGUAGES = [
+  'auto', 'javascript', 'typescript', 'python', 'java',
+  'csharp', 'cpp', 'c', 'go', 'rust', 'php', 'ruby',
+  'bash', 'shell', 'json', 'markdown', 'html', 'css',
+  'sql', 'yaml', 'xml', 'jsx', 'tsx', 'dart', 'kotlin',
+  'swift', 'scala', 'r', 'matlab', 'plaintext'
+];
+```
+
+---
+
 # 导出功能
 
 ## Word 导出
@@ -553,6 +677,42 @@ services:
 
 配置中已启用 `restart: unless-stopped`。
 
+### 5. Redis 缓存配置
+
+项目内置 Redis 支持，用于提升性能和缓存：
+
+```yaml
+# docker-compose.yml 中已包含以下服务：
+# - redis:6379 - 缓存服务
+# - redis-commander:8081 - Redis 可视化管理（可选）
+```
+
+#### 环境变量
+
+```env
+REDIS_URL=redis://redis:6379     # Redis 连接地址
+CACHE_ENABLED=1                   # 启用缓存
+```
+
+#### Redis 功能
+
+- **文档缓存** - 缓存文档内容，减少数据库查询
+- **会话管理** - 用户会话存储
+- **AI 响应缓存** - 缓存 AI 响应，加速重复查询
+- **自动清理** - LRU 策略自动清理过期数据
+
+#### 访问 Redis Commander
+
+启动服务后，访问 http://localhost:8081 查看 Redis 数据：
+
+```bash
+# 启动所有服务（包括 Redis Commander）
+docker-compose up -d
+
+# 查看 Redis 数据
+# 访问 http://localhost:8081
+```
+
 ---
 
 # 自定义模板
@@ -669,9 +829,10 @@ Database:      IndexedDB (客户端存储)
 CI/CD:        GitHub Actions
 镜像仓库:      Docker Hub / GitHub Container Registry
 多架构:        AMD64, ARM64
+缓存:          Redis 7 (内置，支持性能优化)
 ```
 
-## 项目结构
+## 一键启动 (推荐)
 
 ```
 ai-document-generator/

@@ -32,8 +32,8 @@ RUN npm run build
 FROM node:20-alpine AS runner
 WORKDIR /app
 
-# Install Pandoc and Python3 for document export functionality
-RUN apk add --no-cache pandoc python3
+# Install Pandoc, Python3, and Redis CLI for document export and debugging
+RUN apk add --no-cache pandoc python3 redis-cli
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
