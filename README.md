@@ -365,6 +365,76 @@ ZHIPU_BASE_URL=https://open.bigmodel.cn/api/paas/v4
 请开始撰写：
 ```
 
+#### 工作流 JSON 配置
+
+以下是可以导入 Dify 的完整工作流配置：
+
+**大纲生成器** (planner_workflow):
+```json
+{
+  "name": "文档大纲生成器",
+  "description": "根据主题生成文档大纲",
+  "variables": {
+    "topic": { "type": "string", "required": true, "label": "文档主题" },
+    "style": { "type": "string", "required": false, "label": "写作风格" }
+  },
+  "nodes": {
+    "llm_planner": {
+      "type": "llm",
+      "model": { "provider": "openai", "name": "gpt-4" },
+      "system_prompt": "你是一位专业的文档结构规划专家。根据主题创建完整、专业的大纲。\n输出必须是有效的 JSON 数组，不包含任何其他文本。\n\n格式示例：\n[{\"id\": \"1\", \"title\": \"项目背景\", \"level\": 1}]",
+      "user_prompt_template": "请为主题 \"{{topic}}\" 生成一个专业的文档大纲。\n写作风格: {{style}}",
+      "output_variable": "outline"
+    }
+  }
+}
+```
+
+**章节写作器** (worker_workflow):
+```json
+{
+  "name": "章节内容生成器",
+  "description": "根据章节标题生成内容",
+  "response_mode": "streaming",
+  "variables": {
+    "topic": { "type": "string", "required": true },
+    "outline": { "type": "string", "required": true },
+    "section_title": { "type": "string", "required": true },
+    "requirements": { "type": "string", "required": false }
+  },
+  "nodes": {
+    "llm_worker": {
+      "type": "llm",
+      "model": { "provider": "openai", "name": "gpt-4-turbo" },
+      "system_prompt": "你是一位专业的内容写作助手。撰写详细、专业的内容。\n要求：\n1. 内容专业、准确、有深度\n2. 段落清晰，逻辑连贯\n3. 可以使用 Markdown 格式（标题、列表、表格）\n4. 字数：800-1500字",
+      "user_prompt_template": "文档主题：{{topic}}\n完整大纲：{{outline}}\n当前章节：{{section_title}}\n写作要求：{{requirements}}"
+    }
+  }
+}
+```
+
+**AI 助手** (chat_workflow):
+```json
+{
+  "name": "AI 文档助手",
+  "description": "对话式文档编辑助手",
+  "response_mode": "streaming",
+  "variables": {
+    "topic": { "type": "string", "required": true },
+    "document_content": { "type": "string", "required": true },
+    "user_question": { "type": "string", "required": true }
+  },
+  "nodes": {
+    "llm_assistant": {
+      "type": "llm",
+      "model": { "provider": "openai", "name": "gpt-4" },
+      "system_prompt": "你是一位专业的文档编辑助手，帮助用户优化和修改文档内容。",
+      "user_prompt_template": "文档主题：{{topic}}\n当前内容：{{document_content}}\n用户问题：{{user_question}}"
+    }
+  }
+}
+```
+
 ---
 
 # 表格功能
