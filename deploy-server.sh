@@ -89,11 +89,16 @@ build_image() {
 # 启动服务
 start_service() {
     echo_info "启动服务..."
+    echo_info "包含: 应用 + Redis + Redis Commander"
 
     if docker-compose up -d; then
         echo_info "✓ 服务启动成功"
-        echo_info "应用地址: http://localhost:3000"
-        echo_info "使用 './deploy.sh logs' 查看日志"
+        echo ""
+        echo "访问地址:"
+        echo "  - 应用: http://localhost:3000"
+        echo "  - Redis Commander: http://localhost:8081 (可选)"
+        echo ""
+        echo_info "使用 './deploy-server.sh logs' 查看日志"
     else
         echo_error "服务启动失败"
         exit 1
