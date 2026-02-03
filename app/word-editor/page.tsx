@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStore } from '@/store/useStore';
 import { AIChat } from '@/components/AIChat';
-import { TextSelectionToolbar } from '@/components/TextSelectionToolbar';
 import { NotionEditor, NotionBlock } from '@/components/NotionEditor';
 import { SettingsModal } from '@/components/SettingsModal';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -64,11 +63,6 @@ export default function WordEditorPage() {
       setDocumentTopic(outline[0].title);
     }
   }, [outline]);
-
-  const handleRewriteText = (text: string) => {
-    // Handle AI rewrite request - could open a dialog with the AI chat
-    logger.log('Rewrite text:', text);
-  };
 
   // Handle generate section button click
   // 参数为 guideBlockId（从 guide 块的生成按钮传入）
@@ -418,20 +412,6 @@ export default function WordEditorPage() {
         return block;
       }));
     }
-  };
-
-  const handleFormatText = (text: string, format: { bold?: boolean; italic?: boolean; size?: number }) => {
-    // Find the block containing the text and update it with formatting
-    setBlocks(prev => prev.map(block => {
-      if (block.content.includes(text)) {
-        const updatedContent = block.content.replace(
-          text,
-          `<span style="${format.bold ? 'font-weight:bold;' : ''}${format.italic ? 'font-style:italic;' : ''}${format.size ? `font-size:${format.size}px;` : ''}">${text}</span>`
-        );
-        return { ...block, content: updatedContent };
-      }
-      return block;
-    }));
   };
 
   // 辅助函数：生成带类型前缀的 ID
@@ -797,8 +777,6 @@ export default function WordEditorPage() {
       </div>
 
       {/* Text Selection Toolbar */}
-      <TextSelectionToolbar onRewrite={handleRewriteText} onFormat={handleFormatText} />
-
       {/* AI Chat */}
       <AIChat
         onRewriteSection={handleRewriteSection}
