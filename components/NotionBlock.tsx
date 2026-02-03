@@ -35,7 +35,6 @@ import {
 } from 'lucide-react';
 import { logger } from '@/lib/logger';
 import { TableBlock } from './blocks/TableBlock';
-import { markdownToHtml } from '@/lib/markdown-renderer';
 
 // Lazy load StreamingMarkdownRenderer to avoid circular dependencies
 const StreamingMarkdownRenderer = lazy(() => import('@/components/StreamingMarkdownRenderer').then(m => ({ default: m.StreamingMarkdownRenderer })));
@@ -648,7 +647,6 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
     switch (block.type) {
       case 'h1':
         if (!isEditing && editContent) {
-          const formattedHtml = markdownToHtml(editContent);
           return (
             <div
               onClick={() => setIsEditing(true)}
@@ -659,8 +657,9 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
                 cursor: 'text',
                 outline: 'none',
               }}
-              dangerouslySetInnerHTML={{ __html: formattedHtml }}
-            />
+            >
+              {editContent}
+            </div>
           );
         }
         return (
@@ -686,7 +685,6 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
         );
       case 'h2':
         if (!isEditing && editContent) {
-          const formattedHtml = markdownToHtml(editContent);
           return (
             <div
               onClick={() => setIsEditing(true)}
@@ -697,8 +695,9 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
                 cursor: 'text',
                 outline: 'none',
               }}
-              dangerouslySetInnerHTML={{ __html: formattedHtml }}
-            />
+            >
+              {editContent}
+            </div>
           );
         }
         return (
@@ -724,7 +723,6 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
         );
       case 'h3':
         if (!isEditing && editContent) {
-          const formattedHtml = markdownToHtml(editContent);
           return (
             <div
               onClick={() => setIsEditing(true)}
@@ -735,8 +733,9 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
                 cursor: 'text',
                 outline: 'none',
               }}
-              dangerouslySetInnerHTML={{ __html: formattedHtml }}
-            />
+            >
+              {editContent}
+            </div>
           );
         }
         return (
@@ -762,7 +761,6 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
         );
       case 'bullet':
         if (!isEditing && editContent) {
-          const formattedHtml = markdownToHtml(editContent);
           return (
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', flex: 1, width: '100%' }}>
               <span style={{ color: 'rgba(55, 53, 47, 0.4)', marginTop: '2px', flexShrink: 0 }}>•</span>
@@ -776,8 +774,9 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
                   cursor: 'text',
                   outline: 'none',
                 }}
-                dangerouslySetInnerHTML={{ __html: formattedHtml }}
-              />
+              >
+                {editContent}
+              </div>
             </div>
           );
         }
@@ -811,7 +810,6 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
         const displayNumber = numberMatch ? numberMatch[1] : '1';
 
         if (!isEditing && editContent) {
-          const formattedHtml = markdownToHtml(editContent);
           return (
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', flex: 1, width: '100%' }}>
               <span style={{ color: 'rgba(55, 53, 47, 0.4)', marginTop: '2px', flexShrink: 0, minWidth: '20px' }}>
@@ -827,8 +825,9 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
                   cursor: 'text',
                   outline: 'none',
                 }}
-                dangerouslySetInnerHTML={{ __html: formattedHtml }}
-              />
+              >
+                {editContent}
+              </div>
             </div>
           );
         }
@@ -1051,7 +1050,6 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
         );
       case 'quote':
         if (!isEditing && editContent) {
-          const formattedHtml = markdownToHtml(editContent);
           return (
             <div style={{ flex: 1, marginTop: '8px', paddingLeft: '16px', borderLeft: '3px solid rgba(55, 53, 47, 0.2)', backgroundColor: 'rgba(55, 53, 47, 0.03)', width: '100%' }}>
               <div
@@ -1063,8 +1061,9 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
                   cursor: 'text',
                   outline: 'none',
                 }}
-                dangerouslySetInnerHTML={{ __html: formattedHtml }}
-              />
+              >
+                {editContent}
+              </div>
             </div>
           );
         }
@@ -1095,7 +1094,6 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
         return <hr style={{ flex: 1, border: 'none', borderTop: '1px solid rgba(55, 53, 47, 0.15)', margin: '24px 0' }} />;
       case 'callout':
         if (!isEditing && editContent) {
-          const formattedHtml = markdownToHtml(editContent);
           return (
             <div style={{ flex: 1, marginTop: '8px', padding: '12px 16px', borderRadius: '4px', backgroundColor: 'rgba(35, 131, 226, 0.08)', width: '100%' }}>
               <div
@@ -1111,8 +1109,9 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
                   lineHeight: 1.8,
                   cursor: 'text',
                 }}
-                dangerouslySetInnerHTML={{ __html: formattedHtml }}
-              />
+              >
+                {editContent}
+              </div>
             </div>
           );
         }
@@ -1454,9 +1453,8 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
         );
       }
       default:
-        // For paragraph blocks, show formatted text when not editing
+        // For paragraph blocks, show plain text when not editing
         if (!isEditing && editContent) {
-          const formattedHtml = markdownToHtml(editContent);
           return (
             <div
               onClick={() => setIsEditing(true)}
@@ -1469,8 +1467,9 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
                 marginTop: '2px',
                 outline: 'none',
               }}
-              dangerouslySetInnerHTML={{ __html: formattedHtml }}
-            />
+            >
+              {editContent}
+            </div>
           );
         }
 
