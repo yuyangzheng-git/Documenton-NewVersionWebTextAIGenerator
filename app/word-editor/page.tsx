@@ -253,7 +253,7 @@ export default function WordEditorPage() {
                   id: generateBlockId('paragraph'),
                   type: 'paragraph',
                   content: block.content,
-                  properties: { isGenerated: true },
+                  properties: { },  // 不设置isGenerated，使块可编辑
                   children: [],
                 };
               }

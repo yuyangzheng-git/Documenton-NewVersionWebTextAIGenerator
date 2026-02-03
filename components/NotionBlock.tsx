@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 import { logger } from '@/lib/logger';
 import { TableBlock } from './blocks/TableBlock';
+import { markdownToHtml } from '@/lib/markdown-renderer';
 
 // Lazy load StreamingMarkdownRenderer to avoid circular dependencies
 const StreamingMarkdownRenderer = lazy(() => import('@/components/StreamingMarkdownRenderer').then(m => ({ default: m.StreamingMarkdownRenderer })));
@@ -112,6 +113,7 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
   const [editContent, setEditContent] = useState(block.content);
   const [isDraggingFile, setIsDraggingFile] = useState(false);
   const [isSelected, setIsSelected] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const editorRef = useRef<HTMLTextAreaElement | HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const blockRef = useRef<HTMLDivElement>(null);
@@ -624,23 +626,12 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
       ...getBlockStyles()
     };
 
-    // Use streaming markdown renderer for paragraph blocks with markdown content
-    // This includes both loading state and completed markdown content
-    const hasMarkdownContent = editContent && (
-      editContent.includes('```') ||
-      editContent.includes('|') ||
-      editContent.includes('#') ||
-      editContent.includes('**') ||
-      editContent.includes('*') ||
-      editContent.includes('- ') ||
-      editContent.includes('1. ')
-    );
-
-    if (block.type === 'paragraph' && (block.properties.loading || (block.properties.isGenerated && hasMarkdownContent))) {
+    // Use streaming markdown renderer only for loading states
+    if (block.type === 'paragraph' && block.properties.loading) {
       return (
         <Suspense fallback={<div style={{ padding: '12px', color: 'rgba(55, 53, 47, 0.5)' }}>加载中...</div>}>
-          <div style={{ flex: 1, marginTop: '8px', width: '100%', padding: '12px', backgroundColor: block.properties.loading ? 'rgba(35, 131, 226, 0.02)' : 'transparent', borderRadius: '4px' }}>
-            <StreamingMarkdownRenderer markdown={editContent} isComplete={!block.properties.loading} />
+          <div style={{ flex: 1, marginTop: '8px', width: '100%', padding: '12px', backgroundColor: 'rgba(35, 131, 226, 0.02)', borderRadius: '4px' }}>
+            <StreamingMarkdownRenderer markdown={editContent} isComplete={false} />
           </div>
         </Suspense>
       );
@@ -648,6 +639,22 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
 
     switch (block.type) {
       case 'h1':
+        if (!isEditing && editContent) {
+          const formattedHtml = markdownToHtml(editContent);
+          return (
+            <div
+              onClick={() => setIsEditing(true)}
+              onFocus={() => setIsEditing(true)}
+              tabIndex={0}
+              style={{
+                ...baseStyle,
+                cursor: 'text',
+                outline: 'none',
+              }}
+              dangerouslySetInnerHTML={{ __html: formattedHtml }}
+            />
+          );
+        }
         return (
           <textarea
             ref={editorRef as any}
@@ -656,8 +663,14 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
               setEditContent(e.target.value);
               onUpdate(block.id, { content: e.target.value });
             }}
-            onFocus={handleFocus}
-            onBlur={handleBlur}
+            onFocus={() => {
+              setIsEditing(true);
+              handleFocus();
+            }}
+            onBlur={() => {
+              setIsEditing(false);
+              handleBlur();
+            }}
             onKeyDown={handleKeyDown}
             style={{ ...baseStyle, width: '100%', resize: 'none', overflow: 'hidden', height: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word', marginTop: '2px' }}
             placeholder="标题 1"
@@ -665,6 +678,22 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
           />
         );
       case 'h2':
+        if (!isEditing && editContent) {
+          const formattedHtml = markdownToHtml(editContent);
+          return (
+            <div
+              onClick={() => setIsEditing(true)}
+              onFocus={() => setIsEditing(true)}
+              tabIndex={0}
+              style={{
+                ...baseStyle,
+                cursor: 'text',
+                outline: 'none',
+              }}
+              dangerouslySetInnerHTML={{ __html: formattedHtml }}
+            />
+          );
+        }
         return (
           <textarea
             ref={editorRef as any}
@@ -673,8 +702,14 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
               setEditContent(e.target.value);
               onUpdate(block.id, { content: e.target.value });
             }}
-            onFocus={handleFocus}
-            onBlur={handleBlur}
+            onFocus={() => {
+              setIsEditing(true);
+              handleFocus();
+            }}
+            onBlur={() => {
+              setIsEditing(false);
+              handleBlur();
+            }}
             onKeyDown={handleKeyDown}
             style={{ ...baseStyle, width: '100%', resize: 'none', overflow: 'hidden', height: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word', marginTop: '2px' }}
             placeholder="标题 2"
@@ -682,6 +717,22 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
           />
         );
       case 'h3':
+        if (!isEditing && editContent) {
+          const formattedHtml = markdownToHtml(editContent);
+          return (
+            <div
+              onClick={() => setIsEditing(true)}
+              onFocus={() => setIsEditing(true)}
+              tabIndex={0}
+              style={{
+                ...baseStyle,
+                cursor: 'text',
+                outline: 'none',
+              }}
+              dangerouslySetInnerHTML={{ __html: formattedHtml }}
+            />
+          );
+        }
         return (
           <textarea
             ref={editorRef as any}
@@ -690,8 +741,14 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
               setEditContent(e.target.value);
               onUpdate(block.id, { content: e.target.value });
             }}
-            onFocus={handleFocus}
-            onBlur={handleBlur}
+            onFocus={() => {
+              setIsEditing(true);
+              handleFocus();
+            }}
+            onBlur={() => {
+              setIsEditing(false);
+              handleBlur();
+            }}
             onKeyDown={handleKeyDown}
             style={{ ...baseStyle, width: '100%', resize: 'none', overflow: 'hidden', height: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word', marginTop: '2px' }}
             placeholder="标题 3"
@@ -699,6 +756,26 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
           />
         );
       case 'bullet':
+        if (!isEditing && editContent) {
+          const formattedHtml = markdownToHtml(editContent);
+          return (
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', flex: 1, width: '100%' }}>
+              <span style={{ color: 'rgba(55, 53, 47, 0.4)', marginTop: '2px', flexShrink: 0 }}>•</span>
+              <div
+                onClick={() => setIsEditing(true)}
+                onFocus={() => setIsEditing(true)}
+                tabIndex={0}
+                style={{
+                  ...baseStyle,
+                  flex: 1,
+                  cursor: 'text',
+                  outline: 'none',
+                }}
+                dangerouslySetInnerHTML={{ __html: formattedHtml }}
+              />
+            </div>
+          );
+        }
         return (
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', flex: 1, width: '100%' }}>
             <span style={{ color: 'rgba(55, 53, 47, 0.4)', marginTop: '2px', flexShrink: 0 }}>•</span>
@@ -709,8 +786,14 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
                 setEditContent(e.target.value);
                 onUpdate(block.id, { content: e.target.value });
               }}
-              onFocus={handleFocus}
-              onBlur={handleBlur}
+              onFocus={() => {
+                setIsEditing(true);
+                handleFocus();
+              }}
+              onBlur={() => {
+                setIsEditing(false);
+                handleBlur();
+              }}
               onKeyDown={handleKeyDown}
               style={{ ...baseStyle, flex: 1, resize: 'none', overflow: 'hidden', height: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word', marginTop: '2px' }}
               placeholder="输入内容..."
@@ -722,6 +805,29 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
         // Try to extract number from content or use a default
         const numberMatch = editContent.match(/^(\d+)\./);
         const displayNumber = numberMatch ? numberMatch[1] : '1';
+
+        if (!isEditing && editContent) {
+          const formattedHtml = markdownToHtml(editContent);
+          return (
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', flex: 1, width: '100%' }}>
+              <span style={{ color: 'rgba(55, 53, 47, 0.4)', marginTop: '2px', flexShrink: 0, minWidth: '20px' }}>
+                {displayNumber}.
+              </span>
+              <div
+                onClick={() => setIsEditing(true)}
+                onFocus={() => setIsEditing(true)}
+                tabIndex={0}
+                style={{
+                  ...baseStyle,
+                  flex: 1,
+                  cursor: 'text',
+                  outline: 'none',
+                }}
+                dangerouslySetInnerHTML={{ __html: formattedHtml }}
+              />
+            </div>
+          );
+        }
 
         return (
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', flex: 1, width: '100%' }}>
@@ -735,8 +841,14 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
                 setEditContent(e.target.value);
                 onUpdate(block.id, { content: e.target.value });
               }}
-              onFocus={handleFocus}
-              onBlur={handleBlur}
+              onFocus={() => {
+                setIsEditing(true);
+                handleFocus();
+              }}
+              onBlur={() => {
+                setIsEditing(false);
+                handleBlur();
+              }}
               onKeyDown={handleKeyDown}
               style={{ ...baseStyle, flex: 1, resize: 'none', overflow: 'hidden', height: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word', marginTop: '2px' }}
               placeholder="输入内容..."
@@ -935,6 +1047,24 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
           </div>
         );
       case 'quote':
+        if (!isEditing && editContent) {
+          const formattedHtml = markdownToHtml(editContent);
+          return (
+            <div style={{ flex: 1, marginTop: '8px', paddingLeft: '16px', borderLeft: '3px solid rgba(55, 53, 47, 0.2)', backgroundColor: 'rgba(55, 53, 47, 0.03)', width: '100%' }}>
+              <div
+                onClick={() => setIsEditing(true)}
+                onFocus={() => setIsEditing(true)}
+                tabIndex={0}
+                style={{
+                  ...baseStyle,
+                  cursor: 'text',
+                  outline: 'none',
+                }}
+                dangerouslySetInnerHTML={{ __html: formattedHtml }}
+              />
+            </div>
+          );
+        }
         return (
           <div style={{ flex: 1, marginTop: '8px', paddingLeft: '16px', borderLeft: '3px solid rgba(55, 53, 47, 0.2)', backgroundColor: 'rgba(55, 53, 47, 0.03)', width: '100%' }}>
             <textarea
@@ -944,8 +1074,14 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
                 setEditContent(e.target.value);
                 onUpdate(block.id, { content: e.target.value });
               }}
-              onFocus={handleFocus}
-              onBlur={handleBlur}
+              onFocus={() => {
+                setIsEditing(true);
+                handleFocus();
+              }}
+              onBlur={() => {
+                setIsEditing(false);
+                handleBlur();
+              }}
               onKeyDown={handleKeyDown}
               style={{ ...baseStyle, width: '100%', resize: 'none', overflow: 'hidden', height: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}
               placeholder="引用..."
@@ -956,6 +1092,28 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
       case 'divider':
         return <hr style={{ flex: 1, border: 'none', borderTop: '1px solid rgba(55, 53, 47, 0.15)', margin: '24px 0' }} />;
       case 'callout':
+        if (!isEditing && editContent) {
+          const formattedHtml = markdownToHtml(editContent);
+          return (
+            <div style={{ flex: 1, marginTop: '8px', padding: '12px 16px', borderRadius: '4px', backgroundColor: 'rgba(35, 131, 226, 0.08)', width: '100%' }}>
+              <div
+                onClick={() => setIsEditing(true)}
+                onFocus={() => setIsEditing(true)}
+                tabIndex={0}
+                style={{
+                  width: '100%',
+                  background: 'transparent',
+                  outline: 'none',
+                  fontSize: '15px',
+                  color: 'rgba(55, 53, 47, 1)',
+                  lineHeight: 1.8,
+                  cursor: 'text',
+                }}
+                dangerouslySetInnerHTML={{ __html: formattedHtml }}
+              />
+            </div>
+          );
+        }
         return (
           <div style={{ flex: 1, marginTop: '8px', padding: '12px 16px', borderRadius: '4px', backgroundColor: 'rgba(35, 131, 226, 0.08)', width: '100%' }}>
             <textarea
@@ -965,8 +1123,14 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
                 setEditContent(e.target.value);
                 onUpdate(block.id, { content: e.target.value });
               }}
-              onFocus={handleFocus}
-              onBlur={handleBlur}
+              onFocus={() => {
+                setIsEditing(true);
+                handleFocus();
+              }}
+              onBlur={() => {
+                setIsEditing(false);
+                handleBlur();
+              }}
               onKeyDown={handleKeyDown}
               style={{ width: '100%', background: 'transparent', outline: 'none', border: 'none', fontSize: '15px', color: 'rgba(55, 53, 47, 1)', lineHeight: 1.8, resize: 'none', overflow: 'hidden', height: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}
               placeholder="提示..."
@@ -1289,13 +1453,39 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
         );
       }
       default:
+        // For paragraph blocks, show formatted text when not editing
+        if (!isEditing && editContent) {
+          const formattedHtml = markdownToHtml(editContent);
+          return (
+            <div
+              onClick={() => setIsEditing(true)}
+              onFocus={() => setIsEditing(true)}
+              tabIndex={0}
+              style={{
+                ...baseStyle,
+                cursor: 'text',
+                minHeight: '24px',
+                marginTop: '2px',
+                outline: 'none',
+              }}
+              dangerouslySetInnerHTML={{ __html: formattedHtml }}
+            />
+          );
+        }
+
         return (
           <textarea
             ref={editorRef as any}
             value={editContent}
             onChange={(e) => setEditContent(e.target.value)}
-            onFocus={handleFocus}
-            onBlur={handleBlur}
+            onFocus={() => {
+              setIsEditing(true);
+              handleFocus();
+            }}
+            onBlur={(e) => {
+              setIsEditing(false);
+              handleBlur(e);
+            }}
             onKeyDown={handleKeyDown}
             style={{ ...baseStyle, width: '100%', resize: 'none', overflow: 'hidden', height: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word', marginTop: '2px' }}
             placeholder="输入内容... (按 / 显示菜单)"
