@@ -672,7 +672,6 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
               onUpdate(block.id, { content: e.target.value });
             }}
             onFocus={() => {
-              setIsEditing(true);
               handleFocus();
             }}
             onBlur={() => {
@@ -711,7 +710,6 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
               onUpdate(block.id, { content: e.target.value });
             }}
             onFocus={() => {
-              setIsEditing(true);
               handleFocus();
             }}
             onBlur={() => {
@@ -750,7 +748,6 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
               onUpdate(block.id, { content: e.target.value });
             }}
             onFocus={() => {
-              setIsEditing(true);
               handleFocus();
             }}
             onBlur={() => {
@@ -795,7 +792,6 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
                 onUpdate(block.id, { content: e.target.value });
               }}
               onFocus={() => {
-                setIsEditing(true);
                 handleFocus();
               }}
               onBlur={() => {
@@ -850,7 +846,6 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
                 onUpdate(block.id, { content: e.target.value });
               }}
               onFocus={() => {
-                setIsEditing(true);
                 handleFocus();
               }}
               onBlur={() => {
@@ -1083,7 +1078,6 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
                 onUpdate(block.id, { content: e.target.value });
               }}
               onFocus={() => {
-                setIsEditing(true);
                 handleFocus();
               }}
               onBlur={() => {
@@ -1132,7 +1126,6 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
                 onUpdate(block.id, { content: e.target.value });
               }}
               onFocus={() => {
-                setIsEditing(true);
                 handleFocus();
               }}
               onBlur={() => {
@@ -1486,10 +1479,6 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
             ref={editorRef as any}
             value={editContent}
             onChange={(e) => setEditContent(e.target.value)}
-            onFocus={() => {
-              setIsEditing(true);
-              handleFocus();
-            }}
             onBlur={(e) => {
               setIsEditing(false);
               handleBlur(e);
