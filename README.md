@@ -12,14 +12,18 @@
 
 1. [项目简介](#项目简介)
 2. [核心功能](#核心功能)
-3. [快速开始](#快速开始)
-4. [AI 平台配置](#ai-平台配置)
-5. [Docker 部署](#docker-部署)
-6. [自定义模板](#自定义模板)
-7. [技术栈](#技术栈)
-8. [贡献指南](#贡献指南)
-9. [安全政策](#安全政策)
-10. [常见问题](#常见问题)
+3. [最新更新](#最新更新)
+4. [快速开始](#快速开始)
+5. [AI 平台配置](#ai-平台配置)
+6. [表格功能](#表格功能)
+7. [富文本编辑](#富文本编辑)
+8. [导出功能](#导出功能)
+9. [Docker 部署](#docker-部署)
+10. [自定义模板](#自定义模板)
+11. [技术栈](#技术栈)
+12. [贡献指南](#贡献指南)
+13. [常见问题](#常见问题)
+14. [安全政策](#安全政策)
 
 ---
 
@@ -32,11 +36,13 @@
 - 🤖 **AI 智能大纲** - 一键生成结构化文档大纲
 - 📝 **章节内容规划** - 每个章节独立规划写作要求
 - ⚡ **流式实时生成** - 实时显示 AI 生成内容
-- 📊 **段落分段编辑** - 生成内容自动分段，每段独立可编辑
+- 📊 **智能表格** - Markdown 表格自动识别，支持编辑和拖拽
+- ✨ **富文本编辑** - 支持加粗、斜体、下划线等 Markdown 格式
 - 📄 **Word 导出** - 使用 Pandoc 生成格式完美的文档
 - 🎨 **模板支持** - 自定义 Word 模板（字体、页眉页脚、背景图）
 - 🌐 **12+ AI 平台** - 支持 Dify、OpenAI、Claude、Gemini 等主流模型
 
+---
 
 # 核心功能
 
@@ -66,12 +72,99 @@
 | 智能大纲生成 | AI 自动生成文档结构化大纲 |
 | 章节内容规划 | 为每个章节设置独立的写作要求 |
 | 流式内容生成 | 实时显示 AI 生成的内容 |
-| Markdown 渲染 | 支持代码高亮、表格等 Markdown 格式 |
+| 智能表格识别 | 自动识别 Markdown 表格并转换为可编辑表格 |
+| 富文本编辑 | 支持加粗、斜体、下划线等格式 |
 | 段落编辑 | 每个段落可独立编辑、删除、重新生成 |
 | 拖拽排序 | 支持块级拖拽重新排序 |
 | Word 导出 | 自动生成 3 层目录，支持图片和表格 |
 | 自定义模板 | 使用自己的 Word 模板文件 |
 
+---
+
+# 最新更新
+
+## 🎉 v1.2.0 - 富文本编辑支持
+
+### ✨ 新功能
+
+#### 1. 所有文本块支持富文本编辑
+- **支持格式**：加粗 (**text**)、斜体 (*text*)、下划线、删除线 (~~text~~)、行内代码 (`code`)
+- **显示模式**：文本框外显示格式化的 HTML
+- **编辑模式**：点击文本后显示原始 Markdown
+- **自动保存**：编辑完成后自动保存格式
+
+#### 2. 支持的块类型
+- 正文段落
+- 标题 (H1, H2, H3)
+- 无序列表
+- 有序列表
+- 引用块
+- 提示块
+
+#### 3. 导出兼容性
+- 格式化文本完整导出到 Word 文档
+- 自动转换为对应的 DOCX 格式
+
+### 🔧 技术实现
+- 创建 `lib/markdown-renderer.ts` 处理 Markdown 到 HTML 的转换
+- 所有文本块添加 `isEditing` 状态进行模式切换
+- 使用 `dangerouslySetInnerHTML` 安全渲染 HTML
+
+---
+
+## 🎉 v1.1.0 - 表格功能完全重写
+
+### ✨ 新功能
+
+#### 1. 全新的TableBlock组件
+- **完全重写的表格系统**，基于原生HTML table实现
+- **响应式设计**：表格宽度与正文块一致（704px），支持横向滚动
+- **智能滚动条**：随着列数增加，滚动条自动变小，滚动范围增大
+- **自动宽度调整**：cell宽度根据内容自动调整，支持自动换行
+
+#### 2. 优雅的操作按钮
+- **小圆形按钮**：14px精致圆形按钮，嵌在表格边框上
+- **颜色区分**：
+  - 加号（添加列/行）：蓝色 `#2383E2`
+  - 减号（删除列/行）：红色 `#d32f2f`
+- **流畅动画**：悬停放大1.2倍，点击缩小效果
+
+#### 3. Markdown表格自动识别
+- **实时检测**：流式生成过程中自动识别Markdown表格
+- **自动转换**：将Markdown表格（`| col1 | col2 |` 格式）自动转换为TableBlock
+- **智能解析**：支持表头、分隔线、多行数据的标准Markdown表格格式
+
+### 🔧 技术改进
+
+#### 核心文件
+1. **components/blocks/TableBlock/**
+   - `TableBlock.tsx` - 主表格组件
+   - `TableCell.tsx` - 单元格组件，支持编辑和导航
+   - `types.ts` - 类型定义
+   - `utils/` - 工具函数（验证、默认值、操作）
+   - `operations/` - CRUD操作
+
+2. **lib/table-parser.ts**
+   - `parseMarkdownTable()` - 解析Markdown表格字符串
+   - `extractTablesFromContent()` - 从生成内容中提取表格
+
+### 🐛 Bug修复
+
+- ✅ 修复滚动条大小不随列数变化的问题
+- ✅ 确保表格不超出正文块宽度
+- ✅ 修复表头不显示的bug
+- ✅ 移除"空"占位符，改用不可见空格
+- ✅ 空cell有最小高度24px，不会太矮
+
+### 📊 表格特性
+
+- **宽度管理**：`width: 100%` 默认填满，`minWidth: fit-content` 支持扩展
+- **布局模式**：`tableLayout: auto` 自动计算列宽
+- **边框样式**：`1px solid #e0e0e0` 统一边框
+- **表头样式**：`#F7F6F3` 背景，600字重
+- **滚动体验**：
+  - Webkit滚动条：8px高度，圆角4px
+  - 普通浏览器：`scrollbarWidth: thin`
 
 ---
 
@@ -135,7 +228,6 @@ pip3 install -r requirements.txt
 # 5. 启动开发服务器
 npm run dev
 ```
-
 
 ---
 
@@ -285,6 +377,112 @@ ZHIPU_BASE_URL=https://open.bigmodel.cn/api/paas/v4
 请开始撰写：
 ```
 
+---
+
+# 表格功能
+
+## 快速使用
+
+### 插入表格
+
+1. 在文档中按 `/` 显示菜单
+2. 选择"表格"选项
+3. 选择表格的行列数（默认3x3）
+
+### 表格操作
+
+#### 添加行/列
+- 右侧蓝色 `+` 按钮：添加列
+- 底部蓝色 `+` 按钮：添加行
+
+#### 删除行/列
+- 右侧红色 `-` 按钮：删除列
+- 底部红色 `-` 按钮：删除行
+
+#### 编辑单元格
+- 点击单元格进行编辑
+- Tab 键：下一个单元格
+- Shift+Tab：上一个单元格
+- Enter：下一行
+- Esc：退出编辑
+
+## Markdown 表格自动识别
+
+系统会自动识别 AI 生成的 Markdown 表格格式：
+
+```markdown
+| 列1 | 列2 | 列3 |
+|-----|-----|-----|
+| 数据1 | 数据2 | 数据3 |
+| 数据4 | 数据5 | 数据6 |
+```
+
+自动转换为可编辑的表格块。
+
+---
+
+# 富文本编辑
+
+## 支持的格式
+
+### 文本格式
+- **加粗**: `**text**` 或 `__text__`
+- **斜体**: `*text*` 或 `_text_`
+- **下划线**: `<u>text</u>`
+- **删除线**: `~~text~~`
+- **行内代码**: `` `code` ``
+
+### 使用方法
+
+1. **输入格式**: 直接输入 Markdown 语法
+   ```
+   这是 **加粗文本** 和 *斜体文本*
+   ```
+
+2. **显示效果**: 点击外部自动显示格式化结果
+   ```
+   这是 加粗文本 和 斜体文本
+   （加粗和斜体会按样式渲染）
+   ```
+
+3. **编辑**: 再次点击恢复原始 Markdown 进行编辑
+
+### 导出
+
+所有格式化文本在导出到 Word 时完整保留：
+- 加粗 → **Bold**
+- 斜体 → *Italic*
+- 删除线 → ~~Strikethrough~~
+- 行内代码 → Code with styling
+
+---
+
+# 导出功能
+
+## Word 导出
+
+### 支持的内容
+- ✅ 所有文本块（支持富文本格式）
+- ✅ 标题（自动生成目录）
+- ✅ 列表（有序和无序）
+- ✅ 表格（包括Markdown自动识别的表格）
+- ✅ 图片（HTTP/HTTPS 或 Base64）
+- ✅ 代码块（带语言高亮）
+- ✅ 引用块
+
+### 导出步骤
+
+1. 点击页面右上角 "导出" 按钮
+2. 选择导出格式（DOCX、PDF）
+3. 等待导出完成
+4. 自动下载文件
+
+### 更新目录（Word）
+
+在 Word 中打开生成的文档：
+1. 右键点击目录
+2. 选择 "更新域" → "更新整个目录"
+3. 或按 F9 键快速更新
 
 ---
 
@@ -341,7 +539,7 @@ docker run -d \
   -p 3000:3000 \
   --env-file .env.local \
   -v $(pwd)/my-template.docx:/app/reference_template.docx:ro \
-  ai-doc-generator
+  ai-document-generator
 
 # 查看日志
 docker logs -f ai-doc-gen
@@ -351,51 +549,6 @@ docker stop ai-doc-gen
 
 # 删除容器
 docker rm ai-doc-gen
-```
-
-## 推送到 Docker Hub
-
-```bash
-# 登录
-docker login
-
-# 标记镜像
-docker tag ai-doc-generator your-username/ai-doc-generator:latest
-docker tag ai-doc-generator your-username/ai-doc-generator:v1.0.0
-
-# 推送
-docker push your-username/ai-doc-generator:latest
-docker push your-username/ai-doc-generator:v1.0.0
-```
-
-## 从 Docker Hub 拉取
-
-```bash
-# 拉取镜像
-docker pull your-username/ai-doc-generator:latest
-
-# 运行
-docker run -d \
-  --name ai-doc-gen \
-  -p 3000:3000 \
-  --env-file .env.local \
-  your-username/ai-doc-generator:latest
-```
-
-## 多架构支持
-
-构建支持 AMD64 和 ARM64 的镜像：
-
-```bash
-# 创建 buildx builder
-docker buildx create --name multiarch --use
-
-# 构建并推送多架构镜像
-docker buildx build \
-  --platform linux/amd64,linux/arm64 \
-  -t your-username/ai-doc-generator:latest \
-  --push \
-  .
 ```
 
 ## 生产环境建议
@@ -447,7 +600,6 @@ services:
 ### 4. 自动重启
 
 配置中已启用 `restart: unless-stopped`。
-
 
 ---
 
@@ -510,7 +662,7 @@ docker run -d \
   -p 3000:3000 \
   -v $(pwd)/reference_template.docx:/app/reference_template.docx:ro \
   --env-file .env.local \
-  ai-doc-generator
+  ai-document-generator
 ```
 
 或在 `docker-compose.yml` 中配置：
@@ -521,29 +673,6 @@ services:
     volumes:
       - ./reference_template.docx:/app/reference_template.docx:ro
 ```
-
-### 4. 高级定制
-
-#### 添加页眉页脚
-
-```
-页眉：[文档标题]
-页脚：第 [页码] 页，共 [总页数] 页
-```
-
-#### 添加封面
-
-在模板中添加第一页作为封面，包含：
-- 文档标题（居中，特号字体）
-- 作者信息
-- 创建日期
-- 公司/组织 Logo
-
-#### 添加水印
-
-1. 在 Word 中插入水印：设计 → 水印 → 自定义水印
-2. 保存模板
-
 
 ---
 
@@ -590,15 +719,6 @@ CI/CD:        GitHub Actions
 多架构:        AMD64, ARM64
 ```
 
-## 开发工具
-
-```
-Package Manager:  npm
-Linter:           ESLint
-Formatter:        Prettier (内置于 Next.js)
-Version Control:  Git
-```
-
 ## 项目结构
 
 ```
@@ -615,28 +735,21 @@ ai-document-generator/
 │   ├── NotionBlock.tsx     # 单个块组件
 │   ├── AIChat.tsx          # AI 对话组件
 │   ├── blocks/             # 块类型组件
-│   │   ├── SimpleTableBlock.tsx  # 表格块
-│   │   ├── ImageBlock.tsx        # 图片块
-│   │   └── CodeBlock.tsx         # 代码块
+│   │   ├── TableBlock/     # 表格组件
+│   │   ├── ImageBlock.tsx  # 图片块
+│   │   └── CodeBlock.tsx   # 代码块
 │   └── outline/            # 大纲组件
-│       ├── OutlinePanel.tsx
-│       └── OutlineTree.tsx
 │
 ├── lib/                     # 工具库
 │   ├── ai/                 # AI 平台集成
-│   │   ├── dify-provider.ts
-│   │   ├── openai-provider.ts
-│   │   ├── gemini-provider.ts
-│   │   └── ...
+│   ├── markdown-renderer.ts # Markdown 到 HTML 转换
+│   ├── table-parser.ts     # 表格解析
 │   ├── db.ts               # IndexedDB 封装
-│   ├── markdown-table-parser.ts
 │   └── logger.ts
 │
 ├── store/                  # Zustand 状态管理
-│   └── useStore.ts
 │
 ├── hooks/                  # 自定义 Hooks
-│   └── useAutoSave.ts
 │
 ├── public/                 # 静态资源
 │
@@ -644,7 +757,6 @@ ai-document-generator/
 ├── docker-compose.yml     # Docker Compose 配置
 └── package.json           # 项目依赖
 ```
-
 
 ---
 
@@ -717,74 +829,6 @@ test: 添加测试
 chore: 构建配置等
 ```
 
-### 开发环境设置
-
-```bash
-# 1. 安装依赖
-npm install
-
-# 2. 配置环境变量
-cp .env.example .env.local
-
-# 3. 安装系统依赖
-brew install pandoc  # macOS
-sudo apt-get install pandoc  # Ubuntu
-
-# 4. 启动开发服务器
-npm run dev
-```
-
-### 新增 AI 平台
-
-如果要添加新的 AI 平台支持：
-
-1. 在 `lib/ai/` 创建新的 provider 文件
-2. 实现 `AIProvider` 接口
-3. 在 `lib/ai/provider-factory.ts` 注册
-4. 更新 `AI_CONFIG_GUIDE.md` 文档
-
----
-
-# 安全政策
-
-## 报告安全漏洞
-
-如果发现安全漏洞，请**不要**公开发布。
-
-请发送邮件至：[项目维护者邮箱]
-
-包含以下信息：
-- 漏洞描述
-- 影响范围
-- 复现步骤
-- 建议的修复方案
-
-我们会在 48 小时内回复。
-
-## 安全最佳实践
-
-### API 密钥管理
-
-- ✅ 使用环境变量存储 API 密钥
-- ✅ 不要将 `.env.local` 提交到 Git
-- ✅ 使用 `.env.example` 作为模板
-- ❌ 不要在代码中硬编码密钥
-
-### Docker 安全
-
-- ✅ 使用非 root 用户运行容器
-- ✅ 限制容器资源使用
-- ✅ 定期更新基础镜像
-- ❌ 不要使用 `--privileged` 标志
-
-### 生产部署
-
-- ✅ 使用 HTTPS
-- ✅ 启用 CORS 限制
-- ✅ 设置请求速率限制
-- ✅ 定期备份数据
-
-
 ---
 
 # 常见问题
@@ -821,33 +865,35 @@ pandoc --version
 
 A: 在 Word 中右键目录 → 更新域 → 更新整个目录（或按 F9）
 
-**Q: 图片不显示？**
+**Q: 表格不显示？**
 
-A: 检查图片 URL：
-- 必须是 HTTP/HTTPS 链接
-- 或 Base64 格式（`data:image/png;base64,...`）
+A: 检查以下几点：
+1. 表格是否使用标准 Markdown 格式
+2. AI 生成的表格是否包含表头和分隔线
+3. 刷新页面重新加载
+
+**Q: 富文本格式不显示？**
+
+A: 检查以下几点：
+1. 确保使用了正确的 Markdown 语法
+2. 刷新页面
+3. 尝试重新点击文本块进入编辑模式
 
 **Q: AI 生成速度慢？**
 
-A: 
+A:
 1. 检查网络连接
 2. 尝试更换 AI 模型（如从 GPT-4 切换到 GPT-3.5）
 3. 使用 Groq 等快速推理平台
-
-**Q: 如何停止正在生成的内容？**
-
-A: 刷新页面或关闭浏览器标签页。
 
 ## 配置相关
 
 **Q: Dify API 密钥在哪里获取？**
 
-A: 
+A:
 1. 访问 https://cloud.dify.ai
 2. 创建应用
 3. 在应用设置中复制 API Key
-
-详见项目中的 `DIFY_API_KEYS_GUIDE.md`
 
 **Q: 可以同时使用多个 AI 平台吗？**
 
@@ -857,23 +903,44 @@ A: 可以。在设置中切换不同平台，环境变量配置多个平台的�
 
 A: 完全支持。使用 Docker 部署到自己的服务器，配置私有化的 AI 服务。
 
-## 开发相关
+---
 
-**Q: 如何添加新的 AI 平台？**
+# 安全政策
 
-A: 
-1. 在 `lib/ai/` 创建新的 provider
-2. 实现 `AIProvider` 接口
-3. 在 factory 中注册
+## 报告安全漏洞
 
-参考现有 provider 实现。
+如果发现安全漏洞，请**不要**公开发布。
 
-**Q: 如何自定义编辑器块类型？**
+包含以下信息：
+- 漏洞描述
+- 影响范围
+- 复现步骤
+- 建议的修复方案
 
-A: 
-1. 在 `components/blocks/` 创建新组件
-2. 在 `NotionBlock.tsx` 添加渲染逻辑
-3. 更新 `BlockType` 类型定义
+我们会在 48 小时内回复。
+
+## 安全最佳实践
+
+### API 密钥管理
+
+- ✅ 使用环境变量存储 API 密钥
+- ✅ 不要将 `.env.local` 提交到 Git
+- ✅ 使用 `.env.example` 作为模板
+- ❌ 不要在代码中硬编码密钥
+
+### Docker 安全
+
+- ✅ 使用非 root 用户运行容器
+- ✅ 限制容器资源使用
+- ✅ 定期更新基础镜像
+- ❌ 不要使用 `--privileged` 标志
+
+### 生产部署
+
+- ✅ 使用 HTTPS
+- ✅ 启用 CORS 限制
+- ✅ 设置请求速率限制
+- ✅ 定期备份数据
 
 ---
 
@@ -914,7 +981,6 @@ SOFTWARE.
 - [Dify](https://dify.ai/) - AI 应用开发平台
 - [Tailwind CSS](https://tailwindcss.com/) - CSS 框架
 - [Lucide Icons](https://lucide.dev/) - 图标库
-- [AppFlowy](https://appflowy.io/) - 表格组件参考
 
 ---
 
@@ -924,8 +990,14 @@ SOFTWARE.
 
 Made with ❤️ by [yuyangzheng-git](https://github.com/yuyangzheng-git)
 
-[GitHub](https://github.com/yuyangzheng-git/Documenton-NewVersionWebTextAIGenerator) • 
-[Issues](https://github.com/yuyangzheng-git/Documenton-NewVersionWebTextAIGenerator/issues) • 
+[GitHub](https://github.com/yuyangzheng-git/Documenton-NewVersionWebTextAIGenerator) •
+[Issues](https://github.com/yuyangzheng-git/Documenton-NewVersionWebTextAIGenerator/issues) •
 [Pull Requests](https://github.com/yuyangzheng-git/Documenton-NewVersionWebTextAIGenerator/pulls)
 
 </div>
+
+---
+
+**版本**: v1.2.0
+**日期**: 2026-02-03
+**贡献者**: Claude Sonnet 4.5
