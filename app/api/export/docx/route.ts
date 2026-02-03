@@ -10,6 +10,7 @@ import {
   AlignmentType,
   Header,
   Footer,
+  ImageRun,
 } from 'docx';
 
 export async function POST(request: NextRequest) {
@@ -171,6 +172,39 @@ async function exportWithBuiltinTemplate(
               ],
               spacing: { after: 200 },
             });
+          } else if (block.type === 'image' && block.content) {
+            // 图片居中导出
+            let imageData: Buffer | null = null;
+            let imageExt = 'png';
+
+            if (block.content.startsWith('data:image/')) {
+              // Base64 图片
+              const base64Data = block.content.split(',')[1];
+              imageData = Buffer.from(base64Data, 'base64');
+              const mimeType = block.content.split(',')[0].split(';')[0].split('/')[1];
+              imageExt = mimeType === 'jpeg' ? 'jpg' : mimeType;
+            } else if (block.content.startsWith('http')) {
+              // URL 图片，需要获取
+              // 对于 URL 图片，使用占位符或跳过
+              return null;
+            }
+
+            if (imageData) {
+              return new Paragraph({
+                children: [
+                  new ImageRun({
+                    data: imageData,
+                    transformation: {
+                      width: 500,
+                      height: 300,
+                    },
+                    type: imageExt,
+                  }),
+                ],
+                alignment: AlignmentType.CENTER,
+                spacing: { before: 200, after: 200 },
+              });
+            }
           }
           return null;
         }).filter((block): block is any => block !== null),
