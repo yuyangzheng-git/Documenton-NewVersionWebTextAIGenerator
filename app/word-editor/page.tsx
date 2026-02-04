@@ -10,6 +10,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ChevronLeft, Download, Settings, Sparkles } from 'lucide-react';
 import { logger } from '@/lib/logger';
 import { extractTablesFromContent } from '@/lib/table-parser';
+import { clearDatabase } from '@/lib/db';
 
 export default function WordEditorPage() {
   const router = useRouter();
@@ -26,6 +27,41 @@ export default function WordEditorPage() {
 
   // 追踪正在生成的章节ID
   const [generatingIds, setGeneratingIds] = useState<Set<string>>(new Set());
+
+  // 离开页面时自动清空数据库
+  useEffect(() => {
+    const handleBeforeUnload = async () => {
+      // 使用 sendBeacon 发送同步请求来确保数据清除完成
+      // 同时本地清除 IndexedDB
+      try {
+        await clearDatabase();
+        logger.log('IndexedDB cleared on page unload');
+      } catch (error) {
+        logger.error('Failed to clear IndexedDB on unload:', error);
+      }
+    };
+
+    // 监听页面卸载事件
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    // 监听路由变化
+    const originalPush = router.push;
+    router.push = (href: string, options?: { scroll?: boolean }) => {
+      // 在导航前先清空数据库
+      clearDatabase().then(() => {
+        logger.log('IndexedDB cleared before navigation');
+      }).catch(err => {
+        logger.error('Failed to clear before navigation:', err);
+      });
+      return originalPush(href, options);
+    };
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      // 恢复原始 router.push
+      router.push = originalPush;
+    };
+  }, [router]);
 
   // Toast notification helper
   const showToast = (message: string, type: 'info' | 'success' | 'error' = 'info') => {

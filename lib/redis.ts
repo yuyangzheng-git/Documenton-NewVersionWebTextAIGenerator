@@ -31,12 +31,12 @@ export function getRedisClient(): Redis | null {
       lazyConnect: true,
     });
 
-    redisClient.on('error', (err) => {
-      console.error('Redis connection error:', err);
+    redisClient.on('error', () => {
+      // Silent fail for Redis connection errors
     });
 
     redisClient.on('connect', () => {
-      console.log('Redis connected');
+      // Redis connected silently
     });
   }
 

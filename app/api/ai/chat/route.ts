@@ -5,12 +5,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { message, history, appKey } = body;
 
-    console.log('=== AI Chat Debug ===');
-    console.log('Message:', message);
-    console.log('App Key:', appKey ? appKey.substring(0, 10) + '...' : '(empty)');
-    console.log('API URL:', process.env.NEXT_PUBLIC_DIFY_BASE_URL || 'http://your-dify-instance/v1');
-    console.log('=====================');
-
     const requestBody = {
       inputs: {},
       query: message,
@@ -25,8 +19,6 @@ export async function POST(request: NextRequest) {
       'userinput.files': [],
     };
 
-    console.log('Request body:', JSON.stringify(requestBody, null, 2));
-
     // 调用 Dify API (流式响应)
     const difyResponse = await fetch(`${process.env.NEXT_PUBLIC_DIFY_BASE_URL || 'http://your-dify-instance/v1'}/chat-messages`, {
       method: 'POST',
@@ -39,7 +31,6 @@ export async function POST(request: NextRequest) {
 
     if (!difyResponse.ok) {
       const errorText = await difyResponse.text();
-      console.error('Dify API error:', difyResponse.status, errorText);
       return new Response(JSON.stringify({ error: 'AI 服务请求失败' }), {
         status: difyResponse.status,
         headers: { 'Content-Type': 'application/json' },
@@ -79,7 +70,7 @@ export async function POST(request: NextRequest) {
                       accumulatedContent += answer;
                       controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content: answer, fullContent: accumulatedContent })}\n\n`));
                     }
-                  } catch (e) {
+                  } catch {
                     // 忽略解析错误
                   }
                 }
@@ -89,7 +80,6 @@ export async function POST(request: NextRequest) {
 
           controller.close();
         } catch (error) {
-          console.error('Stream error:', error);
           controller.error(error);
         }
       },
@@ -103,7 +93,6 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('AI chat API error:', error);
     return new Response(JSON.stringify({ error: '服务器内部错误' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },

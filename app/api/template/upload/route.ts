@@ -47,7 +47,6 @@ export async function POST(request: NextRequest) {
       message: 'Template uploaded successfully to local storage',
     });
   } catch (error) {
-    console.error('Template upload error:', error);
     return NextResponse.json(
       { error: 'Failed to upload template', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }

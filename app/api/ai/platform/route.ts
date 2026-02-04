@@ -37,15 +37,9 @@ export async function POST(request: NextRequest) {
         await provider.generateContent(
           rest,
           config,
-          (chunk) => {
-            // Streaming response handled separately
-          },
-          () => {
-            // onComplete
-          },
-          (error) => {
-            console.error('Error:', error);
-          }
+          () => {},
+          () => {},
+          () => {}
         );
         return NextResponse.json({ success: true });
 
@@ -53,15 +47,9 @@ export async function POST(request: NextRequest) {
         await provider.chat(
           rest.messages || [],
           config,
-          (chunk) => {
-            // Streaming response handled separately
-          },
-          () => {
-            // onComplete
-          },
-          (error) => {
-            console.error('Error:', error);
-          }
+          () => {},
+          () => {},
+          () => {}
         );
         return NextResponse.json({ success: true });
 
@@ -72,7 +60,6 @@ export async function POST(request: NextRequest) {
         );
     }
   } catch (error) {
-    console.error('AI Platform API error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }

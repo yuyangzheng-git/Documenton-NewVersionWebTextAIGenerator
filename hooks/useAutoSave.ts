@@ -38,9 +38,8 @@ export function useAutoSave(
         }));
 
         await saveBlocks(blocksData);
-        console.log('Auto-saved', blocks.length, 'blocks');
-      } catch (error) {
-        console.error('Auto-save failed:', error);
+      } catch {
+        // Silent fail for auto-save
       } finally {
         saveInProgressRef.current = false;
       }

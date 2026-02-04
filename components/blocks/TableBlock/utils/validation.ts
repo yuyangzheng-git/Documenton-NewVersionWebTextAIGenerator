@@ -52,8 +52,7 @@ export function validateTableData(data: any): TableBlockData {
 export function sanitizeTableData(data: any): TableBlockData {
   try {
     return validateTableData(data);
-  } catch (error) {
-    console.error('Invalid table data, creating default table:', error);
+  } catch {
     return createDefaultTable(3, 3);
   }
 }

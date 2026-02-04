@@ -13,7 +13,6 @@ export async function GET() {
       count: templates.length,
     });
   } catch (error) {
-    console.error('List templates error:', error);
     return NextResponse.json(
       { error: 'Failed to list templates', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }

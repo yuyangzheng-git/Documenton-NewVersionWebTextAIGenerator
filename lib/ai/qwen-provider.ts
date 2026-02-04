@@ -106,7 +106,6 @@ export class QwenProvider implements AIProvider {
 
       return result;
     } catch (error) {
-      console.error('Qwen outline generation error:', error);
       throw error;
     }
   }
@@ -225,7 +224,6 @@ ${requirements}
         }
       }
     } catch (error) {
-      console.error('Qwen content generation error:', error);
       onError?.(error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
@@ -332,7 +330,6 @@ ${requirements}
         }
       }
     } catch (error) {
-      console.error('Qwen chat error:', error);
       onError?.(error instanceof Error ? error : new Error(String(error)));
       throw error;
     }

@@ -175,14 +175,12 @@ export function applyFormatter(
 ): any {
   const formatter = formatters[formatterName];
   if (!formatter) {
-    console.warn(`Unknown formatter: ${formatterName}`);
     return value;
   }
 
   try {
     return (formatter as any)(value, ...args);
-  } catch (error) {
-    console.error(`Formatter ${formatterName} error:`, error);
+  } catch {
     return value;
   }
 }

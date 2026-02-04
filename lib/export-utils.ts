@@ -65,7 +65,6 @@ export async function exportToDocx(
 
     return doc;
   } catch (error) {
-    console.error('DOCX export error:', error);
     throw new Error('Failed to export DOCX. Please try again.');
   }
 }
@@ -89,8 +88,7 @@ export async function exportAndDownloadDocx(
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-  } catch (error) {
-    console.error('DOCX export error:', error);
+  } catch {
     alert('Failed to export DOCX. Please try again.');
   }
 }
@@ -247,7 +245,7 @@ function processElement(
               type: extension as 'png' | 'jpg' | 'gif' | 'bmp',
             });
           } else if (src.startsWith('http')) {
-            console.warn('URL images not yet supported in export');
+            // URL images not supported
             break;
           }
 
@@ -587,8 +585,7 @@ export async function exportToPdf(htmlContent: string, title: string) {
     }
 
     pdf.save(`${title.replace(/\s+/g, '_')}.pdf`);
-  } catch (error) {
-    console.error('PDF export error:', error);
+  } catch {
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
       alert('Please allow popups to export as PDF');

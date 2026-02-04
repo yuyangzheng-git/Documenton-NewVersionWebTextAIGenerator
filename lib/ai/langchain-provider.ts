@@ -99,7 +99,6 @@ export class LangChainProvider implements AIProvider {
 
       return result.outline;
     } catch (error) {
-      console.error('LangChain outline generation error:', error);
       throw error;
     }
   }
@@ -217,7 +216,6 @@ ${requirements}
         }
       }
     } catch (error) {
-      console.error('LangChain content generation error:', error);
       onError?.(error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
@@ -324,7 +322,6 @@ ${requirements}
         }
       }
     } catch (error) {
-      console.error('LangChain chat error:', error);
       onError?.(error instanceof Error ? error : new Error(String(error)));
       throw error;
     }

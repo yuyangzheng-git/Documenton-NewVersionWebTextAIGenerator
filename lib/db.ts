@@ -45,9 +45,7 @@ export async function saveBlocks(blocks: BlockData[]): Promise<void> {
       await db.blocks.clear();
       await db.blocks.bulkAdd(blocks);
     });
-    console.log('Blocks saved to IndexedDB:', blocks.length);
   } catch (error) {
-    console.error('Error saving blocks:', error);
     throw error;
   }
 }
@@ -56,10 +54,8 @@ export async function saveBlocks(blocks: BlockData[]): Promise<void> {
 export async function loadBlocks(): Promise<BlockData[]> {
   try {
     const blocks = await db.blocks.orderBy('order').toArray();
-    console.log('Blocks loaded from IndexedDB:', blocks.length);
     return blocks;
   } catch (error) {
-    console.error('Error loading blocks:', error);
     return [];
   }
 }
@@ -69,7 +65,7 @@ export async function saveMetadata(key: string, value: any): Promise<void> {
   try {
     await db.metadata.put({ key, value });
   } catch (error) {
-    console.error('Error saving metadata:', error);
+    // Silent fail for metadata
   }
 }
 
@@ -79,7 +75,6 @@ export async function loadMetadata<T>(key: string): Promise<T | undefined> {
     const result = await db.metadata.get(key);
     return result?.value;
   } catch (error) {
-    console.error('Error loading metadata:', error);
     return undefined;
   }
 }
@@ -91,9 +86,7 @@ export async function clearDatabase(): Promise<void> {
       await db.blocks.clear();
       await db.metadata.clear();
     });
-    console.log('Database cleared');
   } catch (error) {
-    console.error('Error clearing database:', error);
     throw error;
   }
 }

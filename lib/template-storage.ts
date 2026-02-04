@@ -23,8 +23,8 @@ export interface StoredTemplate {
 async function ensureTemplatesDir(): Promise<void> {
   try {
     await fs.mkdir(TEMPLATES_DIR, { recursive: true });
-  } catch (error) {
-    console.error('Failed to create templates directory:', error);
+  } catch {
+    // Silent fail for directory creation
   }
 }
 
@@ -64,8 +64,7 @@ export async function loadTemplate(templateId: string): Promise<Buffer | null> {
     const filePath = path.join(TEMPLATES_DIR, `${templateId}.docx`);
     const buffer = await fs.readFile(filePath);
     return buffer;
-  } catch (error) {
-    console.error('Failed to load template:', error);
+  } catch {
     return null;
   }
 }
@@ -78,8 +77,7 @@ export async function deleteTemplate(templateId: string): Promise<boolean> {
     const filePath = path.join(TEMPLATES_DIR, `${templateId}.docx`);
     await fs.unlink(filePath);
     return true;
-  } catch (error) {
-    console.error('Failed to delete template:', error);
+  } catch {
     return false;
   }
 }
@@ -113,8 +111,7 @@ export async function listTemplates(): Promise<StoredTemplate[]> {
     return templates.sort((a, b) =>
       new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime()
     );
-  } catch (error) {
-    console.error('Failed to list templates:', error);
+  } catch {
     return [];
   }
 }
@@ -146,8 +143,7 @@ export async function cleanupOldTemplates(daysOld: number = 30): Promise<number>
     }
 
     return deletedCount;
-  } catch (error) {
-    console.error('Failed to cleanup old templates:', error);
+  } catch {
     return 0;
   }
 }

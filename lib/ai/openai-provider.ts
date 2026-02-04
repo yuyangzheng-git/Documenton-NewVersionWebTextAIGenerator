@@ -103,7 +103,6 @@ export class OpenAIProvider implements AIProvider {
 
       return result.outline;
     } catch (error) {
-      console.error('OpenAI outline generation error:', error);
       throw error;
     }
   }
@@ -222,7 +221,6 @@ ${requirements}
         }
       }
     } catch (error) {
-      console.error('OpenAI content generation error:', error);
       onError?.(error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
@@ -329,7 +327,6 @@ ${requirements}
         }
       }
     } catch (error) {
-      console.error('OpenAI chat error:', error);
       onError?.(error instanceof Error ? error : new Error(String(error)));
       throw error;
     }

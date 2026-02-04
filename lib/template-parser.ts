@@ -76,7 +76,6 @@ export function renderTemplate(
 
     return buffer;
   } catch (error) {
-    console.error('Template render error:', error);
     throw new Error(`Failed to render template: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 }
@@ -155,8 +154,7 @@ export function extractTemplatePlaceholders(templateBuffer: Buffer): string[] {
     });
 
     return Array.from(uniquePlaceholders);
-  } catch (error) {
-    console.error('Extract placeholders error:', error);
+  } catch {
     return [];
   }
 }

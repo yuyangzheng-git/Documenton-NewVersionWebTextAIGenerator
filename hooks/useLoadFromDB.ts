@@ -38,11 +38,8 @@ export function useLoadFromDB(enabled: boolean = true) {
           documentTitle: title,
           documentTopic: topic,
         });
-
-        console.log('Loaded', notionBlocks.length, 'blocks from IndexedDB');
-      } catch (err) {
-        console.error('Error loading from DB:', err);
-        setError(err instanceof Error ? err : new Error('Failed to load'));
+      } catch {
+        setError(new Error('Failed to load'));
       } finally {
         setLoading(false);
       }

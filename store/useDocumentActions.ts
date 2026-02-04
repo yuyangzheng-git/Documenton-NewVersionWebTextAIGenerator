@@ -1,40 +1,38 @@
-import { generateOutlineWithPlanner as generateDifyOutline, DifyOutlineItem } from '@/lib/dify-api';
-import { createAIProvider } from '@/lib/ai/provider-factory';
 import { useStore } from './useStore';
 import { OutlineItem } from './useStore';
 
 export const generateOutline = async (prompt: string) => {
   try {
-    console.log('[generateOutline] Starting with prompt:', prompt);
     const state = useStore.getState();
     const { aiPlatform } = state;
-    console.log('[generateOutline] AI Platform:', aiPlatform);
 
     if (aiPlatform === 'dify') {
-      const apiKey = state.apiKey;
-      if (!apiKey) {
-        throw new Error('Please set your Dify API key');
+      // 调用后端代理 API
+      const response = await fetch('/api/ai/outline', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic: prompt }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to generate outline');
       }
 
-      console.log('[generateOutline] Calling generateDifyOutline...');
-      const outline = await generateDifyOutline(apiKey, prompt);
-      console.log('[generateOutline] generateDifyOutline returned:', { count: outline.length });
+      const data = await response.json();
+      const outline = data.outline;
 
       // Deduplicate outline items by id to avoid React key conflicts
       const seenIds = new Set<string>();
-      const deduplicatedOutline: DifyOutlineItem[] = [];
-      outline.forEach((item) => {
+      const deduplicatedOutline: typeof outline = [];
+      outline.forEach((item: any) => {
         if (!seenIds.has(item.id)) {
           seenIds.add(item.id);
           deduplicatedOutline.push(item);
-        } else {
-          console.warn('Removing duplicate outline item from API response:', item.id, item.title);
         }
       });
-      console.log('[generateOutline] After dedup:', { count: deduplicatedOutline.length });
 
-      const outlineWithStatus: OutlineItem[] = deduplicatedOutline.map((item: DifyOutlineItem) => {
-        // Parse level as number and ensure it's 1, 2, or 3
+      const outlineWithStatus: OutlineItem[] = deduplicatedOutline.map((item: any) => {
         const parsedLevel = parseInt(String(item.level), 10);
         const level = (parsedLevel === 1 || parsedLevel === 2 || parsedLevel === 3) ? parsedLevel : 1;
 
@@ -46,13 +44,8 @@ export const generateOutline = async (prompt: string) => {
           requirements: item.requirements,
         };
       });
-      console.log('[generateOutline] After mapping to OutlineItem:', { count: outlineWithStatus.length, items: outlineWithStatus.slice(0, 3) });
 
-      console.log('[generateOutline] Calling setOutline...');
       useStore.getState().setOutline(outlineWithStatus);
-      console.log('[generateOutline] After setOutline, checking state...');
-      const updatedState = useStore.getState();
-      console.log('[generateOutline] Updated outline in store:', { count: updatedState.outline.length });
 
       return outlineWithStatus;
     } else {
@@ -99,7 +92,6 @@ export const generateOutline = async (prompt: string) => {
       const provider = createAIProvider(aiPlatform, config.baseUrl);
       const outline = await provider.generateOutline({ prompt }, config);
 
-      // Convert to OutlineItem format
       const outlineWithStatus: OutlineItem[] = outline.map((item: any) => ({
         id: item.id,
         title: item.title,
@@ -112,7 +104,6 @@ export const generateOutline = async (prompt: string) => {
       return outlineWithStatus;
     }
   } catch (error) {
-    console.error('Error generating outline:', error);
     throw error;
   }
 };
@@ -126,13 +117,65 @@ export const generateContent = async (
   const { aiPlatform } = state;
 
   if (aiPlatform === 'dify') {
-    const { generateSectionWithWorker } = await import('@/lib/dify-api');
-    const apiKey = state.chapterApiKey; // Use chapterApiKey for content generation, NOT apiKey (outline key)
     const documentTitle = state.documentTitle;
     const outline = state.outline;
     const fullOutline = outline.map((block) => `${'  '.repeat(block.level - 1)}- ${block.title}`).join('\n');
 
-    await generateSectionWithWorker(apiKey, item.title, documentTitle, fullOutline, onChunk, onComplete, item.requirements);
+    // 调用后端代理 API (流式)
+    const response = await fetch('/api/ai/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sectionTitle: item.title,
+        documentTopic: documentTitle,
+        fullOutline,
+        requirements: item.requirements,
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to generate content');
+    }
+
+    // 处理流式响应
+    const reader = response.body?.getReader();
+    const decoder = new TextDecoder();
+
+    if (!reader) {
+      throw new Error('Failed to read response stream');
+    }
+
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6).trim();
+
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.text) {
+              onChunk(parsed.text);
+            } else if (parsed.event === 'done') {
+              onComplete();
+              return;
+            }
+          } catch {
+            // 忽略解析错误
+          }
+        }
+      }
+    }
+
+    onComplete();
   } else {
     // Use unified AI Provider for other platforms
     let config: any;

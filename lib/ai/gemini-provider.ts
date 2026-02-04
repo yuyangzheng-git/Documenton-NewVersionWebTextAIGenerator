@@ -117,7 +117,6 @@ export class GeminiProvider implements AIProvider {
 
       return result;
     } catch (error) {
-      console.error('Gemini outline generation error:', error);
       throw error;
     }
   }
@@ -237,7 +236,6 @@ ${requirements}
         }
       }
     } catch (error) {
-      console.error('Gemini content generation error:', error);
       onError?.(error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
@@ -349,7 +347,6 @@ ${requirements}
         }
       }
     } catch (error) {
-      console.error('Gemini chat error:', error);
       onError?.(error instanceof Error ? error : new Error(String(error)));
       throw error;
     }

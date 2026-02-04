@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Packer, TextRun } from 'docx';
+import { Packer, TextRun, ImageRun } from 'docx';
 import { WORD_TEMPLATES } from '@/lib/word-templates';
 import { renderTemplate } from '@/lib/template-parser';
 import { loadTemplate } from '@/lib/template-storage';
+import { logger } from '@/lib/logger';
 import {
   Document,
   Paragraph,
@@ -10,7 +11,6 @@ import {
   AlignmentType,
   Header,
   Footer,
-  ImageRun,
 } from 'docx';
 
 export async function POST(request: NextRequest) {
@@ -18,19 +18,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { outline, blocks, documentTitle, templateId, customTemplateId, usePandoc } = body;
 
-    console.log('Export request:', {
-      hasBlocks: !!blocks,
-      blockCount: blocks?.length,
-      hasOutline: !!outline,
-      outlineCount: outline?.length,
-      documentTitle,
-      templateId,
-      customTemplateId,
-      usePandoc,
-    });
-
     if (!blocks || blocks.length === 0) {
-      console.error('No blocks to export');
       return NextResponse.json(
         { error: 'No content to export' },
         { status: 400 }
@@ -41,19 +29,14 @@ export async function POST(request: NextRequest) {
 
     // 优先使用 Pandoc 方案（亚信模板）
     if (usePandoc) {
-      console.log('Using Pandoc export with AsiaInfo template');
       buffer = await exportWithPandoc(blocks, outline, documentTitle);
     } else if (customTemplateId) {
-      console.log('Using custom template:', customTemplateId);
       // 使用上传的自定义模板
       buffer = await exportWithLocalTemplate(blocks, outline, documentTitle, customTemplateId);
     } else {
-      console.log('Using builtin template:', templateId);
       // 使用内置模板(使用本地模板文件)
       buffer = await exportWithBuiltinTemplate(blocks, outline, documentTitle, templateId);
     }
-
-    console.log('Export successful, buffer size:', buffer.length);
 
     // 返回为 blob
     const fileName = (documentTitle || 'document').replace(/\s+/g, '_');
@@ -64,7 +47,7 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Export error:', error);
+    logger.error('Export error:', error);
     return NextResponse.json(
       { error: 'Failed to export document', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
@@ -591,8 +574,6 @@ async function exportWithPandoc(
     }
   }
 
-  console.log('[Pandoc] Document title for cover:', documentTitle);
-
   // 3. 构建 HTML - 使用中文文档标准格式
   // 注意：不添加 HTML 封面页，因为模板自带封面页
   // Pandoc 会根据 h1/h2/h3 标签自动应用模板中的 Heading 1/2/3 样式
@@ -668,18 +649,13 @@ ${html}
 
   await writeFile(tmpInput, fullHtml, 'utf-8');
 
-  console.log('[Pandoc] Temp input file:', tmpInput);
-  console.log('[Pandoc] Temp output file:', tmpOutput);
-
   try {
     // 5. 获取模板路径
     const templatePath = join(process.cwd(), 'public', 'templates', 'asiainfo-template.docx');
-    console.log('[Pandoc] Template path:', templatePath);
 
     // 6. 调用 Python CLI
     await new Promise<void>((resolve, reject) => {
       const cliPath = join(process.cwd(), 'cli.py');
-      console.log('[Pandoc] CLI path:', cliPath);
 
       const python = spawn('python3', [
         cliPath,
@@ -697,40 +673,33 @@ ${html}
 
       python.stdout.on('data', (data) => {
         stdout += data.toString();
-        console.log('[Pandoc stdout]', data.toString().trim());
+        logger.debug('[Pandoc stdout]', data.toString().trim());
       });
 
       python.stderr.on('data', (data) => {
         stderr += data.toString();
-        console.error('[Pandoc stderr]', data.toString().trim());
+        logger.error('[Pandoc stderr]', data.toString().trim());
       });
 
       python.on('close', (code) => {
         if (code === 0) {
-          console.log('[Pandoc] Conversion successful');
           resolve();
         } else {
-          console.error('[Pandoc] Conversion failed with code:', code);
-          console.error('[Pandoc] stdout:', stdout);
-          console.error('[Pandoc] stderr:', stderr);
           reject(new Error(`Pandoc process failed with code ${code}: ${stderr}`));
         }
       });
 
       python.on('error', (err) => {
-        console.error('[Pandoc] Process error:', err);
         reject(new Error(`Failed to spawn Python process: ${err.message}`));
       });
     });
 
     // 7. 读取输出文件
     const buffer = await readFile(tmpOutput);
-    console.log('[Pandoc] Output buffer size:', buffer.length);
 
     // 8. 清理临时文件
     await unlink(tmpInput);
     await unlink(tmpOutput);
-    console.log('[Pandoc] Cleaned up temp files');
 
     return buffer;
   } catch (error) {
@@ -739,7 +708,7 @@ ${html}
       await unlink(tmpInput);
       await unlink(tmpOutput);
     } catch (cleanupError) {
-      console.error('[Pandoc] Cleanup error:', cleanupError);
+      logger.error('[Pandoc] Cleanup error:', cleanupError);
     }
 
     throw error;

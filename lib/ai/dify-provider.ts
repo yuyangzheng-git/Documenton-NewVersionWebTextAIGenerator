@@ -139,7 +139,6 @@ export class DifyProvider implements AIProvider {
         }
       }
     } catch (error) {
-      console.error('Dify chat error:', error);
       onError?.(error instanceof Error ? error : new Error(String(error)));
       throw error;
     }

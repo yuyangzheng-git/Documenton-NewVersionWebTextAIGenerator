@@ -179,13 +179,6 @@ export async function generateOutlineWithPlanner(
   try {
     const baseUrl = getDifyApiBaseUrl();
 
-    console.log('=== Dify Planner API Debug Info ===');
-    console.log('Base URL:', baseUrl);
-    console.log('API Key:', apiKey ? `${apiKey.substring(0, 10)}...` : 'NOT SET');
-    console.log('Topic:', topic);
-    console.log('Style:', style);
-    console.log('=====================================');
-
     if (!apiKey || apiKey === 'app-xxxxxxxxxxxxxxxxxxx') {
       throw new Error('Invalid API Key. Please check your Dify API Key configuration.');
     }
@@ -208,8 +201,6 @@ export async function generateOutlineWithPlanner(
       body.inputs.files = files;
     }
 
-    console.log('Request body:', JSON.stringify(body, null, 2));
-
     const response = await fetch(`${baseUrl}/workflows/run`, {
       method: 'POST',
       headers: {
@@ -219,17 +210,12 @@ export async function generateOutlineWithPlanner(
       body: JSON.stringify(body),
     });
 
-    console.log('Response status:', response.status, response.statusText);
-
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('API Error Response:', errorText);
       throw new Error(`Planner API error: ${response.status} - ${errorText}`);
     }
 
     const result = await response.json();
-
-    console.log('API Response:', JSON.stringify(result, null, 2));
 
     // Parse the LLM output text as JSON
     // Support multiple possible output field names
@@ -240,11 +226,8 @@ export async function generateOutlineWithPlanner(
                       result.data?.outputs?.result ||
                       '';
 
-    console.log('Output text:', outputText);
-
     // Check if outputText is empty
     if (!outputText) {
-      console.error('Available output keys:', result.data?.outputs ? Object.keys(result.data.outputs) : 'no outputs object');
       throw new Error('API returned empty output. Please check your Dify workflow configuration.');
     }
 
@@ -262,20 +245,17 @@ export async function generateOutlineWithPlanner(
           const value = possibleObj[key];
           if (Array.isArray(value)) {
             jsonStr = JSON.stringify(value);
-            console.log('Found array field in output:', key, 'with', value.length, 'items');
             break;
           }
           // Also check if value is a string that looks like a JSON array
           if (typeof value === 'string' && value.trim().startsWith('[')) {
             jsonStr = value;
-            console.log('Found JSON array string in field:', key);
             break;
           }
         }
       }
-    } catch (e) {
+    } catch {
       // Not a JSON object, continue with original text extraction
-      console.log('Output is not a JSON object, will extract array from text');
     }
 
     // Try to find a well-formed JSON array in the text
@@ -327,7 +307,6 @@ export async function generateOutlineWithPlanner(
         current.length > longest.length ? current : longest
       );
       jsonStr = longestMatch;
-      console.log('Found JSON array in text with', jsonStr.length, 'characters');
     } else {
       // If no JSON array found, try to clean up the text
       jsonStr = jsonStr
@@ -336,15 +315,11 @@ export async function generateOutlineWithPlanner(
         .trim();
     }
 
-    console.log('Final JSON to parse:', jsonStr.substring(0, 300) + '...');
-
     // Parse JSON
     let outline;
     try {
       outline = JSON.parse(jsonStr);
     } catch (parseError) {
-      console.error('JSON parse error:', parseError);
-      console.error('Failed to parse:', jsonStr.substring(0, 500));
       throw new Error(`Failed to parse outline as JSON. Error: ${parseError}`);
     }
 
@@ -355,7 +330,6 @@ export async function generateOutlineWithPlanner(
 
     return outline;
   } catch (error) {
-    console.error('Planner API error:', error);
     throw error;
   }
 }
@@ -387,12 +361,6 @@ export async function generateSectionWithWorker(
   try {
     const baseUrl = getDifyApiBaseUrl();
 
-    console.log('=== Chapter Generation Debug ===');
-    console.log('Section Title:', sectionTitle);
-    console.log('Document Topic:', documentTopic);
-    console.log('Requirements:', requirements || '(none)');
-    console.log('===============================');
-
     // Build context summary from chapter information
     // Use short document topic as context_summary (max 48 chars)
     const shortContext = documentTopic ? documentTopic.substring(0, 45) : sectionTitle.substring(0, 45);
@@ -406,9 +374,6 @@ export async function generateSectionWithWorker(
       user: 'user-' + Date.now(),
     };
 
-    console.log('Generating section with API key:', apiKey);
-    console.log('Request body:', JSON.stringify(body, null, 2));
-
     const response = await fetch(`${baseUrl}/workflows/run`, {
       method: 'POST',
       headers: {
@@ -420,7 +385,6 @@ export async function generateSectionWithWorker(
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Worker API error details:', errorText);
       throw new Error(`Worker API error: ${response.status} ${response.statusText} - ${errorText}`);
     }
 
@@ -465,15 +429,9 @@ export async function generateSectionWithWorker(
               taskId = parsed.task_id;
               onComplete();
               return;
-            } else if (parsed.event === 'node_finished') {
-              // Node finished - could be used to track progress
-              console.log('Node finished:', parsed.data?.title || 'unknown');
-            } else if (parsed.event === 'workflow_started') {
-              taskId = parsed.task_id;
-              console.log('Workflow started:', taskId);
             }
-          } catch (e) {
-            console.error('Failed to parse SSE data:', e, 'Line:', data);
+          } catch {
+            // Skip invalid JSON
           }
         }
       }
@@ -481,7 +439,6 @@ export async function generateSectionWithWorker(
 
     onComplete();
   } catch (error) {
-    console.error('Worker API error:', error);
     if (onError) {
       onError(error instanceof Error ? error : new Error('Unknown error'));
     }
@@ -503,10 +460,6 @@ export async function validateDifyWorkflowKey(apiKey: string): Promise<boolean> 
       throw new Error('Invalid API Key');
     }
 
-    console.log('Validating API connection...');
-    console.log('URL:', baseUrl);
-    console.log('Key:', apiKey.substring(0, 10) + '...');
-
     // Use /info endpoint to validate API key
     const response = await fetch(`${baseUrl}/info`, {
       method: 'GET',
@@ -515,16 +468,8 @@ export async function validateDifyWorkflowKey(apiKey: string): Promise<boolean> 
       },
     });
 
-    console.log('Validation response status:', response.status);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Validation error:', errorText);
-    }
-
     return response.ok;
-  } catch (error) {
-    console.error('Validation error:', error);
+  } catch {
     throw error;
   }
 }
@@ -548,7 +493,6 @@ export async function getDifyAppInfo(apiKey: string) {
 
     return response.json();
   } catch (error) {
-    console.error('Get app info error:', error);
     throw error;
   }
 }
@@ -600,7 +544,6 @@ export async function getWorkflowExecution(
 
     return response.json();
   } catch (error) {
-    console.error('Get workflow execution error:', error);
     throw error;
   }
 }
@@ -618,7 +561,6 @@ export async function generateContentWithDify(
 ) {
   // This function is legacy and should not be used with Workflow apps
   // Use generateSectionWithWorker instead
-  console.warn('generateContentWithDify is legacy, use generateSectionWithWorker instead');
 
   try {
     const baseUrl = getDifyApiBaseUrl();
@@ -680,8 +622,8 @@ export async function generateContentWithDify(
               onComplete();
               return;
             }
-          } catch (e) {
-            console.error('Failed to parse SSE data:', e);
+          } catch {
+            // Skip invalid JSON
           }
         }
       }
@@ -689,7 +631,6 @@ export async function generateContentWithDify(
 
     onComplete();
   } catch (error) {
-    console.error('Dify API error:', error);
     if (onError) {
       onError(error instanceof Error ? error : new Error('Unknown error'));
     }
@@ -715,7 +656,6 @@ export async function getDifyAppParameters(apiKey: string) {
 
     return response.json();
   } catch (error) {
-    console.error('Get parameters error:', error);
     throw error;
   }
 }
@@ -739,7 +679,6 @@ export async function getDifyWebAppSettings(apiKey: string) {
 
     return response.json();
   } catch (error) {
-    console.error('Get WebApp settings error:', error);
     throw error;
   }
 }

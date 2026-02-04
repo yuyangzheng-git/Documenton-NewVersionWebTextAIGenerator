@@ -50,23 +50,16 @@ def main():
         with open(args.input, 'r', encoding='utf-8') as f:
             html_content = f.read()
 
-        print(f"[CLI] Starting conversion...")
-        print(f"[CLI] Input: {args.input}")
-        print(f"[CLI] Output: {args.output}")
-        print(f"[CLI] Template: {args.template}")
-        print(f"[CLI] Title: {args.title or '(auto-generated)'}")
-
         # 创建生成器实例
         generator = DocumentGenerator(template_path=args.template)
 
         # 转换
-        output_path = generator.html_to_docx(
+        generator.html_to_docx(
             html_content=html_content,
             output_path=args.output,
             document_title=args.title
         )
 
-        print(f"[CLI] Conversion successful: {output_path}")
         sys.exit(0)
 
     except Exception as e:

@@ -143,8 +143,6 @@ function generateNumbers(items: OutlineItem[]): OutlineItem[] {
     if (!seenIds.has(item.id)) {
       seenIds.add(item.id);
       uniqueItems.push(item);
-    } else {
-      console.warn('Removing duplicate outline item:', item.id, item.title);
     }
   });
 
