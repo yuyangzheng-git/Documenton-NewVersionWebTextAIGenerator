@@ -469,7 +469,7 @@ export async function validateDifyWorkflowKey(apiKey: string): Promise<boolean> 
     });
 
     return response.ok;
-  } catch {
+  } catch (error) {
     throw error;
   }
 }

@@ -69,6 +69,8 @@ export function parseMarkdownTable(tableString: string): TableBlockData | null {
   const rows = [headerRow, ...dataRowObjects];
 
   return {
+    id: uuidv4(),
+    type: 'table' as const,
     columns,
     rows,
     enableHeaderRow: true,

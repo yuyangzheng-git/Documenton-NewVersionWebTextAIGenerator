@@ -1,5 +1,6 @@
-# 完全 Docker 化部署配置
-# 所有服务都在 Docker 容器中运行
+# 服务器生产环境部署配置
+# 适用于：将项目部署到Dify所在的同一台服务器
+# 服务器IP: 10.23.22.37
 
 services:
   # 主应用
@@ -8,7 +9,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        NEXT_PUBLIC_DIFY_BASE_URL: http://10.23.22.37/v1
+        NEXT_PUBLIC_DIFY_BASE_URL: http://host.docker.internal/v1
         NEXT_PUBLIC_DIFY_OUTLINE_KEY: app-yIhd9xD2SHZ6e9BNTYSWEfYD
         NEXT_PUBLIC_DIFY_CHAPTER_KEY: app-wqO8BTPC99CwAGFDabEze6Uz
         NEXT_PUBLIC_DIFY_LLM_KEY: app-ThlXmch2AjSRdv6kuvacb4bM
@@ -22,6 +23,9 @@ services:
       - CACHE_ENABLED=1
     env_file:
       - .env.local
+    # 关键配置：允许容器访问宿主机服务
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./store:/app/store
       - ./public/templates:/app/public/templates

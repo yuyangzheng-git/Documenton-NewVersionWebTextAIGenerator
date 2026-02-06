@@ -1,50 +1,63 @@
-# 完全 Docker 化部署配置
-# 所有服务都在 Docker 容器中运行
+# 热重载开发环境配置
+# 支持代码实时修改和自动刷新
 
 services:
-  # 主应用
+  # 主应用 - 开发模式（支持热重载）
   app:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
       args:
         NEXT_PUBLIC_DIFY_BASE_URL: http://10.23.22.37/v1
         NEXT_PUBLIC_DIFY_OUTLINE_KEY: app-yIhd9xD2SHZ6e9BNTYSWEfYD
         NEXT_PUBLIC_DIFY_CHAPTER_KEY: app-wqO8BTPC99CwAGFDabEze6Uz
         NEXT_PUBLIC_DIFY_LLM_KEY: app-ThlXmch2AjSRdv6kuvacb4bM
-    container_name: ai-document-generator
+    container_name: ai-document-generator-dev
     ports:
-      - "3001:3000"
+      - "3000:3000"
     environment:
-      - NODE_ENV=production
+      - NODE_ENV=development
       - NEXT_TELEMETRY_DISABLED=1
       - REDIS_URL=redis://redis:6379
       - CACHE_ENABLED=1
+      - WATCHPACK_POLLING=true
+      - CHOKIDAR_USEPOLLING=true
     env_file:
       - .env.local
     volumes:
+      # 挂载源代码（支持热重载）
+      - ./app:/app/app
+      - ./components:/app/components
+      - ./lib:/app/lib
+      - ./store:/app/store
+      - ./public:/app/public
+      - ./styles:/app/styles
+      - ./types:/app/types
+      # 挂载配置文件
+      - ./next.config.ts:/app/next.config.ts
+      - ./tsconfig.json:/app/tsconfig.json
+      - ./tailwind.config.ts:/app/tailwind.config.ts
+      # 挂载数据目录
       - ./store:/app/store
       - ./public/templates:/app/public/templates
+      # node_modules 使用命名卷（避免主机/容器权限问题）
+      - node_modules:/app/node_modules
+      - .next:/app/.next
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:3000/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
     depends_on:
       - redis
     networks:
-      - ai-doc-network
+      - ai-doc-hotreload-network
+    command: npm run dev
 
   # Redis 缓存服务
   redis:
     image: redis:7-alpine
-    container_name: ai-doc-redis
+    container_name: ai-doc-redis-dev
     ports:
       - "6379:6379"
     volumes:
-      - redis-data:/data
+      - redis-hotreload-data:/data
     restart: unless-stopped
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     healthcheck:
@@ -53,12 +66,12 @@ services:
       timeout: 10s
       retries: 3
     networks:
-      - ai-doc-network
+      - ai-doc-hotreload-network
 
-  # 可选: Redis Commander - Redis 可视化管理工具
+  # Redis Commander - Redis 可视化管理工具
   redis-commander:
     image: rediscommander/redis-commander:latest
-    container_name: ai-doc-redis-commander
+    container_name: ai-doc-redis-commander-dev
     ports:
       - "8081:8081"
     environment:
@@ -67,16 +80,16 @@ services:
     depends_on:
       - redis
     networks:
-      - ai-doc-network
+      - ai-doc-hotreload-network
 
 volumes:
-  redis-data:
+  redis-hotreload-data:
     driver: local
-  store:
+  node_modules:
     driver: local
-  templates:
+  .next:
     driver: local
 
 networks:
-  ai-doc-network:
+  ai-doc-hotreload-network:
     driver: bridge

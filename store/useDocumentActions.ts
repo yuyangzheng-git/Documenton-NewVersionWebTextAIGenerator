@@ -1,5 +1,6 @@
 import { useStore } from './useStore';
 import { OutlineItem } from './useStore';
+import { createAIProvider } from '@/lib/ai/provider-factory';
 
 export const generateOutline = async (prompt: string) => {
   try {

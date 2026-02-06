@@ -558,8 +558,8 @@ export default function Home() {
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: 'rgba(255, 255, 255, 0.9)',
-            backdropFilter: 'blur(8px)',
+            backgroundColor: 'rgba(255, 255, 255, 0.98)',
+            backdropFilter: 'blur(12px)',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
@@ -568,26 +568,42 @@ export default function Home() {
             animation: 'fadeIn 0.3s ease-in-out'
           }}
         >
-          <Loader2 className="animate-spin" style={{ width: '64px', height: '64px', color: '#2383E2', marginBottom: '24px' }} />
-          <h2
-            style={{
-              fontSize: '24px',
-              fontWeight: 600,
-              color: 'rgba(55, 53, 47, 0.9)',
-              margin: '0 0 12px 0'
-            }}
-          >
-            正在为您生成文档大纲...
-          </h2>
-          <p
-            style={{
-              fontSize: '16px',
-              color: 'rgba(55, 53, 47, 0.6)',
-              margin: 0
-            }}
-          >
-            AI 正在分析您的需求，这可能需要一点时间
-          </p>
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '24px',
+            padding: '48px',
+            borderRadius: '24px',
+            backgroundColor: 'white',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.08)',
+            maxWidth: '480px',
+            textAlign: 'center'
+          }}>
+            <Loader2 className="animate-spin" style={{ width: '64px', height: '64px', color: '#2383E2' }} />
+            <div>
+              <h2
+                style={{
+                  fontSize: '24px',
+                  fontWeight: 600,
+                  color: 'rgba(55, 53, 47, 0.9)',
+                  margin: '0 0 12px 0'
+                }}
+              >
+                正在为您生成文档大纲...
+              </h2>
+              <p
+                style={{
+                  fontSize: '16px',
+                  color: 'rgba(55, 53, 47, 0.6)',
+                  margin: 0,
+                  lineHeight: '1.6'
+                }}
+              >
+                AI 正在分析您的需求，这可能需要一点时间
+              </p>
+            </div>
+          </div>
         </div>
       )}
 

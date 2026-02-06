@@ -1,17 +1,28 @@
 # Multi-stage build for AI Document Generator
+# 使用国内镜像源加速构建
 
 # Stage 1: Dependencies
 FROM node:20-alpine AS deps
 WORKDIR /app
 
+# 使用阿里云镜像源
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
+
 # Install system dependencies needed for native modules
 RUN apk add --no-cache libc6-compat
 
-# Copy package files
-COPY package.json package-lock.json* ./
+# 配置 npm 使用淘宝镜像
+RUN npm config set registry https://registry.npmmirror.com
 
-# Install dependencies
-RUN npm ci --legacy-peer-deps
+# 升级 npm 到最新版本（支持 lockfileVersion 3）
+RUN npm install -g npm@latest
+
+# Copy package files
+COPY package.json ./
+COPY package-lock.json ./
+
+# Install dependencies (使用 install 而不是 ci，更宽容)
+RUN npm install --legacy-peer-deps
 
 # Stage 2: Builder
 FROM node:20-alpine AS builder
@@ -25,6 +36,12 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 
+# Set Dify configuration (embedded at build time)
+ENV NEXT_PUBLIC_DIFY_BASE_URL=http://10.23.22.37/v1
+ENV NEXT_PUBLIC_DIFY_OUTLINE_KEY=app-yIhd9xD2SHZ6e9BNTYSWEfYD
+ENV NEXT_PUBLIC_DIFY_CHAPTER_KEY=app-wqO8BTPC99CwAGFDabEze6Uz
+ENV NEXT_PUBLIC_DIFY_LLM_KEY=app-ThlXmch2AjSRdv6kuvacb4bM
+
 # Build the application
 RUN npm run build
 
@@ -32,8 +49,11 @@ RUN npm run build
 FROM node:20-alpine AS runner
 WORKDIR /app
 
-# Install Pandoc, Python3, and Redis CLI for document export and debugging
-RUN apk add --no-cache pandoc python3 redis-cli
+# 使用阿里云镜像源
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
+
+# Install Pandoc, Python3, and Redis (redis-cli 包含在 redis 包中)
+RUN apk add --no-cache pandoc python3 redis
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1

@@ -26,7 +26,6 @@ export function getRedisClient(): Redis | null {
   if (!redisClient) {
     redisClient = new Redis(getRedisUrl(), {
       maxRetriesPerRequest: 3,
-      retryDelayOnFailover: 100,
       enableReadyCheck: true,
       lazyConnect: true,
     });
@@ -140,7 +139,8 @@ export const cache = {
   async sismember(key: string, member: string): Promise<boolean> {
     const client = getRedisClient();
     if (!client) return false;
-    return await client.sismember(key, member);
+    const result = await client.sismember(key, member);
+    return result === 1;
   },
 
   // Set expiration (seconds)

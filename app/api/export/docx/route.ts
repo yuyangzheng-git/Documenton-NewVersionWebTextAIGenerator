@@ -158,14 +158,14 @@ async function exportWithBuiltinTemplate(
           } else if (block.type === 'image' && block.content) {
             // 图片居中导出
             let imageData: Buffer | null = null;
-            let imageExt = 'png';
+            let imageExt: 'jpg' | 'png' | 'gif' | 'bmp' | 'svg' = 'png';
 
             if (block.content.startsWith('data:image/')) {
               // Base64 图片
               const base64Data = block.content.split(',')[1];
               imageData = Buffer.from(base64Data, 'base64');
               const mimeType = block.content.split(',')[0].split(';')[0].split('/')[1];
-              imageExt = mimeType === 'jpeg' ? 'jpg' : mimeType;
+              imageExt = (mimeType === 'jpeg' ? 'jpg' : mimeType) as 'jpg' | 'png' | 'gif' | 'bmp' | 'svg';
             } else if (block.content.startsWith('http')) {
               // URL 图片，需要获取
               // 对于 URL 图片，使用占位符或跳过
@@ -181,7 +181,7 @@ async function exportWithBuiltinTemplate(
                       width: 500,
                       height: 300,
                     },
-                    type: imageExt,
+                    type: imageExt as any, // 类型断言以避免 SVG fallback 要求
                   }),
                 ],
                 alignment: AlignmentType.CENTER,
@@ -657,7 +657,10 @@ ${html}
     await new Promise<void>((resolve, reject) => {
       const cliPath = join(process.cwd(), 'cli.py');
 
-      const python = spawn('python3', [
+      // 优先使用环境变量指定的 Python 路径，否则使用 python3
+      const pythonCmd = process.env.PYTHON_PATH || 'python3';
+
+      const python = spawn(pythonCmd, [
         cliPath,
         '--input', tmpInput,
         '--output', tmpOutput,

@@ -1478,9 +1478,9 @@ export function NotionBlock({ block, editable = true, onUpdate, onDelete, onAdd,
             ref={editorRef as any}
             value={editContent}
             onChange={(e) => setEditContent(e.target.value)}
-            onBlur={(e) => {
+            onBlur={() => {
               setIsEditing(false);
-              handleBlur(e);
+              handleBlur();
             }}
             onKeyDown={handleKeyDown}
             style={{ ...baseStyle, width: '100%', resize: 'none', overflow: 'hidden', height: 'auto', whiteSpace: 'pre-wrap', wordWrap: 'break-word', marginTop: '2px' }}

@@ -1,204 +1,132 @@
 #!/bin/bash
 
-# AI Document Generator - 快速部署脚本
-# 使用方法：
-#   ./deploy.sh        # 首次部署或重新构建
-#   ./deploy.sh start  # 启动服务
-#   ./deploy.sh stop   # 停止服务
-#   ./deploy.sh logs   # 查看日志
+# 服务器部署脚本 - 用于部署到 Dify 所在的同一台服务器
+# 服务器IP: 10.23.22.37
 
-set -e
+set -e  # 遇到错误立即退出
 
-# 颜色输出
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+echo "=========================================="
+echo "  部署文档生成应用到服务器"
+echo "  目标服务器: 10.23.22.37"
+echo "  Dify地址: http://host.docker.internal/v1"
+echo "=========================================="
+echo ""
 
-echo_info() {
-    echo -e "${GREEN}[INFO]${NC} $1"
-}
+# 检查 Docker 是否安装
+if ! command -v docker &> /dev/null; then
+    echo "❌ 错误: Docker 未安装"
+    echo "请先安装 Docker: https://docs.docker.com/engine/install/"
+    exit 1
+fi
 
-echo_warn() {
-    echo -e "${YELLOW}[WARN]${NC} $1"
-}
+# 检查 Docker Compose 是否安装
+if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
+    echo "❌ 错误: Docker Compose 未安装"
+    echo "请先安装 Docker Compose"
+    exit 1
+fi
 
-echo_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
+# 检查 .env.local 文件
+if [ ! -f .env.local ]; then
+    echo "⚠️  警告: .env.local 文件不存在"
+    echo "创建默认配置文件..."
+    cat > .env.local <<EOF
+NEXT_PUBLIC_DIFY_BASE_URL=http://host.docker.internal/v1
+NEXT_PUBLIC_DIFY_OUTLINE_KEY=app-yIhd9xD2SHZ6e9BNTYSWEfYD
+NEXT_PUBLIC_DIFY_CHAPTER_KEY=app-wqO8BTPC99CwAGFDabEze6Uz
+NEXT_PUBLIC_DIFY_LLM_KEY=app-ThlXmch2AjSRdv6kuvacb4bM
+REDIS_URL=redis://redis:6379
+CACHE_ENABLED=1
+EOF
+    echo "✅ 已创建 .env.local"
+fi
 
-# 检查 Docker 和 Docker Compose
-check_requirements() {
-    echo_info "检查系统依赖..."
+echo "📋 当前配置："
+echo "   Dify Base URL: http://host.docker.internal/v1"
+echo "   应用端口: 3001"
+echo "   Redis端口: 6379"
+echo "   Redis Commander端口: 8081"
+echo ""
 
-    if ! command -v docker &> /dev/null; then
-        echo_error "未安装 Docker，请先安装 Docker"
-        exit 1
-    fi
+# 询问是否继续
+read -p "是否继续部署？(y/n) " -n 1 -r
+echo ""
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo "❌ 取消部署"
+    exit 0
+fi
 
-    if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
-        echo_error "未安装 Docker Compose，请先安装"
-        exit 1
-    fi
+# 停止旧容器（如果存在）
+echo "🛑 停止旧容器..."
+docker-compose -f docker-compose.server.yml down 2>/dev/null || true
 
-    echo_info "✓ Docker 和 Docker Compose 已安装"
-}
-
-# 检查环境变量配置
-check_env() {
-    echo_info "检查环境变量配置..."
-
-    if [ ! -f .env.local ]; then
-        echo_warn ".env.local 文件不存在"
-        if [ -f .env.example ]; then
-            echo_info "从 .env.example 复制配置文件..."
-            cp .env.example .env.local
-            echo_warn "请编辑 .env.local 文件，配置您的 Dify API 密钥"
-            exit 1
-        else
-            echo_error "缺少 .env.local 和 .env.example 文件"
-            exit 1
-        fi
-    fi
-
-    echo_info "✓ 环境变量配置文件存在"
-}
-
-# 创建必要的目录
-create_directories() {
-    echo_info "创建必要的目录..."
-
-    mkdir -p store/templates
-    mkdir -p public/templates
-
-    echo_info "✓ 目录创建完成"
-}
-
-# 构建 Docker 镜像
-build_image() {
-    echo_info "开始构建 Docker 镜像..."
-
-    if docker-compose build; then
-        echo_info "✓ Docker 镜像构建成功"
-    else
-        echo_error "Docker 镜像构建失败"
-        exit 1
-    fi
-}
+# 清理旧镜像（可选）
+read -p "是否清理旧镜像？(y/n) " -n 1 -r
+echo ""
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    echo "🧹 清理旧镜像..."
+    docker-compose -f docker-compose.server.yml build --no-cache
+else
+    echo "🔨 构建镜像..."
+    docker-compose -f docker-compose.server.yml build
+fi
 
 # 启动服务
-start_service() {
-    echo_info "启动服务..."
-    echo_info "包含: 应用 + Redis + Redis Commander"
+echo "🚀 启动服务..."
+docker-compose -f docker-compose.server.yml up -d
 
-    if docker-compose up -d; then
-        echo_info "✓ 服务启动成功"
-        echo ""
-        echo "访问地址:"
-        echo "  - 应用: http://localhost:3000"
-        echo "  - Redis Commander: http://localhost:8081 (可选)"
-        echo ""
-        echo_info "使用 './deploy-server.sh logs' 查看日志"
+# 等待服务启动
+echo "⏳ 等待服务启动..."
+sleep 10
+
+# 检查服务状态
+echo ""
+echo "📊 服务状态："
+docker-compose -f docker-compose.server.yml ps
+
+# 检查健康状态
+echo ""
+echo "🏥 健康检查："
+for i in {1..6}; do
+    if curl -s http://localhost:3001/api/health > /dev/null 2>&1; then
+        echo "✅ 应用健康检查通过"
+        break
     else
-        echo_error "服务启动失败"
-        exit 1
+        if [ $i -eq 6 ]; then
+            echo "⚠️  应用健康检查失败，请查看日志"
+            echo "   查看日志: docker-compose -f docker-compose.server.yml logs app"
+        else
+            echo "   等待中... ($i/6)"
+            sleep 5
+        fi
     fi
-}
+done
 
-# 停止服务
-stop_service() {
-    echo_info "停止服务..."
+# 测试 Dify 连接
+echo ""
+echo "🔗 测试 Dify 连接..."
+docker exec ai-document-generator sh -c "wget -q --spider --timeout=5 http://host.docker.internal/ 2>&1" && \
+    echo "✅ Dify 连接成功" || \
+    echo "⚠️  Dify 连接失败，请检查 Dify 服务是否运行"
 
-    if docker-compose down; then
-        echo_info "✓ 服务已停止"
-    else
-        echo_error "停止服务失败"
-        exit 1
-    fi
-}
-
-# 查看日志
-show_logs() {
-    echo_info "显示日志（Ctrl+C 退出）..."
-    docker-compose logs -f
-}
-
-# 重启服务
-restart_service() {
-    echo_info "重启服务..."
-    stop_service
-    start_service
-}
-
-# 清理（删除容器、镜像、volume）
-cleanup() {
-    echo_warn "⚠️  这将删除所有容器、镜像和数据卷"
-    read -p "确定要继续吗？(y/N) " -n 1 -r
-    echo
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        echo_info "清理 Docker 资源..."
-        docker-compose down -v --rmi all
-        echo_info "✓ 清理完成"
-    else
-        echo_info "取消清理操作"
-    fi
-}
-
-# 显示服务状态
-show_status() {
-    echo_info "服务状态："
-    docker-compose ps
-}
-
-# 主函数
-main() {
-    case "${1:-deploy}" in
-        deploy)
-            check_requirements
-            check_env
-            create_directories
-            build_image
-            start_service
-            ;;
-        build)
-            check_requirements
-            build_image
-            ;;
-        start)
-            check_requirements
-            start_service
-            ;;
-        stop)
-            stop_service
-            ;;
-        restart)
-            restart_service
-            ;;
-        logs)
-            show_logs
-            ;;
-        status)
-            show_status
-            ;;
-        cleanup)
-            cleanup
-            ;;
-        *)
-            echo "使用方法: $0 {deploy|build|start|stop|restart|logs|status|cleanup}"
-            echo ""
-            echo "命令说明:"
-            echo "  deploy   - 完整部署（默认，包括构建和启动）"
-            echo "  build    - 仅构建 Docker 镜像"
-            echo "  start    - 启动服务"
-            echo "  stop     - 停止服务"
-            echo "  restart  - 重启服务"
-            echo "  logs     - 查看实时日志"
-            echo "  status   - 查看服务状态"
-            echo "  cleanup  - 清理所有 Docker 资源（危险操作）"
-            exit 1
-            ;;
-    esac
-}
-
-# 运行主函数
-main "$@"
+echo ""
+echo "=========================================="
+echo "  ✅ 部署完成！"
+echo "=========================================="
+echo ""
+echo "📍 访问地址："
+echo "   • 主应用: http://10.23.22.37:3001"
+echo "   • 或使用: http://localhost:3001 (在服务器上)"
+echo "   • Redis Commander: http://10.23.22.37:8081"
+echo ""
+echo "📝 常用命令："
+echo "   • 查看日志: docker-compose -f docker-compose.server.yml logs -f"
+echo "   • 查看状态: docker-compose -f docker-compose.server.yml ps"
+echo "   • 停止服务: docker-compose -f docker-compose.server.yml down"
+echo "   • 重启服务: docker-compose -f docker-compose.server.yml restart"
+echo ""
+echo "🔧 故障排查："
+echo "   • 查看应用日志: docker-compose -f docker-compose.server.yml logs app"
+echo "   • 进入容器: docker exec -it ai-document-generator sh"
+echo "   • 测试Dify连接: docker exec ai-document-generator wget -O- http://host.docker.internal/"
+echo ""

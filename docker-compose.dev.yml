@@ -1,0 +1,45 @@
+# 开发环境 Docker Compose 配置
+# Python: 使用 uv 管理（主机）
+# Next.js: 主机运行 (npm run dev)
+# Redis: Docker 运行
+
+services:
+  # Redis 缓存服务
+  redis:
+    image: redis:7-alpine
+    container_name: ai-doc-redis-dev
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-dev-data:/data
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - ai-doc-dev-network
+
+  # Redis Commander - Redis 可视化管理工具
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: ai-doc-redis-commander-dev
+    ports:
+      - "8081:8081"
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    restart: unless-stopped
+    depends_on:
+      - redis
+    networks:
+      - ai-doc-dev-network
+
+volumes:
+  redis-dev-data:
+    driver: local
+
+networks:
+  ai-doc-dev-network:
+    driver: bridge

@@ -3,7 +3,12 @@ node_modules
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-package-lock.json
+# package-lock.json  # 需要用于 Docker 构建
+
+# Python virtual environment (重要：不要复制到 Docker)
+venv/
+.venv/
+__pycache__/
 
 # Testing
 coverage

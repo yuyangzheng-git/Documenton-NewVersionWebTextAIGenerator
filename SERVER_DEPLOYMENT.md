@@ -1,537 +1,494 @@
-# Documenton 服务器部署指南
+# 服务器部署指南
 
-## 📋 目录
+## 概述
 
-- [系统要求](#系统要求)
-- [快速部署](#快速部署)
-- [手动部署](#手动部署)
-- [环境配置](#环境配置)
-- [验证部署](#验证部署)
-- [常见问题](#常见问题)
+本指南用于将文档生成应用部署到**Dify所在的同一台服务器**（10.23.22.37）。
 
----
+## ✅ 关键配置
 
-## 系统要求
+### Docker容器访问同主机Dify的方案
 
-### 硬件要求
-- CPU: 2 核心以上
-- 内存: 4GB 以上推荐
-- 磁盘: 10GB 可用空间
+在Linux服务器上，Docker容器访问宿主机服务需要特殊配置：
 
-### 软件要求
-- **操作系统**: Linux (Ubuntu 20.04+, CentOS 7+) 或 macOS
-- **Docker**: 20.10+
-- **Docker Compose**: 2.0+
-- **Python**: 3.8+ (用于 Pandoc 导出)
-- **Pandoc**: 2.0+ (用于 DOCX 导出)
-
----
-
-## 快速部署（推荐 - Docker 方式）
-
-### 1. 安装 Docker 和 Docker Compose
-
-**Ubuntu/Debian:**
-```bash
-# 更新包索引
-sudo apt-get update
-
-# 安装 Docker
-curl -fsSL https://get.docker.com | sh
-sudo usermod -aG docker $USER
-
-# 安装 Docker Compose
-sudo apt-get install docker-compose-plugin
-
-# 重启终端使 docker 组生效
+```yaml
+# docker-compose.server.yml
+services:
+  app:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # 关键配置！
 ```
 
-**CentOS/RHEL:**
-```bash
-# 安装 Docker
-sudo yum install -y yum-utils
-sudo yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-sudo yum install docker-ce docker-ce-cli containerd.io docker-compose-plugin
-sudo systemctl start docker
-sudo systemctl enable docker
-sudo usermod -aG docker $USER
-```
-
-### 2. 克隆项目（或上传到服务器）
+### Dify地址配置
 
 ```bash
-# 如果从 Git 克隆
-git clone <your-repo-url>
-cd Documenton-NewVersionWebTextAIGenerator
-
-# 或者使用 scp 上传
-scp -r Documenton-NewVersionWebTextAIGenerator user@server:/path/to/deploy/
+# 使用 host.docker.internal 而不是 localhost 或 127.0.0.1
+NEXT_PUBLIC_DIFY_BASE_URL=http://host.docker.internal/v1
 ```
 
-### 3. 配置环境变量
+**为什么这样配置？**
+
+| 地址 | 是否可行 | 说明 |
+|------|---------|------|
+| `http://localhost/v1` | ❌ 不可行 | 容器内的localhost指向容器自己 |
+| `http://127.0.0.1/v1` | ❌ 不可行 | 同上，指向容器自己 |
+| `http://10.23.22.37/v1` | ✅ 可行 | 但需要Dify监听在0.0.0.0 |
+| `http://host.docker.internal/v1` | ✅ **推荐** | 自动解析为宿主机IP |
+
+## 🚀 快速部署
+
+### 方法1: 使用部署脚本（推荐）
 
 ```bash
-# 复制环境变量模板
-cp .env.example .env.local
+# 1. 上传项目到服务器
+scp -r . user@10.23.22.37:/path/to/project
 
-# 编辑配置文件
-nano .env.local
+# 2. SSH登录服务器
+ssh user@10.23.22.37
+
+# 3. 进入项目目录
+cd /path/to/project
+
+# 4. 运行部署脚本
+./deploy-server.sh
 ```
 
-**必填配置项**:
-```env
-# Dify API 配置 (生成大纲)
-NEXT_PUBLIC_DIFY_API_KEY=app-xxxxxxxxxxxxx
-NEXT_PUBLIC_DIFY_API_URL=https://api.dify.ai/v1
-
-# Dify 章节生成 API
-NEXT_PUBLIC_DIFY_CHAPTER_KEY=app-xxxxxxxxxxxxx
-
-# Dify 聊天助手 API
-NEXT_PUBLIC_DIFY_CHAT_KEY=app-xxxxxxxxxxxxx
-```
-
-### 4. 运行部署脚本
+### 方法2: 手动部署
 
 ```bash
-# 给脚本执行权限
-chmod +x deploy-server.sh
+# 1. 构建镜像
+docker-compose -f docker-compose.server.yml build
 
-# 完整部署（构建 + 启动）
-./deploy-server.sh deploy
+# 2. 启动服务
+docker-compose -f docker-compose.server.yml up -d
 
-# 或分步执行
-./deploy-server.sh build   # 构建镜像
-./deploy-server.sh start   # 启动服务
+# 3. 查看状态
+docker-compose -f docker-compose.server.yml ps
 ```
 
-### 5. 验证部署
+## 📋 部署前检查清单
+
+### 1. 检查Dify服务状态
 
 ```bash
-# 查看服务状态
-./deploy-server.sh status
+# 在服务器上执行
+curl http://localhost/
 
-# 查看日志
-./deploy-server.sh logs
-
-# 访问应用
-# 浏览器打开: http://your-server-ip:3000
+# 或
+wget -O- http://localhost/
 ```
 
----
+**期望结果**: 返回Dify的HTML页面
 
-## 手动部署（非 Docker 方式）
-
-### 1. 安装 Node.js
+### 2. 检查Dify监听地址
 
 ```bash
-# 使用 nvm 安装 Node.js 18+
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
-source ~/.bashrc
-nvm install 18
-nvm use 18
+# 查看Dify端口监听
+netstat -tlnp | grep :80
+
+# 或
+ss -tlnp | grep :80
 ```
 
-### 2. 安装 Python 和 Pandoc
+**期望结果**: 应该看到监听在 `0.0.0.0:80` 或 `*:80`
 
-**Ubuntu/Debian:**
-```bash
-# 安装 Python 3
-sudo apt-get install python3 python3-pip python3-venv
+**如果只监听在 `127.0.0.1:80`**:
+- 需要修改Dify配置，改为监听 `0.0.0.0`
+- 或者使用方案B（见下文）
 
-# 安装 Pandoc
-sudo apt-get install pandoc
-# 或下载最新版
-wget https://github.com/jgm/pandoc/releases/download/3.1.11/pandoc-3.1.11-1-amd64.deb
-sudo dpkg -i pandoc-3.1.11-1-amd64.deb
-```
-
-**CentOS/RHEL:**
-```bash
-# 安装 Python 3
-sudo yum install python3 python3-pip
-
-# 安装 Pandoc
-sudo yum install pandoc
-# 或使用下载的 RPM 包
-```
-
-### 3. 配置项目
+### 3. 检查防火墙
 
 ```bash
-cd Documenton-NewVersionWebTextAIGenerator
+# 检查防火墙状态（如果使用ufw）
+sudo ufw status
 
-# 安装 Node.js 依赖
-npm install
-
-# 创建 Python 虚拟环境
-python3 -m venv venv
-source venv/bin/activate
-
-# 安装 Python 依赖
-pip install -r requirements.txt
-
-# 配置环境变量
-cp .env.example .env.local
-nano .env.local
+# 检查iptables（如果使用）
+sudo iptables -L
 ```
 
-### 4. 构建和启动
+**确保**: 允许Docker网桥访问宿主机端口
+
+### 4. 检查Docker和Docker Compose
 
 ```bash
-# 构建生产版本
-npm run build
+# 检查Docker版本
+docker --version
 
-# 启动生产服务器
-npm start
-# 或使用 PM2 管理进程
-npm install -g pm2
-pm2 start npm --name "documenton" -- start
-pm2 save
-pm2 startup
+# 检查Docker Compose版本
+docker-compose --version
+# 或
+docker compose version
 ```
 
----
+## 🔧 配置方案
 
-## 环境配置详解
+### 方案A: 使用 host.docker.internal（推荐）
 
-### .env.local 配置项说明
+**优点**: 
+- ✅ 简单，不需要知道宿主机IP
+- ✅ 在不同环境中通用
+- ✅ 自动解析
 
-```env
-# ============ Dify AI 配置 ============
-# 大纲生成 Workflow API
-NEXT_PUBLIC_DIFY_API_KEY=app-xxxxxxxxxxxxx
-NEXT_PUBLIC_DIFY_API_URL=https://api.dify.ai/v1
+**配置**:
 
-# 章节内容生成 Workflow API
-NEXT_PUBLIC_DIFY_CHAPTER_KEY=app-xxxxxxxxxxxxx
-
-# AI 聊天助手 API
-NEXT_PUBLIC_DIFY_CHAT_KEY=app-xxxxxxxxxxxxx
-
-# ============ Redis 配置（可选）============
-REDIS_URL=redis://localhost:6379
-
-# ============ 其他 AI 平台（可选）============
-# OpenAI
-NEXT_PUBLIC_OPENAI_API_KEY=sk-xxxxxxxxxxxxx
-NEXT_PUBLIC_OPENAI_BASE_URL=https://api.openai.com/v1
-NEXT_PUBLIC_OPENAI_MODEL=gpt-4
-
-# Claude
-NEXT_PUBLIC_CLAUDE_API_KEY=sk-ant-xxxxxxxxxxxxx
-NEXT_PUBLIC_CLAUDE_BASE_URL=https://api.anthropic.com
-NEXT_PUBLIC_CLAUDE_MODEL=claude-3-sonnet-20240229
-
-# 其他平台类似配置...
+```yaml
+# docker-compose.server.yml
+services:
+  app:
+    build:
+      args:
+        NEXT_PUBLIC_DIFY_BASE_URL: http://host.docker.internal/v1
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 ```
 
----
+**要求**: Docker版本 >= 20.10
 
-## 验证部署
+### 方案B: 使用宿主机IP
+
+**优点**:
+- ✅ 兼容老版本Docker
+- ✅ 明确的地址
+
+**配置**:
+
+```yaml
+# docker-compose.server.yml
+services:
+  app:
+    build:
+      args:
+        NEXT_PUBLIC_DIFY_BASE_URL: http://10.23.22.37/v1
+```
+
+**要求**: Dify必须监听在 `0.0.0.0:80`
+
+### 方案C: 使用 host 网络模式
+
+**优点**:
+- ✅ 可以用localhost
+- ✅ 性能最佳
+
+**缺点**:
+- ❌ 容器端口直接暴露在宿主机
+- ❌ 端口冲突风险
+
+**配置**:
+
+```yaml
+# docker-compose.server.yml
+services:
+  app:
+    network_mode: "host"
+    build:
+      args:
+        NEXT_PUBLIC_DIFY_BASE_URL: http://localhost/v1
+```
+
+**不推荐**，除非其他方案都不可行。
+
+## 🧪 部署后测试
 
 ### 1. 检查服务状态
 
-**Docker 方式:**
 ```bash
-docker-compose ps
-# 应该看到 app、redis、redis-commander 都在运行
-
-# 查看日志
-docker-compose logs -f app
+docker-compose -f docker-compose.server.yml ps
 ```
 
-**手动方式:**
-```bash
-# 检查进程
-pm2 list
-# 或
-ps aux | grep node
-
-# 查看日志
-pm2 logs documenton
+**期望输出**:
+```
+NAME                    STATUS
+ai-document-generator   Up (healthy)
+ai-doc-redis           Up (healthy)
+ai-doc-redis-commander Up (healthy)
 ```
 
-### 2. 测试应用
+### 2. 测试健康检查
 
 ```bash
-# 健康检查
-curl http://localhost:3000/api/health
-
-# 应该返回: {"status":"ok"}
+curl http://localhost:3001/api/health
 ```
 
-### 3. 浏览器访问
+**期望输出**:
+```json
+{
+  "status": "healthy",
+  "timestamp": "...",
+  "version": "1.0.0"
+}
+```
 
-打开浏览器访问: `http://your-server-ip:3000`
-
-### 4. 测试导出功能
-
-1. 在主页输入文档主题
-2. 点击"生成大纲"
-3. 进入编辑器
-4. 点击"导出"按钮
-5. 下载 DOCX 文件
-
----
-
-## 常见命令
-
-### Docker 部署管理
+### 3. 测试Dify连接
 
 ```bash
-# 启动服务
-./deploy-server.sh start
+# 进入容器
+docker exec -it ai-document-generator sh
 
-# 停止服务
-./deploy-server.sh stop
+# 测试连接
+wget -O- http://host.docker.internal/
 
-# 重启服务
-./deploy-server.sh restart
-
-# 查看日志
-./deploy-server.sh logs
-
-# 查看状态
-./deploy-server.sh status
-
-# 重新构建
-./deploy-server.sh build
-
-# 完全清理（危险）
-./deploy-server.sh cleanup
+# 退出容器
+exit
 ```
 
-### 手动部署管理
+**期望结果**: 返回Dify的HTML页面
+
+### 4. 测试应用功能
+
+1. 在浏览器访问: `http://10.23.22.37:3001`
+2. 输入文档主题
+3. 点击"生成大纲"
+4. 查看是否成功生成
+
+## 🔍 故障排查
+
+### 问题1: 容器无法访问Dify
+
+**症状**: 生成大纲时出现网络错误
+
+**排查步骤**:
 
 ```bash
-# PM2 命令
-pm2 start npm --name "documenton" -- start
-pm2 stop documenton
-pm2 restart documenton
-pm2 logs documenton
-pm2 delete documenton
+# 1. 进入容器
+docker exec -it ai-document-generator sh
 
-# 直接运行
-npm run build && npm start
+# 2. 测试host.docker.internal解析
+ping host.docker.internal
 
-# 开发模式
-npm run dev
+# 3. 测试HTTP连接
+wget -O- http://host.docker.internal/
+
+# 4. 检查环境变量
+env | grep DIFY
 ```
 
----
+**可能原因和解决方案**:
 
-## 常见问题
+| 原因 | 解决方案 |
+|------|---------|
+| Docker版本太低 | 升级到20.10+ 或使用方案B |
+| Dify只监听127.0.0.1 | 修改Dify配置监听0.0.0.0 |
+| 防火墙阻止 | 添加防火墙规则允许Docker访问 |
 
-### 1. 端口被占用
+### 问题2: 健康检查失败
 
-**问题**: `Error: listen EADDRINUSE: address already in use :::3000`
+**症状**: 容器状态显示 unhealthy
 
-**解决**:
+**排查步骤**:
+
 ```bash
-# 查看占用端口的进程
-lsof -i :3000
-# 或
-netstat -tulnp | grep 3000
+# 查看健康检查日志
+docker inspect ai-document-generator | grep -A 10 Health
 
-# 杀死进程
-kill -9 <PID>
-
-# 或修改端口
-npm run dev -- -p 3001
+# 查看应用日志
+docker-compose -f docker-compose.server.yml logs app
 ```
 
-### 2. Docker 构建失败
+**常见原因**:
+- 应用启动时间超过start_period
+- 端口配置错误
+- 应用崩溃
 
-**问题**: Docker build 出错
+### 问题3: API调用失败
 
-**解决**:
+**症状**: 前端显示API错误
+
+**排查步骤**:
+
 ```bash
-# 清理 Docker 缓存
-docker system prune -a
+# 1. 查看应用日志
+docker-compose -f docker-compose.server.yml logs -f app
 
-# 重新构建
-docker-compose build --no-cache
+# 2. 查看Redis连接
+docker exec ai-doc-redis redis-cli ping
+
+# 3. 检查API key配置
+docker exec ai-document-generator env | grep DIFY_.*_KEY
 ```
 
-### 3. 导出失败
+### 问题4: Dify CORS错误
 
-**问题**: 导出 DOCX 时报错
+**症状**: 浏览器控制台显示CORS错误
 
-**解决**:
+**说明**: 这个问题已通过后端代理解决
+
+**验证**:
+- 所有Dify API调用都通过 `/api/ai/*` 后端代理
+- 浏览器不会直接调用Dify API
+
+## 📊 监控和维护
+
+### 查看日志
+
 ```bash
-# 检查 Python 环境
-source venv/bin/activate
-python --version
-pip list | grep pypandoc
+# 查看所有服务日志
+docker-compose -f docker-compose.server.yml logs -f
 
-# 检查 Pandoc
-pandoc --version
+# 只看应用日志
+docker-compose -f docker-compose.server.yml logs -f app
 
-# 重新安装依赖
-pip install -r requirements.txt
-
-# 检查模板文件
-ls -lh public/templates/asiainfo-template.docx
+# 只看Redis日志
+docker-compose -f docker-compose.server.yml logs -f redis
 ```
 
-### 4. 权限问题
+### 查看资源使用
 
-**问题**: Permission denied
-
-**解决**:
 ```bash
-# 给脚本执行权限
-chmod +x deploy-server.sh
-chmod +x cli.py
+# 查看容器资源使用
+docker stats ai-document-generator ai-doc-redis
 
-# 修复文件所有权
-sudo chown -R $USER:$USER .
+# 查看详细信息
+docker inspect ai-document-generator
 ```
 
-### 5. 内存不足
+### 重启服务
 
-**问题**: JavaScript heap out of memory
-
-**解决**:
 ```bash
-# 增加 Node.js 内存限制
-export NODE_OPTIONS="--max-old-space-size=4096"
-npm run build
+# 重启应用
+docker-compose -f docker-compose.server.yml restart app
+
+# 重启所有服务
+docker-compose -f docker-compose.server.yml restart
 ```
 
-### 6. Redis 连接失败
+### 更新应用
 
-**问题**: Redis connection refused
-
-**解决**:
 ```bash
-# 检查 Redis 是否运行
-docker-compose ps redis
+# 1. 拉取最新代码
+git pull
 
-# 重启 Redis
-docker-compose restart redis
+# 2. 重新构建
+docker-compose -f docker-compose.server.yml build app
 
-# 或注释掉 .env.local 中的 REDIS_URL（Redis 是可选的）
+# 3. 重启服务
+docker-compose -f docker-compose.server.yml up -d
 ```
 
----
+## 🔒 安全建议
 
-## 生产环境建议
+### 1. 使用环境变量
 
-### 1. 使用 Nginx 反向代理
+不要在代码中硬编码API密钥，使用 `.env.local`:
+
+```bash
+# .env.local
+NEXT_PUBLIC_DIFY_OUTLINE_KEY=app-yIhd9xD2SHZ6e9BNTYSWEfYD
+NEXT_PUBLIC_DIFY_CHAPTER_KEY=app-wqO8BTPC99CwAGFDabEze6Uz
+NEXT_PUBLIC_DIFY_LLM_KEY=app-ThlXmch2AjSRdv6kuvacb4bM
+```
+
+### 2. 限制端口访问
+
+```bash
+# 只允许特定IP访问
+# docker-compose.server.yml
+ports:
+  - "127.0.0.1:3001:3000"  # 只允许本地访问
+```
+
+### 3. 使用反向代理
+
+推荐使用Nginx作为反向代理：
 
 ```nginx
+# /etc/nginx/sites-available/doc-generator
 server {
     listen 80;
-    server_name your-domain.com;
+    server_name doc.yourdomain.com;
 
     location / {
-        proxy_pass http://localhost:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
+        proxy_pass http://localhost:3001;
         proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     }
 }
 ```
 
-### 2. 配置 SSL (HTTPS)
+### 4. 启用HTTPS
 
 ```bash
-# 使用 Let's Encrypt
-sudo apt-get install certbot python3-certbot-nginx
-sudo certbot --nginx -d your-domain.com
+# 使用Let's Encrypt
+sudo certbot --nginx -d doc.yourdomain.com
 ```
 
-### 3. 设置防火墙
+## 📦 备份和恢复
+
+### 备份数据
 
 ```bash
-# UFW (Ubuntu)
-sudo ufw allow 22    # SSH
-sudo ufw allow 80    # HTTP
-sudo ufw allow 443   # HTTPS
-sudo ufw enable
+# 备份Redis数据
+docker cp ai-doc-redis:/data ./backup/redis-$(date +%Y%m%d).tar
 
-# Firewalld (CentOS)
-sudo firewall-cmd --permanent --add-service=http
-sudo firewall-cmd --permanent --add-service=https
-sudo firewall-cmd --reload
+# 备份应用数据
+tar -czf backup/store-$(date +%Y%m%d).tar.gz ./store
 ```
 
-### 4. 启用日志轮转
+### 恢复数据
 
 ```bash
-# 使用 PM2 的日志管理
-pm2 install pm2-logrotate
-pm2 set pm2-logrotate:max_size 10M
-pm2 set pm2-logrotate:retain 7
+# 恢复Redis数据
+docker cp ./backup/redis-20260206.tar ai-doc-redis:/data
+
+# 恢复应用数据
+tar -xzf backup/store-20260206.tar.gz
 ```
 
-### 5. 监控和备份
+## 🆘 紧急处理
+
+### 服务完全停止
 
 ```bash
-# 使用 PM2 监控
-pm2 monit
+# 停止所有服务
+docker-compose -f docker-compose.server.yml down
 
-# 定期备份数据
-# 编辑 crontab
-crontab -e
+# 清理所有数据（谨慎！）
+docker-compose -f docker-compose.server.yml down -v
 
-# 添加每日备份任务
-0 2 * * * /path/to/backup-script.sh
+# 重新部署
+./deploy-server.sh
 ```
+
+### 查看完整错误信息
+
+```bash
+# 查看容器详细信息
+docker inspect ai-document-generator
+
+# 查看最近的日志
+docker-compose -f docker-compose.server.yml logs --tail=100 app
+```
+
+## 📞 获取帮助
+
+如果遇到问题：
+
+1. 查看应用日志
+2. 检查Dify服务状态
+3. 验证网络连通性
+4. 查阅本文档的故障排查部分
+
+## 🎯 总结
+
+**关键配置要点**:
+
+1. ✅ 使用 `host.docker.internal` 访问宿主机服务
+2. ✅ 配置 `extra_hosts` 让容器识别宿主机
+3. ✅ 确保Dify监听在正确的地址
+4. ✅ 通过后端代理避免CORS问题
+
+**部署流程**:
+
+```bash
+# 一键部署
+./deploy-server.sh
+```
+
+**验证成功**:
+
+- ✅ 服务状态健康
+- ✅ 健康检查通过
+- ✅ 能访问Dify
+- ✅ 前端功能正常
 
 ---
 
-## 性能优化
-
-### 1. 启用 Next.js 缓存
-
-```js
-// next.config.ts
-export default {
-  experimental: {
-    outputStandalone: true,
-  },
-  compress: true,
-  poweredByHeader: false,
-}
-```
-
-### 2. 使用 PM2 集群模式
-
-```bash
-pm2 start npm --name "documenton" -i max -- start
-```
-
-### 3. 配置 Redis 缓存
-
-确保 `.env.local` 中配置了 Redis URL
-
----
-
-## 安全建议
-
-1. **不要暴露 .env.local 文件**
-2. **定期更新依赖**: `npm audit fix`
-3. **使用强密码**: Redis、数据库等
-4. **限制 API 调用频率**: 使用 rate limiting
-5. **启用 HTTPS**: 生产环境必须
-6. **定期备份**: 数据和配置
-
----
-
-## 支持
-
-如有问题，请查看:
-- 项目 README.md
-- GitHub Issues
-- 日志文件: `./deploy-server.sh logs`
-
----
-
-**部署愉快！** 🚀
+**祝部署顺利！** 🚀

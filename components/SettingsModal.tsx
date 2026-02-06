@@ -78,29 +78,18 @@ export function SettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
     setTestResults(prev => ({ ...prev, [type]: { success: false, message: '测试中...' } }));
 
     try {
-      const response = await fetch(`${localApiUrl}/workflows/run`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${key}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          inputs: {},
-          response_mode: 'blocking',
-          user: 'test',
-        }),
-      });
-
-      if (response.ok) {
+      // 注意：由于 CORS 限制，我们不能直接从浏览器调用 Dify API
+      // 实际的 API 调用会通过后端代理 (/api/ai/*) 进行
+      // 这里只做简单的配置验证
+      if (localApiUrl && key) {
         setTestResults(prev => ({
           ...prev,
-          [type]: { success: true, message: '连接成功 ✅' },
+          [type]: { success: true, message: '配置已保存，请在实际使用时验证 ✅' },
         }));
       } else {
-        const error = await response.text();
         setTestResults(prev => ({
           ...prev,
-          [type]: { success: false, message: `连接失败: ${response.status}` },
+          [type]: { success: false, message: 'API URL 或 Key 配置不完整' },
         }));
       }
     } catch (error) {
@@ -108,7 +97,7 @@ export function SettingsModal({ isOpen, onClose }: { isOpen: boolean; onClose: (
         ...prev,
         [type]: {
           success: false,
-          message: `连接失败: ${error instanceof Error ? error.message : '未知错误'}`,
+          message: `配置验证失败: ${error instanceof Error ? error.message : '未知错误'}`,
         },
       }));
     } finally {

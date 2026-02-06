@@ -72,14 +72,11 @@ source .venv/bin/activate
 
 # Install dependencies
 echo -e "${BLUE}Installing Python dependencies with uv...${NC}"
-if [ -f "pyproject.toml" ]; then
-    uv pip install -e .
-    echo -e "${GREEN}Dependencies installed from pyproject.toml${NC}"
-elif [ -f "requirements.txt" ]; then
+if [ -f "requirements.txt" ]; then
     uv pip install -r requirements.txt
     echo -e "${GREEN}Dependencies installed from requirements.txt${NC}"
 else
-    echo -e "${RED}No pyproject.toml or requirements.txt found!${NC}"
+    echo -e "${RED}No requirements.txt found!${NC}"
     exit 1
 fi
 

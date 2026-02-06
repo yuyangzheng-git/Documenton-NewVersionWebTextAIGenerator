@@ -1,0 +1,111 @@
+╔════════════════════════════════════════════════════════════╗
+║       Docker Desktop 镜像加速器配置 - 快速指南             ║
+╚════════════════════════════════════════════════════════════╝
+
+## 📝 配置步骤（5分钟完成）
+
+### 1️⃣ 打开 Docker Desktop 设置
+
+✓ Docker Desktop 已为您打开
+  点击窗口右上角的 ⚙️ (齿轮图标)
+
+### 2️⃣ 进入 Docker Engine 配置
+
+  在左侧菜单中点击 "Docker Engine"
+
+### 3️⃣ 添加镜像加速器配置
+
+  在右侧 JSON 编辑器中，添加以下配置：
+
+┌─────────────────────────────────────────────────────────┐
+│ 复制以下 JSON 配置到编辑器中：                           │
+└─────────────────────────────────────────────────────────┘
+
+{
+  "builder": {
+    "gc": {
+      "defaultKeepStorage": "20GB",
+      "enabled": true
+    }
+  },
+  "experimental": false,
+  "registry-mirrors": [
+    "https://docker.m.daocloud.io",
+    "https://docker.1panel.live",
+    "https://hub.rat.dev"
+  ]
+}
+
+⚠️  注意事项：
+  - 如果编辑器中已有配置，只需添加 "registry-mirrors" 部分
+  - 确保 JSON 格式正确（注意逗号）
+  - 不要有多余的逗号
+
+### 4️⃣ 应用并重启
+
+  点击右下角的 "Apply & Restart" 按钮
+  等待 Docker Desktop 重启（约 10-30 秒）
+
+### 5️⃣ 验证配置
+
+  重启完成后，在终端运行以下命令验证：
+
+  docker info | grep -A 5 "Registry Mirrors"
+
+  应该能看到你配置的镜像地址
+
+═══════════════════════════════════════════════════════════
+
+## 🚀 配置完成后
+
+在项目目录运行：
+
+  cd /Users/2812019221qq.com/Documenton-NewVersionWebTextAIGenerator
+
+  # 构建镜像（首次约5-10分钟）
+  docker-compose build
+
+  # 启动所有服务
+  docker-compose up -d
+
+  # 访问应用
+  # http://localhost:3001
+
+═══════════════════════════════════════════════════════════
+
+## 📋 配置模板（复制粘贴）
+
+如果编辑器是空的，直接复制整段：
+
+{
+  "registry-mirrors": [
+    "https://docker.m.daocloud.io",
+    "https://docker.1panel.live"
+  ]
+}
+
+如果已有配置，只添加这一行（注意位置）：
+
+  "registry-mirrors": ["https://docker.m.daocloud.io"],
+
+═══════════════════════════════════════════════════════════
+
+## ❓ 常见问题
+
+Q: 配置后还是超时？
+A: 1. 确保点击了 "Apply & Restart"
+   2. 等待 Docker 完全重启
+   3. 重启电脑后再试
+
+Q: JSON 格式错误？
+A: 检查：
+   - 每行末尾的逗号
+   - 引号是否配对
+   - 大括号是否配对
+
+Q: 找不到 Docker Engine 选项？
+A: 确保使用的是 Docker Desktop（不是 Docker Toolbox）
+
+═══════════════════════════════════════════════════════════
+
+配置完成后，告诉我，我会帮您构建和启动 Docker 容器！
