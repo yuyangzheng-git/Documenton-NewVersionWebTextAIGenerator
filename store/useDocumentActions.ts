@@ -23,6 +23,8 @@ export const generateOutline = async (prompt: string) => {
       const data = await response.json();
       const outline = data.outline;
 
+      console.log(`[generateOutline] Received ${outline.length} items from API`);
+
       // Deduplicate outline items by id to avoid React key conflicts
       const seenIds = new Set<string>();
       const deduplicatedOutline: typeof outline = [];
@@ -33,8 +35,31 @@ export const generateOutline = async (prompt: string) => {
         }
       });
 
+      // 监控去重效果
+      if (outline.length !== deduplicatedOutline.length) {
+        const removedCount = outline.length - deduplicatedOutline.length;
+        console.warn(`[generateOutline] Removed ${removedCount} duplicate items`);
+
+        // 找出重复的ID
+        const allIds = outline.map((item: any) => item.id);
+        const duplicates = allIds.filter((id: string, index: number) => allIds.indexOf(id) !== index);
+        console.warn('[generateOutline] Duplicate IDs:', [...new Set(duplicates)]);
+      } else {
+        console.log('[generateOutline] No duplicates found');
+      }
+
       const outlineWithStatus: OutlineItem[] = deduplicatedOutline.map((item: any) => {
         const parsedLevel = parseInt(String(item.level), 10);
+
+        // 验证level有效性
+        if (![1, 2, 3].includes(parsedLevel)) {
+          console.warn(`[generateOutline] Invalid level detected for item "${item.id}":`, {
+            originalLevel: item.level,
+            parsedLevel,
+            title: item.title
+          });
+        }
+
         const level = (parsedLevel === 1 || parsedLevel === 2 || parsedLevel === 3) ? parsedLevel : 1;
 
         return {
@@ -45,6 +70,8 @@ export const generateOutline = async (prompt: string) => {
           requirements: item.requirements,
         };
       });
+
+      console.log(`[generateOutline] Final outline with ${outlineWithStatus.length} valid items`);
 
       useStore.getState().setOutline(outlineWithStatus);
 

@@ -70,6 +70,11 @@ async function exportWithBuiltinTemplate(
   const data = prepareTemplateData(blocks, outline, title);
 
   const doc = new Document({
+    // 添加文档核心属性，确保 Microsoft Word 兼容性
+    creator: 'AI Document Generator',
+    title: title || '文档',
+    description: '由 AI 文档生成器创建',
+    lastModifiedBy: 'AI Document Generator',
     sections: [{
       properties: {
         page: {
@@ -139,8 +144,9 @@ async function exportWithBuiltinTemplate(
             return new Paragraph({
               children: [
                 new TextRun({
-                  text: block.content,
+                  text: block.content || '',
                   bold: true,
+                  font: 'SimSun',
                 }),
               ],
               heading: level,
@@ -151,6 +157,7 @@ async function exportWithBuiltinTemplate(
               children: [
                 new TextRun({
                   text: block.content,
+                  font: 'SimSun',
                 }),
               ],
               spacing: { after: 200 },
@@ -167,9 +174,18 @@ async function exportWithBuiltinTemplate(
               const mimeType = block.content.split(',')[0].split(';')[0].split('/')[1];
               imageExt = (mimeType === 'jpeg' ? 'jpg' : mimeType) as 'jpg' | 'png' | 'gif' | 'bmp' | 'svg';
             } else if (block.content.startsWith('http')) {
-              // URL 图片，需要获取
-              // 对于 URL 图片，使用占位符或跳过
-              return null;
+              // URL 图片，创建占位符段落而不是返回 null
+              return new Paragraph({
+                children: [
+                  new TextRun({
+                    text: `[图片: ${block.content}]`,
+                    font: 'SimSun',
+                    italics: true,
+                  }),
+                ],
+                alignment: AlignmentType.CENTER,
+                spacing: { before: 200, after: 200 },
+              });
             }
 
             if (imageData) {
@@ -189,7 +205,11 @@ async function exportWithBuiltinTemplate(
               });
             }
           }
-          return null;
+          // 对于无法处理的块类型，返回空段落而不是 null
+          return new Paragraph({
+            children: [new TextRun({ text: '', font: 'SimSun' })],
+            spacing: { after: 0 },
+          });
         }).filter((block): block is any => block !== null),
       ],
     }],

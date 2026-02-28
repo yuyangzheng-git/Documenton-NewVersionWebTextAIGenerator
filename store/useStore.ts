@@ -132,9 +132,9 @@ interface DocumentStore {
   setDocumentTitle: (title: string) => void;
 }
 
-// Generate numbering for outline items (1, 1.1, 1.1.1, 2, 2.1, 2.1.1, etc.)
-// Also removes any existing numbering prefixes from titles
-// Also removes duplicate items by id to avoid React key conflicts
+// Extract numbering from titles or convert from ID field
+// Dify returns structured data with both ID (e.g., "4-2-1") and title (e.g., "4.2.1 AI XDR")
+// Priority: 1) Extract from title, 2) Convert from ID, 3) Keep existing number
 function generateNumbers(items: OutlineItem[]): OutlineItem[] {
   // Deduplicate items by id first to avoid React key conflicts
   const seenIds = new Set<string>();
@@ -146,45 +146,47 @@ function generateNumbers(items: OutlineItem[]): OutlineItem[] {
     }
   });
 
-  let level1Counter = 0;
-  let level2Counter = 0;
-
   return uniqueItems.map(item => {
-    // Remove existing numbering prefix from title (e.g., "1. Introduction" -> "Introduction")
+    let extractedNumber = '';
     let cleanTitle = item.title;
+
+    // Strategy 1: Extract numbering from title based on level
     if (item.level === 1) {
-      cleanTitle = item.title.replace(/^\d+\.\s*/, '').replace(/^\d+\s*/, '');
+      // Match patterns like "1. " or "1 " or "第一章：" etc.
+      const match = item.title.match(/^(\d+)[.、\s]+/);
+      if (match) {
+        extractedNumber = match[1];
+        cleanTitle = item.title.substring(match[0].length).trim();
+      }
     } else if (item.level === 2) {
-      cleanTitle = item.title.replace(/^\d+\.\d+\.\s*/, '').replace(/^\d+\.\d+\s*/, '');
+      // Match patterns like "4.1 " or "4.1. "
+      const match = item.title.match(/^(\d+\.\d+)[.、\s]+/);
+      if (match) {
+        extractedNumber = match[1];
+        cleanTitle = item.title.substring(match[0].length).trim();
+      }
     } else if (item.level === 3) {
-      cleanTitle = item.title.replace(/^\d+\.\d+\.\d+\.\s*/, '').replace(/^\d+\.\d+\.\d+\s*/, '');
+      // Match patterns like "4.2.1 " or "4.2.1. "
+      const match = item.title.match(/^(\d+\.\d+\.\d+)[.、\s]+/);
+      if (match) {
+        extractedNumber = match[1];
+        cleanTitle = item.title.substring(match[0].length).trim();
+      }
     }
 
-    if (item.level === 1) {
-      level1Counter += 1;
-      level2Counter = 0;
-      return {
-        ...item,
-        title: cleanTitle,
-        number: level1Counter.toString()
-      };
-    } else if (item.level === 2) {
-      level2Counter += 1;
-      return {
-        ...item,
-        title: cleanTitle,
-        number: `${level1Counter}.${level2Counter}`
-      };
-    } else if (item.level === 3) {
-      return {
-        ...item,
-        title: cleanTitle,
-        number: `${level1Counter}.${level2Counter}.1`
-      };
+    // Strategy 2: If no number extracted from title, try converting from ID
+    // ID format: "1", "4-1", "4-2-1" → "1", "4.1", "4.2.1"
+    if (!extractedNumber && item.id) {
+      const idParts = item.id.split('-');
+      if (idParts.length > 0 && idParts.every(part => /^\d+$/.test(part))) {
+        extractedNumber = idParts.join('.');
+      }
     }
+
     return {
       ...item,
-      title: cleanTitle
+      title: cleanTitle,
+      number: extractedNumber || item.number || ''
     };
   });
 }

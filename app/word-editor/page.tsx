@@ -29,13 +29,43 @@ export default function WordEditorPage() {
   const [generatingIds, setGeneratingIds] = useState<Set<string>>(new Set());
 
   // 🔥 新增：初始化状态 (用于显示加载界面)
-  const [isInitializing, setIsInitializing] = useState(true);
+  // 如果是同域跳转（有 window.opener 但是同源），则不需要等待 message
+  const [isInitializing, setIsInitializing] = useState(() => {
+    // 如果是本地开发且已有 outline，直接跳过初始化
+    if (typeof window !== 'undefined') {
+      const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      const hasOpener = !!window.opener;
+      // 本地开发且不是从新窗口打开的，不需要等待
+      if (isLocalhost && !hasOpener) {
+        return false;
+      }
+    }
+    return true;
+  });
 
   // 🔥 新增：监听来自父页面的 postMessage
   useEffect(() => {
+    // 如果是本地开发且已有 outline，跳过 message 监听
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const hasOpener = !!window.opener;
+
+    if (isLocalhost && !hasOpener) {
+      console.log('[WordEditor] Local mode: Skipping message listener');
+      setIsInitializing(false);
+      return;
+    }
+
     const handleMessage = (event: MessageEvent) => {
       // ⚠️ 安全校验：只接受来自父页面的消息
-      if (event.origin !== 'http://10.23.22.37:3000') {
+      // 动态获取允许的 origin
+      const allowedOrigins = [
+        'http://localhost:3000',
+        'http://127.0.0.1:3000',
+        'http://10.23.22.37:3000',
+        process.env.NEXT_PUBLIC_PARENT_ORIGIN
+      ].filter(Boolean);
+
+      if (!allowedOrigins.includes(event.origin)) {
         console.warn('[WordEditor] Received message from unknown origin:', event.origin);
         return;
       }
@@ -67,7 +97,8 @@ export default function WordEditorPage() {
 
     // 🔥 通知父窗口：子窗口已准备好接收数据
     if (window.opener) {
-      window.opener.postMessage({ type: 'CHILD_READY' }, 'http://10.23.22.37:3000');
+      const parentOrigin = process.env.NEXT_PUBLIC_PARENT_ORIGIN || 'http://10.23.22.37:3000';
+      window.opener.postMessage({ type: 'CHILD_READY' }, parentOrigin);
       console.log('[WordEditor] Sent CHILD_READY message to parent');
     }
 

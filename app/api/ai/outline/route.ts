@@ -60,20 +60,34 @@ export async function POST(request: NextRequest) {
     // 尝试从 outputs 中提取文本
     const outputs = result.data?.outputs;
     let outputText = '';
+    let matchedField = '';
 
     if (outputs) {
-      // 尝试所有可能的字段名
+      // 优先检查常见字段（根据实际Dify配置调整顺序）
       const possibleFields = [
-        'text', 'output', 'result', 'Construction', 'Constructure',
-        'outline', 'data', 'content', 'answer', 'response'
+        'outline',        // 最常见的标准字段名
+        'text',           // Dify默认文本输出
+        'output',         // 通用输出字段
+        'result',         // 结果字段
+        'Construction',   // 历史配置字段
+        'Constructure',   // 拼写变体
+        'data',           // 数据字段
+        'content',        // 内容字段
+        'answer',         // 问答字段
+        'response'        // 响应字段
       ];
 
       for (const field of possibleFields) {
         if (outputs[field]) {
           outputText = String(outputs[field]);
+          matchedField = field;
           console.log(`[Dify Outline] Found field '${field}':`, outputText.substring(0, 200));
           break;
         }
+      }
+
+      if (!matchedField) {
+        console.warn('[Dify Outline] No matching field found in outputs. Available fields:', Object.keys(outputs));
       }
     }
 
@@ -125,6 +139,36 @@ export async function POST(request: NextRequest) {
     }
 
     const outline = JSON.parse(jsonMatch[0]);
+
+    // 验证outline结构并记录日志
+    if (!Array.isArray(outline)) {
+      return NextResponse.json(
+        { error: 'Parsed outline is not an array', debug: { outline } },
+        { status: 500 }
+      );
+    }
+
+    console.log(`[Dify Outline] Successfully parsed ${outline.length} items`);
+
+    // 记录每个项目的基本信息用于调试
+    outline.forEach((item, idx) => {
+      console.log(`  [${idx}] id=${item.id}, level=${item.level}, title="${item.title?.substring(0, 50)}"`);
+
+      // 检测潜在问题
+      if (!item.id) {
+        console.warn(`    ⚠️  Missing id for item at index ${idx}`);
+      }
+      if (![1, 2, 3].includes(item.level)) {
+        console.warn(`    ⚠️  Invalid level ${item.level} for item ${item.id}`);
+      }
+    });
+
+    // 检测重复ID
+    const ids = outline.map(item => item.id);
+    const duplicateIds = ids.filter((id, index) => ids.indexOf(id) !== index);
+    if (duplicateIds.length > 0) {
+      console.warn('[Dify Outline] Duplicate IDs detected:', duplicateIds);
+    }
 
     return NextResponse.json({ outline });
   } catch (error) {
