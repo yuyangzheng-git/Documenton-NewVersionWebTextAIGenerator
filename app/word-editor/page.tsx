@@ -14,7 +14,7 @@ import { clearDatabase } from '@/lib/db';
 
 export default function WordEditorPage() {
   const router = useRouter();
-  const { outline, documentTitle, setDocumentTitle } = useStore();
+  const { outline, setOutline, documentTitle, setDocumentTitle } = useStore();
   const [blocks, setBlocks] = useState<NotionBlock[]>([]);
   const blocksRef = useRef<NotionBlock[]>(blocks); // Track current blocks value
 
@@ -27,6 +27,80 @@ export default function WordEditorPage() {
 
   // 追踪正在生成的章节ID
   const [generatingIds, setGeneratingIds] = useState<Set<string>>(new Set());
+
+  // 🔥 新增：初始化状态 (用于显示加载界面)
+  const [isInitializing, setIsInitializing] = useState(true);
+
+  // 🔥 新增：监听来自父页面的 postMessage
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      // ⚠️ 安全校验：只接受来自父页面的消息
+      if (event.origin !== 'http://10.23.22.37:3000') {
+        console.warn('[WordEditor] Received message from unknown origin:', event.origin);
+        return;
+      }
+
+      console.log('[WordEditor] Received message:', event.data);
+
+      if (event.data.type === 'INIT_WORD_EDITOR') {
+        const { outline: newOutline, documentTitle: newTitle } = event.data.payload;
+
+        console.log('[WordEditor] Received initial data:', { outlineCount: newOutline?.length, title: newTitle });
+
+        // 更新子应用的 Store
+        if (newOutline && newOutline.length > 0) {
+          setOutline(newOutline);
+          console.log('[WordEditor] Outline updated in store');
+        }
+
+        if (newTitle) {
+          setDocumentTitle(newTitle);
+          console.log('[WordEditor] Document title updated in store');
+        }
+
+        // 数据到齐，关闭加载态
+        setIsInitializing(false);
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+
+    // 🔥 通知父窗口：子窗口已准备好接收数据
+    if (window.opener) {
+      window.opener.postMessage({ type: 'CHILD_READY' }, 'http://10.23.22.37:3000');
+      console.log('[WordEditor] Sent CHILD_READY message to parent');
+    }
+
+    // 如果 3 秒内没收到数据，尝试使用本地存储的 outline
+    const timeout = setTimeout(() => {
+      if (outline.length > 0) {
+        console.log('[WordEditor] Using existing outline from store');
+        setIsInitializing(false);
+      } else {
+        console.warn('[WordEditor] No data received after 3 seconds, outline is empty');
+        setIsInitializing(false);
+      }
+    }, 3000);
+
+    return () => {
+      window.removeEventListener('message', handleMessage);
+      clearTimeout(timeout);
+    };
+  }, [setOutline, setDocumentTitle, outline.length]);
+
+  // 🔥 修改：只有在初始化完成后，且确实没数据时才跳转
+  useEffect(() => {
+    if (!isInitializing && outline.length === 0) {
+      console.warn('[WordEditor] No outline found after initialization, redirecting to home...');
+      // 不能直接跳转，因为这是新窗口，关闭窗口即可
+      alert('未找到文档数据，请从主页生成大纲');
+      if (window.opener) {
+        window.close();
+      } else {
+        router.push('/');
+      }
+    }
+  }, [outline, isInitializing, router]);
 
   // 离开页面时自动清空数据库
   useEffect(() => {
@@ -456,13 +530,13 @@ export default function WordEditorPage() {
     return `${typePrefix}-${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
   };
 
-  // Convert outline to Notion blocks (只执行一次)
+  // 🔥 修改：Convert outline to Notion blocks (依赖 outline 变化)
   useEffect(() => {
-    // 只在首次进入且 blocks 为空时执行
+    // 只在 outline 有数据且 blocks 为空时执行
     if (blocks.length > 0) return;
     if (outline.length === 0) return;
 
-    logger.log('首次从 outline 生成 blocks');
+    logger.log('从同步的大纲生成 blocks，outline count:', outline.length);
 
     const notionBlocks: NotionBlock[] = [];
 
@@ -493,22 +567,7 @@ export default function WordEditorPage() {
 
     setBlocks(notionBlocks);
     logger.log('Blocks 生成完成，共', notionBlocks.length, '个块');
-  }, []); // 空依赖数组，只执行一次
-
-  // Redirect to home if no outline
-  useEffect(() => {
-    console.log('[WordEditor] useEffect triggered with outline:', { length: outline.length });
-
-    if (outline.length === 0) {
-      console.warn('[WordEditor] No outline found, will redirect to home');
-      // Use a small delay to ensure state is fully synced
-      const timer = setTimeout(() => {
-        console.warn('[WordEditor] Actually redirecting to home now');
-        router.push('/');
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [outline, router]);
+  }, [outline]); // 🔥 修改：依赖 outline，当 outline 更新时重新生成 blocks
 
 
   const handleExport = async () => {
@@ -547,6 +606,19 @@ export default function WordEditorPage() {
       alert('导出文档失败：' + (error instanceof Error ? error.message : '请重试'));
     }
   };
+
+  // 🔥 新增：加载状态 UI
+  if (isInitializing && outline.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-white">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-zinc-600 text-base font-medium">正在同步文档数据...</p>
+          <p className="text-zinc-400 text-sm mt-2">请稍候，正在接收来自父页面的大纲数据</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <ErrorBoundary>

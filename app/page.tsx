@@ -42,8 +42,45 @@ export default function Home() {
         throw new Error('Failed to save outline to store');
       }
 
-      console.log('[handleGenerate] Outline verified, navigating to /word-editor...');
-      router.push('/word-editor');
+      // 🔥 新增：打开子窗口/iframe 并通过 postMessage 传递数据
+      console.log('[handleGenerate] Opening child window and sending data via postMessage...');
+
+      // 方案A: 打开新窗口
+      const childWindow = window.open('http://10.23.22.37:3001/word-editor', '_blank');
+
+      // 等待子窗口加载完成后发送数据
+      const sendDataToChild = () => {
+        if (childWindow && !childWindow.closed) {
+          childWindow.postMessage(
+            {
+              type: 'INIT_WORD_EDITOR',
+              payload: {
+                outline: storeState.outline,
+                documentTitle: storeState.documentTitle,
+              },
+            },
+            'http://10.23.22.37:3001' // 目标源，确保安全
+          );
+          console.log('[handleGenerate] Data sent to child window via postMessage');
+        }
+      };
+
+      // 延迟发送，确保子窗口已加载
+      setTimeout(sendDataToChild, 1000);
+
+      // 也可以监听子窗口的 ready 消息（更可靠）
+      const handleChildReady = (event: MessageEvent) => {
+        if (event.origin !== 'http://10.23.22.37:3001') return;
+        if (event.data.type === 'CHILD_READY') {
+          console.log('[handleGenerate] Child window ready, sending data...');
+          sendDataToChild();
+          window.removeEventListener('message', handleChildReady);
+        }
+      };
+      window.addEventListener('message', handleChildReady);
+
+      console.log('[handleGenerate] Outline verified, child window opened');
+      // router.push('/word-editor'); // 不再本页跳转
     } catch (error: any) {
       console.error('[handleGenerate] Error generating outline:', error);
 
