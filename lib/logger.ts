@@ -1,60 +1,87 @@
 /**
- * 日志工具
- * 在生产环境自动禁用调试日志
+ * Structured Logging
+ * Enhanced with Pino for production-ready logging
  */
+
+import pino from 'pino';
 
 type LogLevel = 'log' | 'info' | 'warn' | 'error' | 'debug';
 
+const isDevelopment = process.env.NODE_ENV === 'development';
+const logLevel = process.env.LOG_LEVEL || (isDevelopment ? 'debug' : 'info');
+
+const pinoLogger = pino({
+  level: logLevel,
+  transport: isDevelopment ? {
+    target: 'pino-pretty',
+    options: {
+      colorize: true,
+      translateTime: 'SYS:standard',
+      ignore: 'pid,hostname',
+      singleLine: false,
+    },
+  } : undefined,
+  formatters: {
+    level: (label) => {
+      return { level: label };
+    },
+  },
+  timestamp: pino.stdTimeFunctions.isoTime,
+  base: {
+    env: process.env.NODE_ENV,
+  },
+});
+
 class Logger {
   private isDevelopment: boolean;
+  private pino: pino.Logger;
 
   constructor() {
     this.isDevelopment = process.env.NODE_ENV === 'development';
+    this.pino = pinoLogger;
   }
 
   /**
-   * 调试日志（仅开发环境）
+   * Debug log (development only)
    */
   log(...args: any[]): void {
     if (this.isDevelopment) {
-      console.log(...args);
+      this.pino.debug(args);
     }
   }
 
   /**
-   * 信息日志（仅开发环境）
+   * Info log
    */
   info(...args: any[]): void {
-    if (this.isDevelopment) {
-      console.info(...args);
-    }
+    this.pino.info(args);
   }
 
   /**
-   * 调试日志（仅开发环境）
+   * Debug log (development only)
    */
   debug(...args: any[]): void {
     if (this.isDevelopment) {
-      console.debug(...args);
+      this.pino.debug(args);
     }
   }
 
   /**
-   * 警告日志（所有环境）
+   * Warning log
    */
   warn(...args: any[]): void {
-    console.warn(...args);
+    this.pino.warn(args);
   }
 
   /**
-   * 错误日志（所有环境）
+   * Error log
    */
   error(...args: any[]): void {
-    console.error(...args);
+    this.pino.error(args);
   }
 
   /**
-   * 分组日志（仅开发环境）
+   * Group log (development only - fallback to console)
    */
   group(label: string, fn: () => void): void {
     if (this.isDevelopment) {
@@ -65,7 +92,7 @@ class Logger {
   }
 
   /**
-   * 性能计时（仅开发环境）
+   * Performance timing (development only - fallback to console)
    */
   time(label: string): void {
     if (this.isDevelopment) {
@@ -74,7 +101,7 @@ class Logger {
   }
 
   /**
-   * 性能计时结束（仅开发环境）
+   * Performance timing end (development only - fallback to console)
    */
   timeEnd(label: string): void {
     if (this.isDevelopment) {
@@ -83,7 +110,7 @@ class Logger {
   }
 
   /**
-   * 表格日志（仅开发环境）
+   * Table log (development only - fallback to console)
    */
   table(data: any): void {
     if (this.isDevelopment) {
@@ -92,8 +119,15 @@ class Logger {
   }
 }
 
-// 导出单例
+// Export singleton
 export const logger = new Logger();
 
-// 导出快捷方法
+// Export shortcuts
 export const { log, info, warn, error, debug, group, time, timeEnd, table } = logger;
+
+// Export function to create child loggers with context
+export const createLogger = (context: string) => {
+  return pinoLogger.child({ context });
+};
+
+export default logger;
