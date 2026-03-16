@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { trackAPIMetrics } from '@/lib/metrics';
 
 const MAX_TOPIC_LENGTH = 500;
 const DANGEROUS_PATTERNS = [
@@ -31,7 +32,8 @@ function sanitizeUserInput(input: string, maxLength: number): string {
  * Protects API Key from frontend exposure
  */
 export async function POST(request: NextRequest) {
-  try {
+  return trackAPIMetrics('/api/ai/outline', 'POST', async () => {
+    try {
     const body = await request.json();
     const { topic, style } = body;
 
@@ -232,4 +234,5 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+  });
 }

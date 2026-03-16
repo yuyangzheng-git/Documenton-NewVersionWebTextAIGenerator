@@ -4,6 +4,7 @@
  */
 
 import Redis from 'ioredis';
+import { metrics } from './metrics';
 
 let redisClient: Redis | null = null;
 
@@ -84,7 +85,17 @@ export const cache = {
   async get(key: string): Promise<string | null> {
     const client = getRedisClient();
     if (!client) return null;
-    return await client.get(key);
+
+    const value = await client.get(key);
+
+    // Track cache metrics
+    if (value !== null) {
+      metrics.recordCacheHit(key);
+    } else {
+      metrics.recordCacheMiss(key);
+    }
+
+    return value;
   },
 
   // Delete a key

@@ -13,14 +13,36 @@ services:
     volumes:
       - redis-dev-data:/data
     restart: unless-stopped
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --save 60 1
+      --loglevel debug
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 10s
     networks:
       - ai-doc-dev-network
+    # Relaxed resource limits for development
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # Redis Commander - Redis 可视化管理工具
   redis-commander:
@@ -30,11 +52,26 @@ services:
       - "8081:8081"
     environment:
       - REDIS_HOSTS=local:redis:6379
+      - HTTP_USER=dev
+      - HTTP_PASSWORD=dev
     restart: unless-stopped
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
     networks:
       - ai-doc-dev-network
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
 
 volumes:
   redis-dev-data:

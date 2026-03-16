@@ -1,5 +1,6 @@
 # Multi-stage build for AI Document Generator
 # 使用国内镜像源加速构建
+# Enable BuildKit for improved caching: DOCKER_BUILDKIT=1 docker build .
 
 # Stage 1: Dependencies
 FROM node:20-alpine AS deps
@@ -21,8 +22,9 @@ RUN npm install -g npm@latest
 COPY package.json ./
 COPY package-lock.json ./
 
-# Install dependencies (使用 install 而不是 ci，更宽容)
-RUN npm install --legacy-peer-deps
+# Install dependencies with BuildKit cache mount
+RUN --mount=type=cache,target=/root/.npm \
+    npm install --legacy-peer-deps
 
 # Stage 2: Builder
 FROM node:20-alpine AS builder
@@ -42,8 +44,9 @@ ENV NEXT_PUBLIC_DIFY_OUTLINE_KEY=app-YOUR_OUTLINE_KEY_HERE
 ENV NEXT_PUBLIC_DIFY_CHAPTER_KEY=app-YOUR_CHAPTER_KEY_HERE
 ENV NEXT_PUBLIC_DIFY_LLM_KEY=app-YOUR_LLM_KEY_HERE
 
-# Build the application
-RUN npm run build
+# Build the application with BuildKit cache
+RUN --mount=type=cache,target=/app/.next/cache \
+    npm run build
 
 # Stage 3: Runner
 FROM node:20-alpine AS runner
@@ -52,29 +55,26 @@ WORKDIR /app
 # 使用阿里云镜像源
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 
-# Install Pandoc, Python3, and Redis (redis-cli 包含在 redis 包中)
-RUN apk add --no-cache pandoc python3 redis
+# Install Pandoc, Python3, wget (for healthcheck), and Redis
+RUN apk add --no-cache pandoc python3 redis wget
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
 # Create non-root user
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
 
 # Copy built application
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
 # Copy Python CLI for Pandoc export
-COPY --from=builder /app/cli.py ./cli.py
+COPY --from=builder --chown=nextjs:nodejs /app/cli.py ./cli.py
 
 # Create directories for user uploads and templates
 RUN mkdir -p /app/store/templates && chown -R nextjs:nodejs /app/store
-
-# Set ownership to nextjs user
-RUN chown -R nextjs:nodejs /app
 
 USER nextjs
 
@@ -82,5 +82,16 @@ EXPOSE 3000
 
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD wget --quiet --tries=1 --spider http://localhost:3000/api/health || exit 1
+
+# Security labels
+LABEL org.opencontainers.image.title="AI Document Generator" \
+      org.opencontainers.image.description="AI-powered document generation application" \
+      org.opencontainers.image.vendor="Your Organization" \
+      org.opencontainers.image.version="1.0.0" \
+      security.non-root="true"
 
 CMD ["node", "server.js"]

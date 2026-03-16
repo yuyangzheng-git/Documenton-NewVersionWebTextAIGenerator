@@ -16,7 +16,7 @@
 - [配置说明](#配置说明)
 - [开发指南](#开发指南)
 - [故障排查](#故障排查)
-- [API参考](#api参考)
+- [完整文档](#完整文档)
 
 ---
 
@@ -483,67 +483,54 @@ docker-compose -f docker-compose.server.yml logs app | grep -i error
 
 ---
 
-## API参考
+## 完整文档
 
-### 健康检查
+项目提供了详细的技术文档，涵盖所有方面：
 
-```bash
-GET /api/health
-```
+### 📚 核心文档
 
-**响应**:
-```json
-{
-  "status": "healthy",
-  "timestamp": "2026-02-06T12:00:00.000Z",
-  "version": "1.0.0"
-}
-```
+- **[API文档](docs/API.md)** - 完整的API参考手册
+  - 所有API端点说明
+  - 请求/响应格式
+  - 错误处理和代码
+  - SDK使用示例
+  - 速率限制说明
 
-### 生成大纲
+- **[Docker部署指南](docs/DOCKER.md)** - Docker化部署完全指南
+  - BuildKit优化技巧
+  - 资源管理配置
+  - 安全加固方案
+  - 监控和日志
+  - 故障排查指南
 
-```bash
-POST /api/ai/outline
-Content-Type: application/json
+- **[环境配置](docs/ENVIRONMENT.md)** - 环境变量配置手册
+  - 必需变量说明
+  - 可选配置项
+  - 验证和检查工具
+  - 多环境配置
+  - 安全最佳实践
 
-{
-  "topic": "人工智能的发展历史"
-}
-```
+- **[性能指标](docs/METRICS.md)** - 性能监控指南
+  - 指标收集系统
+  - 缓存效率监控
+  - API性能追踪
+  - Grafana集成
+  - 告警配置
 
-**响应**:
-```json
-{
-  "outline": [
-    {
-      "id": "uuid-1",
-      "title": "人工智能的起源",
-      "level": 1,
-      "requirements": ""
-    }
-  ]
-}
-```
-
-### 生成内容（流式）
+### 🛠️ 快速参考
 
 ```bash
-POST /api/ai/generate
-Content-Type: application/json
+# 环境验证
+npm run env:check
 
-{
-  "sectionTitle": "人工智能的起源",
-  "documentTopic": "人工智能的发展历史",
-  "fullOutline": "...",
-  "requirements": ""
-}
-```
+# 查看API文档
+open docs/API.md
 
-**响应**: Server-Sent Events (SSE)
-```
-data: {"text":"人工智能"}
-data: {"text":"的起源"}
-data: {"event":"done"}
+# 查看性能指标
+curl http://localhost:3000/api/metrics
+
+# 健康检查
+curl http://localhost:3000/api/health
 ```
 
 ---
@@ -716,6 +703,693 @@ sudo ufw enable
 - 🐛 修复TypeScript类型错误
 - 🐛 修复CORS问题
 - 🎨 优化UI加载提示
+
+---
+
+**Happy Coding!** 🚀
+## API参考
+
+### 核心端点
+
+#### 健康检查
+```bash
+GET /api/health
+```
+
+响应:
+```json
+{
+  "status": "healthy",
+  "services": {
+    "redis": { "status": "ok" },
+    "dify": { "status": "ok", "responseTime": 120 }
+  }
+}
+```
+
+#### 性能指标
+```bash
+GET /api/metrics
+```
+
+响应包含缓存命中率、API响应时间（p95/p99）、错误率等。
+
+#### 生成文档大纲
+```bash
+POST /api/ai/outline
+Content-Type: application/json
+
+{
+  "topic": "AI in Healthcare",
+  "style": "专业严肃" | "轻松活泼" | "学术严谨" | "商务正式"
+}
+```
+
+约束：topic最大500字符，自动过滤恶意输入。
+
+#### 生成章节内容（流式）
+```bash
+POST /api/ai/generate
+Content-Type: application/json
+
+{
+  "topic": "Medical AI Applications",
+  "context": "...",
+  "style": "专业严肃"
+}
+```
+
+返回SSE流:
+```
+data: {"type":"chunk","content":"AI has revolutionized"}
+data: {"type":"done"}
+```
+
+超时：120秒，活动超时：30秒。
+
+#### 导出DOCX
+```bash
+POST /api/export/docx
+Content-Type: application/json
+
+{
+  "html": "<h1>Title</h1><p>Content...</p>",
+  "title": "Document Title",
+  "useAdvancedConversion": true
+}
+```
+
+返回二进制DOCX文件。支持Pandoc（高质量）和docxtemplater（快速）两种模式。
+
+#### 模板管理
+```bash
+# 列出模板
+GET /api/templates
+
+# 上传模板
+POST /api/template/upload
+Content-Type: multipart/form-data
+
+file: [DOCX file, max 10MB]
+```
+
+### 错误代码
+
+| 代码 | HTTP状态 | 说明 |
+|------|----------|------|
+| `VALIDATION_ERROR` | 400 | 输入验证失败 |
+| `INVALID_INPUT` | 400 | 检测到恶意输入 |
+| `FILE_TOO_LARGE` | 400 | 文件超过限制 |
+| `RATE_LIMIT_EXCEEDED` | 429 | 超过速率限制 |
+| `DIFY_API_ERROR` | 500 | Dify API调用失败 |
+| `TIMEOUT` | 504 | 请求超时 |
+
+### 速率限制
+
+| 端点 | 限制 | 窗口 |
+|------|------|------|
+| `/api/ai/*` | 60次 | 1分钟 |
+| `/api/template/upload` | 10次 | 1分钟 |
+| `/api/export/docx` | 30次 | 1分钟 |
+
+### 客户端示例
+
+**JavaScript:**
+```javascript
+// 生成大纲
+const response = await fetch('/api/ai/outline', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ topic: 'AI in Healthcare' })
+});
+const { outline } = await response.json();
+
+// 流式生成
+const response = await fetch('/api/ai/generate', {
+  method: 'POST',
+  body: JSON.stringify({ topic: 'Medical AI' })
+});
+
+const reader = response.body.getReader();
+const decoder = new TextDecoder();
+
+while (true) {
+  const { done, value } = await reader.read();
+  if (done) break;
+  
+  const chunk = decoder.decode(value);
+  const lines = chunk.split('\n');
+  
+  for (const line of lines) {
+    if (line.startsWith('data: ')) {
+      const data = JSON.parse(line.slice(6));
+      console.log(data.content);
+    }
+  }
+}
+```
+
+**Python:**
+```python
+import requests
+
+# 生成大纲
+response = requests.post('http://localhost:3000/api/ai/outline', json={
+    'topic': 'AI in Healthcare'
+})
+outline = response.json()['outline']
+
+# 导出DOCX
+response = requests.post('http://localhost:3000/api/export/docx', json={
+    'html': '<h1>Title</h1>',
+    'title': 'My Document'
+})
+with open('document.docx', 'wb') as f:
+    f.write(response.content)
+```
+
+**cURL:**
+```bash
+# 健康检查
+curl http://localhost:3000/api/health
+
+# 生成大纲
+curl -X POST http://localhost:3000/api/ai/outline \
+  -H "Content-Type: application/json" \
+  -d '{"topic":"AI in Healthcare"}'
+
+# 导出文档
+curl -X POST http://localhost:3000/api/export/docx \
+  -H "Content-Type: application/json" \
+  -d '{"html":"<h1>Title</h1>","title":"My Doc"}' \
+  --output doc.docx
+```
+
+---
+
+## Docker部署详解
+
+### BuildKit优化
+
+启用BuildKit获得50-80%构建加速:
+
+```bash
+# 设置环境变量
+export DOCKER_BUILDKIT=1
+
+# 或配置daemon.json
+{
+  "features": { "buildkit": true }
+}
+```
+
+Dockerfile已配置缓存挂载:
+```dockerfile
+RUN --mount=type=cache,target=/root/.npm npm install
+RUN --mount=type=cache,target=/app/.next/cache npm run build
+```
+
+### 资源限制
+
+所有服务已配置资源限制（docker-compose.server.yml）:
+
+**主应用:**
+```yaml
+deploy:
+  resources:
+    limits:
+      cpus: '2.0'
+      memory: 2G
+    reservations:
+      cpus: '0.5'
+      memory: 512M
+```
+
+**Redis:**
+```yaml
+deploy:
+  resources:
+    limits:
+      cpus: '0.5'
+      memory: 512M
+```
+
+根据实际使用调整:
+```bash
+# 查看资源使用
+docker stats
+
+# 调整限制
+vim docker-compose.server.yml
+docker-compose -f docker-compose.server.yml up -d
+```
+
+### 安全加固
+
+已实施的安全措施:
+
+1. **非root用户运行**
+   ```dockerfile
+   USER nextjs
+   ```
+
+2. **禁止权限提升**
+   ```yaml
+   security_opt:
+     - no-new-privileges:true
+   ```
+
+3. **只读文件系统（Redis）**
+   ```yaml
+   read_only: true
+   tmpfs:
+     - /tmp:size=50M
+   ```
+
+4. **最小基础镜像**
+   - Alpine Linux (5MB vs 120MB)
+
+5. **健康检查**
+   ```dockerfile
+   HEALTHCHECK --interval=30s --timeout=10s \
+     CMD wget --spider http://localhost:3000/api/health
+   ```
+
+### 日志管理
+
+配置了自动轮转:
+```yaml
+logging:
+  driver: "json-file"
+  options:
+    max-size: "10m"
+    max-file: "3"
+```
+
+查看日志:
+```bash
+# 实时日志
+./manage.sh logs
+
+# 最近100行
+docker-compose -f docker-compose.server.yml logs --tail=100 app
+
+# 特定时间
+docker-compose logs --since 2024-01-15T10:00:00 app
+```
+
+### 监控集成
+
+**健康检查:**
+```bash
+# Kubernetes探针
+curl http://localhost:3001/api/health
+
+# 响应状态
+200 - healthy
+503 - degraded/unhealthy
+```
+
+**性能指标:**
+```bash
+# Prometheus格式(TODO)
+curl http://localhost:3001/api/metrics
+
+# 当前JSON格式
+{
+  "cache": { "hitRate": 0.75 },
+  "apis": [{ "p95": 800, "p99": 1200 }]
+}
+```
+
+### 故障排查
+
+**容器无法启动:**
+```bash
+# 查看日志
+./manage.sh logs
+
+# 检查端口占用
+lsof -i :3001
+
+# 清理重建
+./manage.sh clean
+./manage.sh deploy
+```
+
+**高内存使用:**
+```bash
+# 查看统计
+docker stats
+
+# 调整限制
+vim docker-compose.server.yml
+# 修改 memory: 2G → 4G
+```
+
+**构建缓慢:**
+```bash
+# 启用BuildKit
+export DOCKER_BUILDKIT=1
+
+# 使用层缓存
+docker-compose build --pull
+
+# 检查缓存
+docker buildx du
+```
+
+---
+
+## 环境变量配置
+
+### 快速开始
+
+```bash
+# 1. 生成模板
+npm run env:generate
+
+# 2. 复制配置
+cp .env.example .env.local
+
+# 3. 编辑配置
+nano .env.local
+
+# 4. 验证
+npm run env:check
+```
+
+### 必需变量
+
+**Dify配置（必需）:**
+```env
+# API基础URL
+NEXT_PUBLIC_DIFY_BASE_URL=http://your-dify-server/v1
+
+# 大纲生成API密钥
+NEXT_PUBLIC_DIFY_OUTLINE_KEY=app-xxxxx...
+
+# 内容生成API密钥
+NEXT_PUBLIC_DIFY_CHAPTER_KEY=app-xxxxx...
+
+# LLM聊天API密钥
+NEXT_PUBLIC_DIFY_LLM_KEY=app-xxxxx...
+```
+
+验证规则:
+- URL必须是有效的HTTP(S)地址
+- 密钥必须以`app-`开头
+- 密钥长度≥10字符
+
+### 可选变量
+
+**Redis缓存:**
+```env
+REDIS_URL=redis://localhost:6379
+CACHE_ENABLED=1
+```
+
+**日志级别:**
+```env
+LOG_LEVEL=info  # debug | info | warn | error
+```
+
+**CORS配置:**
+```env
+ALLOWED_ORIGINS=https://app.example.com,https://admin.example.com
+```
+
+**其他AI提供商:**
+```env
+# OpenAI
+NEXT_PUBLIC_OPENAI_API_KEY=sk-...
+NEXT_PUBLIC_OPENAI_MODEL=gpt-4o
+
+# Google Gemini
+NEXT_PUBLIC_GEMINI_API_KEY=...
+NEXT_PUBLIC_GEMINI_MODEL=gemini-1.5-pro
+
+# Anthropic Claude
+NEXT_PUBLIC_CLAUDE_API_KEY=sk-ant-...
+NEXT_PUBLIC_CLAUDE_MODEL=claude-3-5-sonnet-20241022
+
+# 更多提供商...
+```
+
+### 环境文件优先级
+
+Next.js加载顺序(后者覆盖前者):
+1. `.env` - 默认值(提交到git)
+2. `.env.local` - 本地覆盖(**不提交**)
+3. `.env.production` - 生产配置(提交)
+4. `.env.production.local` - 生产本地覆盖(**不提交**)
+
+### 验证系统
+
+自动验证在启动时运行:
+```bash
+🔍 Validating environment configuration...
+
+❌ Missing required environment variable: NEXT_PUBLIC_DIFY_BASE_URL
+   Description: Dify API base URL
+   Constraint: Must be a valid HTTP(S) URL
+
+⚠️  Using default value for LOG_LEVEL: info
+```
+
+手动验证:
+```bash
+npm run env:check
+```
+
+### Docker部署
+
+**构建时变量（嵌入镜像）:**
+```yaml
+# docker-compose.server.yml
+build:
+  args:
+    NEXT_PUBLIC_DIFY_BASE_URL: http://host.docker.internal/v1
+    NEXT_PUBLIC_DIFY_OUTLINE_KEY: app-...
+```
+
+**运行时变量（可修改）:**
+```yaml
+environment:
+  - NODE_ENV=production
+  - REDIS_URL=redis://redis:6379
+
+# 或使用文件
+env_file:
+  - .env.local
+```
+
+### 安全最佳实践
+
+1. **永不提交secrets**
+   ```bash
+   # .gitignore
+   .env.local
+   .env*.local
+   ```
+
+2. **按环境分离密钥**
+   ```env
+   # 开发
+   NEXT_PUBLIC_DIFY_OUTLINE_KEY=app-dev-...
+   
+   # 生产
+   NEXT_PUBLIC_DIFY_OUTLINE_KEY=app-prod-...
+   ```
+
+3. **定期轮换密钥**
+
+4. **使用secrets管理**
+   - Docker: Docker secrets
+   - Kubernetes: K8s secrets
+   - Cloud: AWS Secrets Manager, Google Secret Manager
+
+### 故障排查
+
+**"Missing required variable":**
+```bash
+# 检查文件存在
+ls -la .env.local
+
+# 对比模板
+diff .env.example .env.local
+
+# 重新生成
+npm run env:generate
+```
+
+**变量未更新:**
+```bash
+# 重启开发服务器
+Ctrl+C
+npm run dev
+
+# 或重建生产环境
+docker-compose build --no-cache
+docker-compose up -d
+```
+
+---
+
+## 性能监控
+
+### 指标收集
+
+系统自动收集以下指标:
+- **API响应时间** - min, max, avg, p95, p99
+- **缓存命中率** - hits, misses, hit rate
+- **错误率** - 按代码和端点分类
+- **请求计数** - 总请求和成功率
+
+### 使用方法
+
+**查看指标:**
+```bash
+curl http://localhost:3000/api/metrics | jq
+```
+
+**响应示例:**
+```json
+{
+  "cache": {
+    "hits": 150,
+    "misses": 50,
+    "hitRate": 0.75,
+    "totalRequests": 200
+  },
+  "apis": [
+    {
+      "endpoint": "/api/ai/outline",
+      "method": "POST",
+      "responseTime": {
+        "avg": 500,
+        "p95": 800,
+        "p99": 1200
+      },
+      "errorRate": 0.05
+    }
+  ]
+}
+```
+
+### API端点追踪
+
+在路由中自动追踪:
+```typescript
+import { trackAPIMetrics } from '@/lib/metrics';
+
+export async function POST(request: NextRequest) {
+  return trackAPIMetrics('/api/ai/outline', 'POST', async () => {
+    // 你的处理逻辑
+    const result = await processRequest();
+    return NextResponse.json(result);
+  });
+}
+```
+
+### 缓存监控
+
+Redis操作自动追踪:
+```typescript
+const cached = await cache.get('mykey');
+// 自动记录 hit 或 miss
+```
+
+手动追踪:
+```typescript
+import { metrics } from '@/lib/metrics';
+
+metrics.recordCacheHit('custom-key');
+metrics.recordCacheMiss('custom-key');
+```
+
+### 错误追踪
+
+记录自定义错误:
+```typescript
+import { metrics } from '@/lib/metrics';
+
+try {
+  await riskyOperation();
+} catch (error) {
+  metrics.recordError('OPERATION_FAILED', '/api/endpoint');
+  throw error;
+}
+```
+
+### Prometheus集成(规划中)
+
+```typescript
+// TODO: 导出Prometheus格式
+export function toPrometheusFormat(summary: MetricsSummary): string {
+  // 转换为Prometheus exposition格式
+}
+```
+
+### Grafana仪表板
+
+配置数据源:
+1. 添加JSON数据源指向 `/api/metrics`
+2. 创建面板:
+   - 响应时间百分位趋势图
+   - 缓存命中率
+   - 错误率按端点
+   - 请求吞吐量
+
+### 告警配置
+
+建议告警阈值:
+- 错误率 > 5%
+- 缓存命中率 < 70%
+- P95响应时间 > 2秒
+- P99响应时间 > 5秒
+
+### 性能优化建议
+
+**基于指标优化:**
+
+1. **低缓存命中率** → 增加TTL或缓存容量
+```env
+# Redis配置
+command: redis-server --maxmemory 512mb
+```
+
+2. **高响应时间** → 优化查询或增加资源
+```yaml
+# 增加CPU/内存
+deploy:
+  resources:
+    limits:
+      cpus: '4.0'
+      memory: 4G
+```
+
+3. **高错误率** → 检查日志排查问题
+```bash
+./manage.sh logs | grep ERROR
+```
+
+### 监控最佳实践
+
+1. **定期检查指标**
+   ```bash
+   watch -n 5 'curl -s http://localhost:3000/api/metrics | jq .cache'
+   ```
+
+2. **设置自动告警**
+
+3. **关联指标与部署**
+   - 部署后立即检查指标
+   - 对比部署前后性能
+
+4. **长期趋势分析**
+   - 使用时序数据库
+   - 创建周报/月报
 
 ---
 

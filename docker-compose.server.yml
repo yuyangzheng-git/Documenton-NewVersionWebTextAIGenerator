@@ -13,6 +13,9 @@ services:
         NEXT_PUBLIC_DIFY_OUTLINE_KEY: app-YOUR_OUTLINE_KEY_HERE
         NEXT_PUBLIC_DIFY_CHAPTER_KEY: app-YOUR_CHAPTER_KEY_HERE
         NEXT_PUBLIC_DIFY_LLM_KEY: app-YOUR_LLM_KEY_HERE
+      # BuildKit cache for faster rebuilds
+      cache_from:
+        - ai-document-generator:latest
     container_name: ai-document-generator
     ports:
       - "3001:3000"
@@ -37,9 +40,31 @@ services:
       retries: 3
       start_period: 40s
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
     networks:
       - ai-doc-network
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+    read_only: false  # Next.js needs write access to /tmp
+    tmpfs:
+      - /tmp:size=100M,mode=1777
 
   # Redis 缓存服务
   redis:
@@ -50,14 +75,46 @@ services:
     volumes:
       - redis-data:/data
     restart: unless-stopped
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 256mb
+      --maxmemory-policy allkeys-lru
+      --save 900 1
+      --save 300 10
+      --save 60 10000
+      --tcp-backlog 511
+      --timeout 0
+      --tcp-keepalive 300
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 10s
     networks:
       - ai-doc-network
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=50M,mode=1777
 
   # 可选: Redis Commander - Redis 可视化管理工具
   redis-commander:
@@ -67,11 +124,32 @@ services:
       - "8081:8081"
     environment:
       - REDIS_HOSTS=local:redis:6379
+      - HTTP_USER=admin
+      - HTTP_PASSWORD=changeme  # 请在生产环境中更改
     restart: unless-stopped
     depends_on:
-      - redis
+      redis:
+        condition: service_healthy
     networks:
       - ai-doc-network
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+    # Security options
+    security_opt:
+      - no-new-privileges:true
 
 volumes:
   redis-data:
@@ -84,3 +162,6 @@ volumes:
 networks:
   ai-doc-network:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
