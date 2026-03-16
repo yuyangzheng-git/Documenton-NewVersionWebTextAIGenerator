@@ -1,13 +1,11 @@
 #!/bin/bash
 
 # 服务器部署脚本 - 用于部署到 Dify 所在的同一台服务器
-# 服务器IP: 10.23.22.37
 
 set -e  # 遇到错误立即退出
 
 echo "=========================================="
 echo "  部署文档生成应用到服务器"
-echo "  目标服务器: 10.23.22.37"
 echo "  Dify地址: http://host.docker.internal/v1"
 echo "=========================================="
 echo ""
@@ -32,9 +30,9 @@ if [ ! -f .env.local ]; then
     echo "创建默认配置文件..."
     cat > .env.local <<EOF
 NEXT_PUBLIC_DIFY_BASE_URL=http://host.docker.internal/v1
-NEXT_PUBLIC_DIFY_OUTLINE_KEY=app-yIhd9xD2SHZ6e9BNTYSWEfYD
-NEXT_PUBLIC_DIFY_CHAPTER_KEY=app-wqO8BTPC99CwAGFDabEze6Uz
-NEXT_PUBLIC_DIFY_LLM_KEY=app-ThlXmch2AjSRdv6kuvacb4bM
+NEXT_PUBLIC_DIFY_OUTLINE_KEY=app-YOUR_OUTLINE_KEY_HERE
+NEXT_PUBLIC_DIFY_CHAPTER_KEY=app-YOUR_CHAPTER_KEY_HERE
+NEXT_PUBLIC_DIFY_LLM_KEY=app-YOUR_LLM_KEY_HERE
 REDIS_URL=redis://redis:6379
 CACHE_ENABLED=1
 EOF
@@ -115,9 +113,9 @@ echo "  ✅ 部署完成！"
 echo "=========================================="
 echo ""
 echo "📍 访问地址："
-echo "   • 主应用: http://10.23.22.37:3001"
+echo "   • 主应用: http://your-server-ip:3001"
 echo "   • 或使用: http://localhost:3001 (在服务器上)"
-echo "   • Redis Commander: http://10.23.22.37:8081"
+echo "   • Redis Commander: http://your-server-ip:8081"
 echo ""
 echo "📝 常用命令："
 echo "   • 查看日志: docker-compose -f docker-compose.server.yml logs -f"

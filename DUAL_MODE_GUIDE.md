@@ -57,7 +57,7 @@ npm run dev
 # 在服务器上
 npm run build
 npm start
-# 访问 http://10.23.22.37:3001
+# 访问 http://your-server-ip:3001
 ```
 
 #### 方式B: 强制启用（在 localhost 测试跨域）
@@ -112,10 +112,10 @@ PORT=3001 npm run dev
 NEXT_PUBLIC_USE_CROSS_ORIGIN_MODE=false
 
 # 子窗口地址（跨域模式需要）
-NEXT_PUBLIC_CHILD_WINDOW_ORIGIN=http://10.23.22.37:3001
+NEXT_PUBLIC_CHILD_WINDOW_ORIGIN=http://your-server-ip:3001
 
 # 父窗口地址（跨域模式需要，用于安全校验）
-NEXT_PUBLIC_PARENT_ORIGIN=http://10.23.22.37:3000
+NEXT_PUBLIC_PARENT_ORIGIN=http://your-server-ip:3000
 ```
 
 ### 自动检测逻辑
@@ -173,8 +173,8 @@ PORT=3001 npm start  # 子页面（编辑器）
 ```bash
 # .env
 NEXT_PUBLIC_USE_CROSS_ORIGIN_MODE=true
-NEXT_PUBLIC_CHILD_WINDOW_ORIGIN=http://10.23.22.37:3001
-NEXT_PUBLIC_PARENT_ORIGIN=http://10.23.22.37:3000
+NEXT_PUBLIC_CHILD_WINDOW_ORIGIN=http://your-server-ip:3001
+NEXT_PUBLIC_PARENT_ORIGIN=http://your-server-ip:3000
 ```
 
 **效果**：跨窗口通信，数据通过 postMessage 传递
@@ -191,13 +191,13 @@ services:
       - "3000:3000"
     environment:
       - NEXT_PUBLIC_USE_CROSS_ORIGIN_MODE=true
-      - NEXT_PUBLIC_CHILD_WINDOW_ORIGIN=http://10.23.22.37:3001
+      - NEXT_PUBLIC_CHILD_WINDOW_ORIGIN=http://your-server-ip:3001
 
   app-child:
     ports:
       - "3001:3000"
     environment:
-      - NEXT_PUBLIC_PARENT_ORIGIN=http://10.23.22.37:3000
+      - NEXT_PUBLIC_PARENT_ORIGIN=http://your-server-ip:3000
 ```
 
 ---
@@ -240,8 +240,8 @@ NEXT_PUBLIC_USE_CROSS_ORIGIN_MODE=true
 **解决**：
 ```bash
 # 确保配置匹配
-NEXT_PUBLIC_CHILD_WINDOW_ORIGIN=http://10.23.22.37:3001
-NEXT_PUBLIC_PARENT_ORIGIN=http://10.23.22.37:3000
+NEXT_PUBLIC_CHILD_WINDOW_ORIGIN=http://your-server-ip:3001
+NEXT_PUBLIC_PARENT_ORIGIN=http://your-server-ip:3000
 ```
 
 ---
@@ -284,7 +284,7 @@ router.push('/word-editor')
 ```
 用户输入 → 生成大纲 → Store保存
     ↓
-window.open('http://10.23.22.37:3001/word-editor')
+window.open('http://your-server-ip:3001/word-editor')
     ↓
 新窗口加载 → 显示"正在同步..."
     ↓

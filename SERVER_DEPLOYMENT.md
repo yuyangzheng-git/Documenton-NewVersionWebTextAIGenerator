@@ -2,7 +2,7 @@
 
 ## 概述
 
-本指南用于将文档生成应用部署到**Dify所在的同一台服务器**（10.23.22.37）。
+本指南用于将文档生成应用部署到**Dify所在的同一台服务器**（your-server-ip）。
 
 ## ✅ 关键配置
 
@@ -31,7 +31,7 @@ NEXT_PUBLIC_DIFY_BASE_URL=http://host.docker.internal/v1
 |------|---------|------|
 | `http://localhost/v1` | ❌ 不可行 | 容器内的localhost指向容器自己 |
 | `http://127.0.0.1/v1` | ❌ 不可行 | 同上，指向容器自己 |
-| `http://10.23.22.37/v1` | ✅ 可行 | 但需要Dify监听在0.0.0.0 |
+| `http://your-server-ip/v1` | ✅ 可行 | 但需要Dify监听在0.0.0.0 |
 | `http://host.docker.internal/v1` | ✅ **推荐** | 自动解析为宿主机IP |
 
 ## 🚀 快速部署
@@ -40,10 +40,10 @@ NEXT_PUBLIC_DIFY_BASE_URL=http://host.docker.internal/v1
 
 ```bash
 # 1. 上传项目到服务器
-scp -r . user@10.23.22.37:/path/to/project
+scp -r . user@your-server-ip:/path/to/project
 
 # 2. SSH登录服务器
-ssh user@10.23.22.37
+ssh user@your-server-ip
 
 # 3. 进入项目目录
 cd /path/to/project
@@ -157,7 +157,7 @@ services:
   app:
     build:
       args:
-        NEXT_PUBLIC_DIFY_BASE_URL: http://10.23.22.37/v1
+        NEXT_PUBLIC_DIFY_BASE_URL: http://your-server-ip/v1
 ```
 
 **要求**: Dify必须监听在 `0.0.0.0:80`
@@ -234,7 +234,7 @@ exit
 
 ### 4. 测试应用功能
 
-1. 在浏览器访问: `http://10.23.22.37:3001`
+1. 在浏览器访问: `http://your-server-ip:3001`
 2. 输入文档主题
 3. 点击"生成大纲"
 4. 查看是否成功生成
@@ -371,9 +371,9 @@ docker-compose -f docker-compose.server.yml up -d
 
 ```bash
 # .env.local
-NEXT_PUBLIC_DIFY_OUTLINE_KEY=app-yIhd9xD2SHZ6e9BNTYSWEfYD
-NEXT_PUBLIC_DIFY_CHAPTER_KEY=app-wqO8BTPC99CwAGFDabEze6Uz
-NEXT_PUBLIC_DIFY_LLM_KEY=app-ThlXmch2AjSRdv6kuvacb4bM
+NEXT_PUBLIC_DIFY_OUTLINE_KEY=app-YOUR_OUTLINE_KEY_HERE
+NEXT_PUBLIC_DIFY_CHAPTER_KEY=app-YOUR_CHAPTER_KEY_HERE
+NEXT_PUBLIC_DIFY_LLM_KEY=app-YOUR_LLM_KEY_HERE
 ```
 
 ### 2. 限制端口访问

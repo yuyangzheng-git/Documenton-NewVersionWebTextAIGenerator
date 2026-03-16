@@ -16,7 +16,7 @@
 ### 1️⃣ SSH 登录到服务器
 
 ```bash
-ssh user@10.23.22.37
+ssh user@your-server-ip
 # 或者使用你的 SSH 配置
 ssh your-server-alias
 ```
@@ -69,9 +69,9 @@ Fast-forward
 cat .env
 
 # 确保以下配置正确
-# NEXT_PUBLIC_DIFY_BASE_URL=http://10.23.22.37/v1
-# NEXT_PUBLIC_DIFY_OUTLINE_KEY=app-yIhd9xD2SHZ6e9BNTYSWEfYD
-# NEXT_PUBLIC_DIFY_CHAPTER_KEY=app-wqO8BTPC99CwAGFDabEze6Uz
+# NEXT_PUBLIC_DIFY_BASE_URL=http://your-server-ip/v1
+# NEXT_PUBLIC_DIFY_OUTLINE_KEY=app-YOUR_OUTLINE_KEY_HERE
+# NEXT_PUBLIC_DIFY_CHAPTER_KEY=app-YOUR_CHAPTER_KEY_HERE
 ```
 
 ---
@@ -149,7 +149,7 @@ ai-document-generator  | ✓ Ready in 353ms
 
 1. 打开浏览器访问：
    ```
-   http://10.23.22.37:3001/
+   http://your-server-ip:3001/
    ```
 
 2. 输入主题并生成大纲

@@ -4,8 +4,8 @@
 
 ### 测试环境
 - **Docker容器**: ai-document-generator-dev
-- **Dify服务器**: 10.23.22.37
-- **Dify API地址**: http://10.23.22.37/v1
+- **Dify服务器**: your-server-ip
+- **Dify API地址**: http://your-server-ip/v1
 
 ### 测试结果
 
@@ -21,7 +21,7 @@
 
 当前配置完全正常：
 ```
-NEXT_PUBLIC_DIFY_BASE_URL=http://10.23.22.37/v1
+NEXT_PUBLIC_DIFY_BASE_URL=http://your-server-ip/v1
 ```
 
 ## 📋 配置说明
@@ -30,7 +30,7 @@ NEXT_PUBLIC_DIFY_BASE_URL=http://10.23.22.37/v1
 
 ```
 ┌─────────────────────────────────────────────┐
-│         服务器 (10.23.22.37)                 │
+│         服务器 (your-server-ip)                 │
 │                                             │
 │  ┌──────────────┐      ┌─────────────────┐ │
 │  │  Dify 服务    │      │  Docker 容器     │ │
@@ -119,9 +119,9 @@ NEXT_PUBLIC_DIFY_BASE_URL=http://172.20.0.1/v1
 docker exec ai-document-generator-dev env | grep DIFY
 
 # 2. 检查API Key是否正确
-# 大纲生成: app-yIhd9xD2SHZ6e9BNTYSWEfYD
-# 正文写作: app-wqO8BTPC99CwAGFDabEze6Uz
-# 对话LLM:  app-ThlXmch2AjSRdv6kuvacb4bM
+# 大纲生成: app-YOUR_OUTLINE_KEY_HERE
+# 正文写作: app-YOUR_CHAPTER_KEY_HERE
+# 对话LLM:  app-YOUR_LLM_KEY_HERE
 ```
 
 ## 🧪 测试连通性
@@ -133,13 +133,13 @@ docker exec ai-document-generator-dev env | grep DIFY
 docker exec -it ai-document-generator-dev sh
 
 # 测试网络连通
-ping -c 3 10.23.22.37
+ping -c 3 your-server-ip
 
 # 测试HTTP访问
-wget -q -O- http://10.23.22.37/ | head -10
+wget -q -O- http://your-server-ip/ | head -10
 
 # 测试API端点（会返回405，这是正常的）
-wget --spider http://10.23.22.37/v1/workflows/run
+wget --spider http://your-server-ip/v1/workflows/run
 ```
 
 ### 从应用层面测试
@@ -160,7 +160,7 @@ wget --spider http://10.23.22.37/v1/workflows/run
 
 ### 1. 保持当前配置
 
-当前的配置（使用 `10.23.22.37`）是最佳选择：
+当前的配置（使用 `your-server-ip`）是最佳选择：
 - ✅ 明确的IP地址
 - ✅ 适用于所有Docker网络模式
 - ✅ 易于调试和追踪
@@ -189,12 +189,12 @@ docker logs dify-api-container
 
 1. **检查Dify服务状态**
    ```bash
-   curl http://10.23.22.37/
+   curl http://your-server-ip/
    ```
 
 2. **检查容器网络**
    ```bash
-   docker exec ai-document-generator-dev ping 10.23.22.37
+   docker exec ai-document-generator-dev ping your-server-ip
    ```
 
 3. **检查环境变量**
@@ -217,10 +217,10 @@ docker logs dify-api-container
 
 ```bash
 # .env.local
-NEXT_PUBLIC_DIFY_BASE_URL=http://10.23.22.37/v1
-NEXT_PUBLIC_DIFY_OUTLINE_KEY=app-yIhd9xD2SHZ6e9BNTYSWEfYD
-NEXT_PUBLIC_DIFY_CHAPTER_KEY=app-wqO8BTPC99CwAGFDabEze6Uz
-NEXT_PUBLIC_DIFY_LLM_KEY=app-ThlXmch2AjSRdv6kuvacb4bM
+NEXT_PUBLIC_DIFY_BASE_URL=http://your-server-ip/v1
+NEXT_PUBLIC_DIFY_OUTLINE_KEY=app-YOUR_OUTLINE_KEY_HERE
+NEXT_PUBLIC_DIFY_CHAPTER_KEY=app-YOUR_CHAPTER_KEY_HERE
+NEXT_PUBLIC_DIFY_LLM_KEY=app-YOUR_LLM_KEY_HERE
 ```
 
 ### 替代配置（如需要）

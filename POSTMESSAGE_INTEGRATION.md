@@ -8,20 +8,20 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  父页面 (http://10.23.22.37:3000)                               │
+│  父页面 (http://your-server-ip:3000)                               │
 │  ├─ 用户输入主题                                                 │
 │  ├─ 调用 Dify API 生成大纲                                      │
-│  ├─ 打开新窗口 window.open('http://10.23.22.37:3001/word-editor') │
+│  ├─ 打开新窗口 window.open('http://your-server-ip:3001/word-editor') │
 │  └─ 通过 postMessage 发送数据                                    │
 │      ↓                                                           │
 │      postMessage({                                               │
 │        type: 'INIT_WORD_EDITOR',                                 │
 │        payload: { outline, documentTitle }                       │
-│      }, 'http://10.23.22.37:3001')                              │
+│      }, 'http://your-server-ip:3001')                              │
 └─────────────────────────────────────────────────────────────────┘
                           ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│  子页面 (http://10.23.22.37:3001/word-editor)                  │
+│  子页面 (http://your-server-ip:3001/word-editor)                  │
 │  ├─ 显示加载界面 (isInitializing = true)                        │
 │  ├─ 发送 CHILD_READY 消息给父窗口                               │
 │  ├─ 监听 message 事件                                           │
@@ -44,7 +44,7 @@ const handleGenerate = async () => {
   const storeState = useStore.getState();
 
   // ✅ 打开子窗口
-  const childWindow = window.open('http://10.23.22.37:3001/word-editor', '_blank');
+  const childWindow = window.open('http://your-server-ip:3001/word-editor', '_blank');
 
   // ✅ 发送数据到子窗口
   const sendDataToChild = () => {
@@ -57,7 +57,7 @@ const handleGenerate = async () => {
             documentTitle: storeState.documentTitle,
           },
         },
-        'http://10.23.22.37:3001' // ⚠️ 目标源，确保安全
+        'http://your-server-ip:3001' // ⚠️ 目标源，确保安全
       );
       console.log('[Parent] Data sent to child window');
     }
@@ -68,7 +68,7 @@ const handleGenerate = async () => {
 
   // ✅ 监听子窗口的 ready 消息（更可靠）
   const handleChildReady = (event: MessageEvent) => {
-    if (event.origin !== 'http://10.23.22.37:3001') return;
+    if (event.origin !== 'http://your-server-ip:3001') return;
     if (event.data.type === 'CHILD_READY') {
       console.log('[Parent] Child window ready, sending data...');
       sendDataToChild();
@@ -93,7 +93,7 @@ export default function WordEditorPage() {
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
       // ⚠️ 安全校验：只接受来自父页面的消息
-      if (event.origin !== 'http://10.23.22.37:3000') {
+      if (event.origin !== 'http://your-server-ip:3000') {
         console.warn('[Child] Received message from unknown origin:', event.origin);
         return;
       }
@@ -121,7 +121,7 @@ export default function WordEditorPage() {
 
     // ✅ 通知父窗口：子窗口已准备好接收数据
     if (window.opener) {
-      window.opener.postMessage({ type: 'CHILD_READY' }, 'http://10.23.22.37:3000');
+      window.opener.postMessage({ type: 'CHILD_READY' }, 'http://your-server-ip:3000');
       console.log('[Child] Sent CHILD_READY message to parent');
     }
 
@@ -219,7 +219,7 @@ export default function WordEditorPage() {
 
 ```typescript
 // ⚠️ 始终校验消息来源
-if (event.origin !== 'http://10.23.22.37:3000') {
+if (event.origin !== 'http://your-server-ip:3000') {
   console.warn('Received message from unknown origin:', event.origin);
   return; // 拒绝未授权的消息
 }
@@ -360,12 +360,12 @@ window.parent.postMessage({ type: 'CHILD_READY' }, parentOrigin);
    window.postMessage(data, '*');
 
    // ✅ 指定明确的域名
-   window.postMessage(data, 'http://10.23.22.37:3001');
+   window.postMessage(data, 'http://your-server-ip:3001');
    ```
 
 2. **验证消息来源**
    ```typescript
-   if (event.origin !== 'http://10.23.22.37:3000') {
+   if (event.origin !== 'http://your-server-ip:3000') {
      return; // 拒绝
    }
    ```

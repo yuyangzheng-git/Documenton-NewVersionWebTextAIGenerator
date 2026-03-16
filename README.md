@@ -168,7 +168,7 @@ services:
 
 ```
 ┌─────────────────────────────────────┐
-│     服务器 (例: 10.23.22.37)         │
+│     服务器 (例: your-server-ip)      │
 │                                     │
 │  ┌──────────┐    ┌──────────────┐  │
 │  │  Dify    │    │ Docker容器    │  │
@@ -262,9 +262,9 @@ docker-compose ps
 ```bash
 # .env.local
 NEXT_PUBLIC_DIFY_BASE_URL=http://host.docker.internal/v1  # 或IP地址
-NEXT_PUBLIC_DIFY_OUTLINE_KEY=app-yIhd9xD2SHZ6e9BNTYSWEfYD
-NEXT_PUBLIC_DIFY_CHAPTER_KEY=app-wqO8BTPC99CwAGFDabEze6Uz
-NEXT_PUBLIC_DIFY_LLM_KEY=app-ThlXmch2AjSRdv6kuvacb4bM
+NEXT_PUBLIC_DIFY_OUTLINE_KEY=app-YOUR_OUTLINE_KEY_HERE
+NEXT_PUBLIC_DIFY_CHAPTER_KEY=app-YOUR_CHAPTER_KEY_HERE
+NEXT_PUBLIC_DIFY_LLM_KEY=app-YOUR_LLM_KEY_HERE
 ```
 
 #### Redis配置

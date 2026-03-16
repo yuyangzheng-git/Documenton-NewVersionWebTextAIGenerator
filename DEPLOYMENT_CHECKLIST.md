@@ -76,7 +76,7 @@ sudo systemctl status docker
 
 ```bash
 # 1. SSH登录到服务器
-ssh user@10.23.22.37
+ssh user@your-server-ip
 
 # 2. 选择部署目录
 cd /opt  # 或其他目录，如 /home/user
@@ -97,9 +97,9 @@ cat deploy-server.sh
 # 检查会自动创建的配置
 # 脚本会自动创建 .env.local 文件，包含：
 # - NEXT_PUBLIC_DIFY_BASE_URL=http://host.docker.internal/v1
-# - NEXT_PUBLIC_DIFY_OUTLINE_KEY=app-yIhd9xD2SHZ6e9BNTYSWEfYD
-# - NEXT_PUBLIC_DIFY_CHAPTER_KEY=app-wqO8BTPC99CwAGFDabEze6Uz
-# - NEXT_PUBLIC_DIFY_LLM_KEY=app-ThlXmch2AjSRdv6kuvacb4bM
+# - NEXT_PUBLIC_DIFY_OUTLINE_KEY=app-YOUR_OUTLINE_KEY_HERE
+# - NEXT_PUBLIC_DIFY_CHAPTER_KEY=app-YOUR_CHAPTER_KEY_HERE
+# - NEXT_PUBLIC_DIFY_LLM_KEY=app-YOUR_LLM_KEY_HERE
 ```
 
 ### 第3步: 一键部署
@@ -158,7 +158,7 @@ docker exec ai-document-generator wget -q -O- http://host.docker.internal/ | hea
 
 ### 4. 浏览器访问
 
-访问：`http://10.23.22.37:3001`
+访问：`http://your-server-ip:3001`
 
 **测试功能**：
 1. 输入文档主题

@@ -27,7 +27,7 @@
 
 ```bash
 # 1. SSH 登录服务器
-ssh root@10.23.22.37
+ssh root@your-server-ip
 
 # 2. 进入项目目录
 cd /path/to/Documenton-NewVersionWebTextAIGenerator
@@ -47,8 +47,8 @@ cat .env.local
 # NEXT_PUBLIC_USE_CROSS_ORIGIN_MODE=false  (单端口部署)
 # 或
 # NEXT_PUBLIC_USE_CROSS_ORIGIN_MODE=true   (多端口部署)
-# NEXT_PUBLIC_CHILD_WINDOW_ORIGIN=http://10.23.22.37:3001
-# NEXT_PUBLIC_PARENT_ORIGIN=http://10.23.22.37:3000
+# NEXT_PUBLIC_CHILD_WINDOW_ORIGIN=http://your-server-ip:3001
+# NEXT_PUBLIC_PARENT_ORIGIN=http://your-server-ip:3000
 
 # 6. 安装依赖（如果有新依赖）
 npm install
@@ -79,7 +79,7 @@ tail -f ~/.pm2/logs/ai-document-generator-out.log
 
 ```bash
 # 1. SSH 登录服务器
-ssh root@10.23.22.37
+ssh root@your-server-ip
 
 # 2. 停止并删除旧服务
 pm2 delete ai-document-generator
@@ -92,10 +92,10 @@ cd Documenton-NewVersionWebTextAIGenerator
 
 # 4. 创建环境变量文件
 cat > .env.local <<EOF
-NEXT_PUBLIC_DIFY_BASE_URL=http://10.23.22.37/v1
-NEXT_PUBLIC_DIFY_OUTLINE_KEY=app-yIhd9xD2SHZ6e9BNTYSWEfYD
-NEXT_PUBLIC_DIFY_CHAPTER_KEY=app-wqO8BTPC99CwAGFDabEze6Uz
-NEXT_PUBLIC_DIFY_LLM_KEY=app-ThlXmch2AjSRdv6kuvacb4bM
+NEXT_PUBLIC_DIFY_BASE_URL=http://your-server-ip/v1
+NEXT_PUBLIC_DIFY_OUTLINE_KEY=app-YOUR_OUTLINE_KEY_HERE
+NEXT_PUBLIC_DIFY_CHAPTER_KEY=app-YOUR_CHAPTER_KEY_HERE
+NEXT_PUBLIC_DIFY_LLM_KEY=app-YOUR_LLM_KEY_HERE
 
 # Redis Configuration
 REDIS_URL=redis://localhost:6379
@@ -133,8 +133,8 @@ NEXT_PUBLIC_USE_CROSS_ORIGIN_MODE=false
 ```
 
 **访问方式**:
-- 主页: http://10.23.22.37:3000
-- 编辑器: http://10.23.22.37:3000/word-editor
+- 主页: http://your-server-ip:3000
+- 编辑器: http://your-server-ip:3000/word-editor
 - 导航方式: 同域跳转（router.push）
 
 ---
@@ -146,8 +146,8 @@ NEXT_PUBLIC_USE_CROSS_ORIGIN_MODE=false
 ```bash
 # .env.local
 NEXT_PUBLIC_USE_CROSS_ORIGIN_MODE=true
-NEXT_PUBLIC_CHILD_WINDOW_ORIGIN=http://10.23.22.37:3001
-NEXT_PUBLIC_PARENT_ORIGIN=http://10.23.22.37:3000
+NEXT_PUBLIC_CHILD_WINDOW_ORIGIN=http://your-server-ip:3001
+NEXT_PUBLIC_PARENT_ORIGIN=http://your-server-ip:3000
 ```
 
 **启动方式**:
@@ -162,8 +162,8 @@ pm2 save
 ```
 
 **访问方式**:
-- 主页: http://10.23.22.37:3000
-- 编辑器窗口: http://10.23.22.37:3001/word-editor（自动打开新窗口）
+- 主页: http://your-server-ip:3000
+- 编辑器窗口: http://your-server-ip:3001/word-editor（自动打开新窗口）
 - 导航方式: 跨窗口通信（window.open + postMessage）
 
 ---
@@ -187,13 +187,13 @@ pm2 status
 ### 2. 测试主页访问
 
 ```bash
-curl http://10.23.22.37:3000
+curl http://your-server-ip:3000
 # 应该返回HTML内容
 ```
 
 ### 3. 测试大纲生成（核心功能）
 
-1. 浏览器打开 `http://10.23.22.37:3000`
+1. 浏览器打开 `http://your-server-ip:3000`
 2. 输入主题并生成大纲
 3. **检查控制台日志**（F12 → Console）:
    ```
@@ -217,7 +217,7 @@ curl http://10.23.22.37:3000
 4. **检查控制台日志**:
    ```
    [handleGenerate] Navigation Decision: {
-     hostname: "10.23.22.37",
+     hostname: "your-server-ip",
      isLocalhost: true,
      willUseLocalMode: true
    }
@@ -276,7 +276,7 @@ pm2 restart ai-document-generator
 
 服务器上的逻辑：
 ```typescript
-// hostname: "10.23.22.37"
+// hostname: "your-server-ip"
 // isLocalhost: true (因为10.x.x.x被识别为内网)
 // 如果 USE_CROSS_ORIGIN_MODE=false
 // → 使用 router.push（同域跳转）
@@ -288,7 +288,7 @@ pm2 restart ai-document-generator
 
 ```bash
 # 检查Dify服务状态
-curl http://10.23.22.37/v1/info
+curl http://your-server-ip/v1/info
 
 # 检查API Key配置
 cat .env.local | grep DIFY
@@ -316,7 +316,7 @@ pm2 logs ai-document-generator | grep "Dify"
 
 # 导航决策
 [handleGenerate] Navigation Decision: {
-  hostname: "10.23.22.37",
+  hostname: "your-server-ip",
   isLocalhost: true,
   useCrossOrigin: false,
   willUseLocalMode: true
@@ -346,8 +346,8 @@ NEXT_PUBLIC_USE_CROSS_ORIGIN_MODE=false
 **多端口部署**:
 ```bash
 NEXT_PUBLIC_USE_CROSS_ORIGIN_MODE=true
-NEXT_PUBLIC_CHILD_WINDOW_ORIGIN=http://10.23.22.37:3001
-NEXT_PUBLIC_PARENT_ORIGIN=http://10.23.22.37:3000
+NEXT_PUBLIC_CHILD_WINDOW_ORIGIN=http://your-server-ip:3001
+NEXT_PUBLIC_PARENT_ORIGIN=http://your-server-ip:3000
 ```
 
 ### Git版本确认

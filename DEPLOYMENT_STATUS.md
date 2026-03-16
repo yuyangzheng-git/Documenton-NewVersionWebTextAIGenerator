@@ -36,10 +36,10 @@
 
 | 配置项 | 值 | 用途 |
 |--------|-----|------|
-| Base URL | `http://10.23.22.37/v1` | Dify API 基础地址 |
-| Outline Key | `app-yIhd9xD2SHZ6e9BNTYSWEfYD` | 大纲生成 API Key |
-| Chapter Key | `app-wqO8BTPC99CwAGFDabEze6Uz` | 正文写作 API Key |
-| LLM Key | `app-ThlXmch2AjSRdv6kuvacb4bM` | 对话 LLM API Key |
+| Base URL | `http://your-server-ip/v1` | Dify API 基础地址 |
+| Outline Key | `app-YOUR_OUTLINE_KEY_HERE` | 大纲生成 API Key |
+| Chapter Key | `app-YOUR_CHAPTER_KEY_HERE` | 正文写作 API Key |
+| LLM Key | `app-YOUR_LLM_KEY_HERE` | 对话 LLM API Key |
 
 ## 健康检查
 
@@ -172,7 +172,7 @@ ai-doc-network (bridge)
 - **运行时**: Node.js 20 (Alpine Linux)
 - **缓存**: Redis 7 (Alpine)
 - **文档转换**: Pandoc + Python 3
-- **AI 平台**: Dify (http://10.23.22.37/v1)
+- **AI 平台**: Dify (http://your-server-ip/v1)
 - **容器编排**: Docker Compose
 
 ---

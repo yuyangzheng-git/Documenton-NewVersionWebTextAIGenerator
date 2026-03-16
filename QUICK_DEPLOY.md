@@ -17,7 +17,7 @@
 
 ```bash
 # SSH登录服务器
-ssh root@10.23.22.37
+ssh root@your-server-ip
 
 # 进入项目目录
 cd /path/to/Documenton-NewVersionWebTextAIGenerator
@@ -39,7 +39,7 @@ bash deploy.sh
 
 ```bash
 # 1. SSH登录
-ssh root@10.23.22.37
+ssh root@your-server-ip
 
 # 2. 进入项目目录
 cd /path/to/Documenton-NewVersionWebTextAIGenerator
@@ -88,8 +88,8 @@ NEXT_PUBLIC_USE_CROSS_ORIGIN_MODE=false
 ```bash
 # .env.local
 NEXT_PUBLIC_USE_CROSS_ORIGIN_MODE=true
-NEXT_PUBLIC_CHILD_WINDOW_ORIGIN=http://10.23.22.37:3001
-NEXT_PUBLIC_PARENT_ORIGIN=http://10.23.22.37:3000
+NEXT_PUBLIC_CHILD_WINDOW_ORIGIN=http://your-server-ip:3001
+NEXT_PUBLIC_PARENT_ORIGIN=http://your-server-ip:3000
 
 # 启动两个实例
 PORT=3000 pm2 start npm --name "ai-doc-parent" -- start
@@ -106,13 +106,13 @@ pm2 status
 
 # 2. 测试HTTP访问
 curl http://localhost:3000
-curl http://10.23.22.37:3000
+curl http://your-server-ip:3000
 
 # 3. 查看实时日志
 pm2 logs ai-document-generator
 
 # 4. 浏览器访问
-# http://10.23.22.37:3000
+# http://your-server-ip:3000
 ```
 
 ---
@@ -172,7 +172,7 @@ kill -9 <PID>
 部署完成后，请验证以下功能：
 
 - [ ] 服务正常启动（pm2 status显示online）
-- [ ] 主页可以访问（http://10.23.22.37:3000）
+- [ ] 主页可以访问（http://your-server-ip:3000）
 - [ ] 可以生成大纲
 - [ ] **编号显示正确**（4.2.1, 4.2.2, 4.2.3... 不重复）
 - [ ] 导航跳转正常（不会跳转到错误地址）

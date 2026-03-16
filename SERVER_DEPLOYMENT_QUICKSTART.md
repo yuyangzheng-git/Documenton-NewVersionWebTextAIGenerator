@@ -1,6 +1,6 @@
 # 🚀 服务器部署 - 快速开始
 
-> 部署到 Dify 所在的同一台服务器（10.23.22.37）
+> 部署到 Dify 所在的同一台服务器（your-server-ip）
 
 ## 一键部署
 
@@ -15,13 +15,13 @@
 ### 1️⃣ 上传到服务器
 
 ```bash
-scp -r . user@10.23.22.37:/path/to/project
+scp -r . user@your-server-ip:/path/to/project
 ```
 
 ### 2️⃣ SSH登录
 
 ```bash
-ssh user@10.23.22.37
+ssh user@your-server-ip
 cd /path/to/project
 ```
 
@@ -34,7 +34,7 @@ cd /path/to/project
 ### 4️⃣ 访问应用
 
 ```
-http://10.23.22.37:3001
+http://your-server-ip:3001
 ```
 
 ## ⚙️ 关键配置
@@ -119,7 +119,7 @@ curl http://localhost:3001/api/health
 
 ```
 ┌──────────────────────────────────────┐
-│   服务器 (10.23.22.37)                │
+│   服务器 (your-server-ip)                │
 │                                      │
 │  ┌─────────┐     ┌──────────────┐   │
 │  │  Dify   │     │ Docker容器    │   │
@@ -149,7 +149,7 @@ curl http://localhost:3001/api/health
 
 ## ✨ 成功标志
 
-- ✅ 访问 http://10.23.22.37:3001 能看到应用
+- ✅ 访问 http://your-server-ip:3001 能看到应用
 - ✅ 生成大纲功能正常工作
 - ✅ 健康检查显示 healthy
 - ✅ 日志无错误信息

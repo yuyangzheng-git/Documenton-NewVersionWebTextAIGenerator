@@ -69,7 +69,7 @@
 ./deploy-server.sh
 ```
 
-访问: http://10.23.22.37:3001
+访问: http://your-server-ip:3001
 
 ### 关键配置
 
@@ -164,7 +164,7 @@ docker-compose down
 
 | 文件 | 用途 | Dify地址 |
 |------|------|---------|
-| `docker-compose.yml` | 标准生产 | `http://10.23.22.37/v1` |
+| `docker-compose.yml` | 标准生产 | `http://your-server-ip/v1` |
 | `docker-compose.server.yml` | 服务器生产 | `http://host.docker.internal/v1` |
 | `docker-compose.hotreload.yml` | 热重载开发 | `http://host.docker.internal/v1` |
 | `docker-compose.dev.yml` | 混合开发 | 主机配置 |
