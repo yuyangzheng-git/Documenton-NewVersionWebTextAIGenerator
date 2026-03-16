@@ -1,8 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+const MAX_TOPIC_LENGTH = 500;
+const DANGEROUS_PATTERNS = [
+  /ignore\s+(previous|all|above)\s+(instruction|prompt|rule)/i,
+  /system\s*prompt/i,
+  /api[_\s]?key/i,
+  /<script/i,
+  /javascript:/i,
+];
+
+function sanitizeUserInput(input: string, maxLength: number): string {
+  // Length limit
+  let sanitized = input.slice(0, maxLength).trim();
+
+  // Remove control characters
+  sanitized = sanitized.replace(/[\x00-\x1F\x7F]/g, '');
+
+  // Check for dangerous patterns
+  for (const pattern of DANGEROUS_PATTERNS) {
+    if (pattern.test(sanitized)) {
+      throw new Error('Input contains potentially malicious content');
+    }
+  }
+
+  return sanitized;
+}
+
 /**
- * 大纲生成 API (后端代理)
- * 保护 API Key 不暴露给前端
+ * Outline generation API (backend proxy)
+ * Protects API Key from frontend exposure
  */
 export async function POST(request: NextRequest) {
   try {
@@ -16,7 +42,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 从环境变量获取 API 配置
+    // Input sanitization and validation
+    let sanitizedTopic: string;
+    try {
+      sanitizedTopic = sanitizeUserInput(topic, MAX_TOPIC_LENGTH);
+    } catch (error) {
+      return NextResponse.json(
+        { error: 'Invalid input detected' },
+        { status: 400 }
+      );
+    }
+
+    // Validate style parameter (whitelist)
+    const allowedStyles = ['专业严肃', '轻松活泼', '学术严谨', '商务正式'];
+    const sanitizedStyle = allowedStyles.includes(style) ? style : '专业严肃';
+
+    // Get API configuration from environment
     const apiKey = process.env.NEXT_PUBLIC_DIFY_OUTLINE_KEY;
     const baseUrl = process.env.NEXT_PUBLIC_DIFY_BASE_URL || 'http://localhost:8000/v1';
 
@@ -27,30 +68,39 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 调用 Dify Workflow API
-    const response = await fetch(`${baseUrl}/workflows/run`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        inputs: {
-          topic,
-          style: style || '专业严肃',
-        },
-        response_mode: 'blocking',
-        user: 'web-user-' + Date.now(),
-      }),
-    });
+    // Call Dify Workflow API with timeout
+    const abortController = new AbortController();
+    const timeout = setTimeout(() => abortController.abort(), 30000);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      return NextResponse.json(
-        { error: `Dify API error: ${response.status} - ${errorText}` },
-        { status: response.status }
-      );
-    }
+    try {
+      const response = await fetch(`${baseUrl}/workflows/run`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          inputs: {
+            topic: sanitizedTopic,
+            style: sanitizedStyle,
+          },
+          response_mode: 'blocking',
+          user: 'web-user-' + Date.now(),
+        }),
+        signal: abortController.signal,
+      });
+
+      clearTimeout(timeout);
+
+      clearTimeout(timeout);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        return NextResponse.json(
+          { error: `Dify API error: ${response.status} - ${errorText}` },
+          { status: response.status }
+        );
+      }
 
     const result = await response.json();
 
@@ -170,7 +220,11 @@ export async function POST(request: NextRequest) {
       console.warn('[Dify Outline] Duplicate IDs detected:', duplicateIds);
     }
 
-    return NextResponse.json({ outline });
+      return NextResponse.json({ outline });
+    } catch (fetchError) {
+      clearTimeout(timeout);
+      throw fetchError;
+    }
   } catch (error) {
     console.error('[Dify Outline] Error:', error);
     return NextResponse.json(

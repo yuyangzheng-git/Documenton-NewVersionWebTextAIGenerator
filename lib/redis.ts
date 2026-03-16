@@ -27,15 +27,23 @@ export function getRedisClient(): Redis | null {
     redisClient = new Redis(getRedisUrl(), {
       maxRetriesPerRequest: 3,
       enableReadyCheck: true,
-      lazyConnect: true,
+      lazyConnect: false,
+      retryStrategy(times) {
+        const delay = Math.min(times * 50, 2000);
+        return delay;
+      },
     });
 
-    redisClient.on('error', () => {
-      // Silent fail for Redis connection errors
+    redisClient.on('error', (err) => {
+      console.error('[Redis] Connection error:', err.message);
     });
 
     redisClient.on('connect', () => {
-      // Redis connected silently
+      console.log('[Redis] Connected successfully');
+    });
+
+    redisClient.on('ready', () => {
+      console.log('[Redis] Ready to receive commands');
     });
   }
 
@@ -150,17 +158,55 @@ export const cache = {
     await client.expire(key, ttl);
   },
 
-  // Clear all keys matching a pattern
+  // Clear all keys matching a pattern (using SCAN instead of KEYS)
   async clearPattern(pattern: string): Promise<void> {
     const client = getRedisClient();
     if (!client) return;
 
-    const keys = await client.keys(pattern);
-    if (keys.length > 0) {
-      await client.del(...keys);
+    let cursor = '0';
+    const keysToDelete: string[] = [];
+
+    do {
+      const result = await client.scan(
+        cursor,
+        'MATCH', pattern,
+        'COUNT', 100
+      );
+
+      cursor = result[0];
+      const keys = result[1];
+
+      if (keys.length > 0) {
+        keysToDelete.push(...keys);
+      }
+
+      // Batch delete to avoid deleting too many at once
+      if (keysToDelete.length >= 1000) {
+        await client.del(...keysToDelete);
+        keysToDelete.length = 0;
+      }
+    } while (cursor !== '0');
+
+    // Delete remaining keys
+    if (keysToDelete.length > 0) {
+      await client.del(...keysToDelete);
     }
   },
 };
+
+// Health check function
+export async function checkRedisHealth(): Promise<boolean> {
+  const client = getRedisClient();
+  if (!client) return false;
+
+  try {
+    await client.ping();
+    return true;
+  } catch (error) {
+    console.error('[Redis] Health check failed:', error);
+    return false;
+  }
+}
 
 // Document Cache Keys
 export const documentCache = {
@@ -196,4 +242,5 @@ export default {
   disconnectRedis,
   cache,
   documentCache,
+  checkRedisHealth,
 };

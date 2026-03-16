@@ -663,21 +663,25 @@ ${html}
 </body>
 </html>`;
 
-  // 4. 创建临时文件
+  // 4. Create temporary files
   const tmpInput = join(tmpdir(), `docx-input-${Date.now()}.html`);
   const tmpOutput = join(tmpdir(), `docx-output-${Date.now()}.docx`);
 
-  await writeFile(tmpInput, fullHtml, 'utf-8');
+  let inputWritten = false;
+  let outputGenerated = false;
 
   try {
-    // 5. 获取模板路径
+    await writeFile(tmpInput, fullHtml, 'utf-8');
+    inputWritten = true;
+
+    // 5. Get template path
     const templatePath = join(process.cwd(), 'public', 'templates', 'asiainfo-template.docx');
 
-    // 6. 调用 Python CLI
+    // 6. Call Python CLI with timeout
     await new Promise<void>((resolve, reject) => {
       const cliPath = join(process.cwd(), 'cli.py');
 
-      // 优先使用环境变量指定的 Python 路径，否则使用 python3
+      // Use environment variable Python path or default to python3
       const pythonCmd = process.env.PYTHON_PATH || 'python3';
 
       const python = spawn(pythonCmd, [
@@ -689,6 +693,7 @@ ${html}
       ], {
         cwd: process.cwd(),
         env: process.env,
+        timeout: 60000,
       });
 
       let stdout = '';
@@ -706,6 +711,7 @@ ${html}
 
       python.on('close', (code) => {
         if (code === 0) {
+          outputGenerated = true;
           resolve();
         } else {
           reject(new Error(`Pandoc process failed with code ${code}: ${stderr}`));
@@ -717,23 +723,30 @@ ${html}
       });
     });
 
-    // 7. 读取输出文件
+    // 7. Read output file
     const buffer = await readFile(tmpOutput);
 
-    // 8. 清理临时文件
-    await unlink(tmpInput);
-    await unlink(tmpOutput);
-
     return buffer;
-  } catch (error) {
-    // 清理临时文件
-    try {
-      await unlink(tmpInput);
-      await unlink(tmpOutput);
-    } catch (cleanupError) {
-      logger.error('[Pandoc] Cleanup error:', cleanupError);
+  } finally {
+    // 8. Ensure cleanup even if errors occur
+    const cleanupPromises = [];
+
+    if (inputWritten) {
+      cleanupPromises.push(
+        unlink(tmpInput).catch(err =>
+          logger.error('[Pandoc] Failed to cleanup input:', err)
+        )
+      );
     }
 
-    throw error;
+    if (outputGenerated) {
+      cleanupPromises.push(
+        unlink(tmpOutput).catch(err =>
+          logger.error('[Pandoc] Failed to cleanup output:', err)
+        )
+      );
+    }
+
+    await Promise.allSettled(cleanupPromises);
   }
 }
