@@ -52,3 +52,8 @@ __pycache__/
 *.pyd
 .Python
 .venv/
+
+# Generated evaluation outputs (tasks.json is a tracked input; regenerate via scripts/eval-compare.mjs)
+/data/eval/comparison_summary.json
+/data/eval/outline-first/
+/data/eval/one-shot/

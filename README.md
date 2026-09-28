@@ -1,6 +1,20 @@
-# 📝 AI文档生成器 - 完整指南
+# 📝 AI Document Generator | AI文档生成器
 
 > 基于Dify的智能文档生成系统，支持多种AI平台和完整Docker化部署
+
+## English Overview
+
+This project is an AI-assisted document generation system that supports outline-first drafting, streaming LLM output, multiple model providers (Dify, OpenAI, Gemini, Kimi, Qwen), rich-text editing, and DOCX export. I built it to explore how LLM systems can support structured business writing and human-AI collaboration.
+
+**Highlights**
+
+- Outline-first workflow: the LLM proposes a document structure, the user edits it, then each chapter is generated independently
+- Streaming generation with Redis caching and per-endpoint rate limiting
+- DOCX export via Pandoc (high quality) or docxtemplater (fast)
+- Full Dockerized deployment with hot-reload dev environment and health checks
+- Built-in metrics collection (cache hit rate, p95/p99 latency, error rates)
+
+See [research.md](research.md) for the research framing and [docs/evaluation.md](docs/evaluation.md) for sample prompts and outputs.
 
 ## 目录
 
@@ -523,6 +537,15 @@ docker-compose -f docker-compose.server.yml logs app | grep -i error
 # 环境验证
 npm run env:check
 
+# 静态配置检查（环境文件，无需启动服务）
+npm run smoke:test
+
+# 在线冒烟测试（需要服务运行；连接失败即退出码 1）
+npm run smoke:test:online
+
+# 离线对照实验（MOCK_LLM=1 启动后）：大纲分章生成 vs 一次生成
+node scripts/eval-compare.mjs
+
 # 查看API文档
 open docs/API.md
 
@@ -679,6 +702,52 @@ sudo ufw enable
 
 ---
 
+## My Contribution
+
+Solo project (Yu Yang Zheng). What I designed and implemented:
+
+- The outline-first document workflow: AI outline → editable outline → per-chapter streaming generation
+- The multi-provider AI abstraction (`lib/ai/`) supporting Dify, OpenAI, Gemini, Kimi, and Qwen
+- Input sanitization, rate limiting, and the DOCX export pipeline (Pandoc + built-in/custom templates)
+- Metrics collection (`/api/metrics`: cache hit rate, p95/p99 latency, error rates)
+- Docker Compose deployments (dev hot-reload, server, production)
+
+What I verified in this repository (with automated checks):
+
+- `npm run smoke:test` (static config check) and `npm run smoke:test:online`
+  (fails if the server cannot be reached)
+- Redis caching wired into `/api/ai/outline` (cache hit responses include `cached: true`),
+  with the cache key namespaced by run mode (`mock`/`live`) and workflow version
+  so mock output can never be served to live requests
+- The generate route forwards all four request fields (`sectionTitle`,
+  `documentTopic`, `fullOutline`, `requirements`) to the Dify workflow —
+  verified by `npm run test:unit`
+- Offline pipeline validation: `MOCK_LLM=1` + `scripts/eval-compare.mjs` runs
+  outline → generate → export end-to-end for all tasks in `data/eval/tasks.json`,
+  keeps full outputs under `data/eval/`, and exits non-zero when any task fails
+  or a stream misses its `done` event (tested by `scripts/test-eval-compare.mjs`)
+- Full `tsc --noEmit` passes with no errors
+- All documented API payloads in `docs/demo.md` match the implemented routes
+
+## Architecture
+
+```
+Browser (Next.js App Router + React + Tiptap editor)
+   │
+   ├── POST /api/ai/outline ──► Dify/OpenAI/... (outline generation, cached in Redis)
+   ├── POST /api/ai/generate ─► SSE stream ─► LLM provider (chapter generation)
+   ├── POST /api/export/docx ─► Pandoc (high quality) | docxtemplater (fast)
+   └── GET  /api/health | /api/metrics
+
+Store: Zustand (client) + Dexie (local persistence) + Redis (server cache)
+```
+
+1. The user enters a topic; `/api/ai/outline` asks the LLM for a document outline and caches it in Redis.
+2. The user edits the outline in the Notion-style editor.
+3. Each chapter is generated via `/api/ai/generate`, which streams tokens over SSE.
+4. The finished document is exported to DOCX via Pandoc (server) or docxtemplater (fallback).
+5. `/api/metrics` reports cache hit rate and API latency percentiles for monitoring.
+
 ## 许可证
 
 [MIT License](LICENSE)
@@ -746,6 +815,8 @@ Content-Type: application/json
 ```
 
 约束：topic最大500字符，自动过滤恶意输入。
+相同 (topic, style) 的请求在启用 Redis 缓存（CACHE_ENABLED=1）时直接命中缓存
+（响应含 `"cached": true`）。
 
 #### 生成章节内容（流式）
 ```bash
@@ -753,16 +824,17 @@ POST /api/ai/generate
 Content-Type: application/json
 
 {
-  "topic": "Medical AI Applications",
-  "context": "...",
-  "style": "专业严肃"
+  "sectionTitle": "Medical AI Applications",   # 必填
+  "documentTopic": "AI in Healthcare",          # 可选：文档主题
+  "fullOutline": "1. Introduction\n2. Applications",  # 可选：完整大纲
+  "requirements": "Keep it under 500 words"     # 可选：生成要求
 }
 ```
 
 返回SSE流:
 ```
-data: {"type":"chunk","content":"AI has revolutionized"}
-data: {"type":"done"}
+data: {"text":"AI has revolutionized"}
+data: {"event":"done"}
 ```
 
 超时：120秒，活动超时：30秒。
@@ -773,13 +845,18 @@ POST /api/export/docx
 Content-Type: application/json
 
 {
-  "html": "<h1>Title</h1><p>Content...</p>",
-  "title": "Document Title",
-  "useAdvancedConversion": true
+  "documentTitle": "Document Title",
+  "blocks": [                                  # 必填
+    {"type": "h1", "content": "Introduction"},
+    {"type": "paragraph", "content": "AI is transforming healthcare."}
+  ],
+  "outline": [{"id": "1", "level": 1, "title": "Introduction"}],
+  "usePandoc": true                            # 可选：Pandoc 高质量导出
 }
 ```
 
-返回二进制DOCX文件。支持Pandoc（高质量）和docxtemplater（快速）两种模式。
+返回二进制DOCX文件。`usePandoc: true` 走 Pandoc（高质量，需服务端 Python）；
+默认走内置模板或自定义模板（快速）。块类型支持 h1/h2/h3/paragraph/image/table。
 
 #### 模板管理
 ```bash

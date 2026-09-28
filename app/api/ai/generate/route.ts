@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { buildDifyInputs } from '@/lib/ai/generate-inputs';
 
 const MAX_TITLE_LENGTH = 200;
+const MAX_TOPIC_LENGTH = 500;
+const MAX_OUTLINE_LENGTH = 5000;
 const MAX_REQUIREMENTS_LENGTH = 1000;
 const DANGEROUS_PATTERNS = [
   /ignore\s+(previous|all|above)\s+(instruction|prompt|rule)/i,
@@ -42,15 +45,46 @@ export async function POST(request: NextRequest) {
 
     // Input sanitization
     let sanitizedTitle: string;
+    let sanitizedTopic: string;
+    let sanitizedOutline: string;
     let sanitizedRequirements: string;
     try {
       sanitizedTitle = sanitizeUserInput(sectionTitle, MAX_TITLE_LENGTH);
+      sanitizedTopic = documentTopic ? sanitizeUserInput(documentTopic, MAX_TOPIC_LENGTH) : '';
+      sanitizedOutline = fullOutline ? sanitizeUserInput(fullOutline, MAX_OUTLINE_LENGTH) : '';
       sanitizedRequirements = requirements ? sanitizeUserInput(requirements, MAX_REQUIREMENTS_LENGTH) : '';
-    } catch (error) {
+    } catch {
       return NextResponse.json(
         { error: 'Invalid input detected' },
         { status: 400 }
       );
+    }
+
+    // Offline mock mode (MOCK_LLM=1): deterministic streaming output, no external API
+    if (process.env.MOCK_LLM === '1') {
+      const encoder = new TextEncoder();
+      const paragraphs = [
+        `这是「${sanitizedTitle}」章节的模拟生成内容（MOCK_LLM=1）。`,
+        '本节围绕文档主题展开，用于在离线环境下验证大纲生成、分章生成、编辑与 DOCX 导出的完整流水线。',
+        '模拟输出是确定性的，不调用任何外部 LLM。',
+      ];
+      const stream = new ReadableStream({
+        async start(controller) {
+          for (const text of paragraphs) {
+            controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));
+            await new Promise((resolve) => setTimeout(resolve, 50));
+          }
+          controller.enqueue(encoder.encode('data: {"event":"done"}\n\n'));
+          controller.close();
+        },
+      });
+      return new Response(stream, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        },
+      });
     }
 
     // Get API configuration from environment
@@ -70,6 +104,13 @@ export async function POST(request: NextRequest) {
       abortController.abort();
     }, 120000); // 2 minute timeout
 
+    const workflowInputs = buildDifyInputs({
+      sectionTitle: sanitizedTitle,
+      documentTopic: sanitizedTopic,
+      fullOutline: sanitizedOutline,
+      requirements: sanitizedRequirements,
+    });
+
     const difyResponse = await fetch(`${baseUrl}/workflows/run`, {
       method: 'POST',
       headers: {
@@ -77,9 +118,7 @@ export async function POST(request: NextRequest) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        inputs: {
-          requirements: sanitizedRequirements,
-        },
+        inputs: workflowInputs,
         response_mode: 'streaming',
         user: 'web-user-' + Date.now(),
       }),
@@ -101,7 +140,7 @@ export async function POST(request: NextRequest) {
 
     const stream = new ReadableStream({
       async start(controller) {
-        let reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+        let reader: ReadableStreamDefaultReader<Uint8Array<ArrayBuffer>> | undefined | null = null;
 
         try {
           reader = difyResponse.body?.getReader();

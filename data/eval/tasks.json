@@ -1,0 +1,9 @@
+{
+  "tasks": [
+    { "id": "t1", "topic": "AI in Healthcare", "style": "专业严肃" },
+    { "id": "t2", "topic": "Quarterly Business Review", "style": "商务正式" },
+    { "id": "t3", "topic": "Team Onboarding Guide", "style": "轻松活泼" },
+    { "id": "t4", "topic": "Remote Work Policy", "style": "专业严肃" },
+    { "id": "t5", "topic": "Market Analysis: EV Charging in Australia", "style": "学术严谨" }
+  ]
+}

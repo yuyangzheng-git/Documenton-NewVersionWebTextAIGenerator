@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { trackAPIMetrics } from '@/lib/metrics';
+import { cache } from '@/lib/redis';
+import { buildOutlineCacheKey } from '@/lib/ai/outline-cache-key';
 
 const MAX_TOPIC_LENGTH = 500;
+const OUTLINE_CACHE_TTL = 3600; // 1 hour
 const DANGEROUS_PATTERNS = [
   /ignore\s+(previous|all|above)\s+(instruction|prompt|rule)/i,
   /system\s*prompt/i,
@@ -48,7 +51,7 @@ export async function POST(request: NextRequest) {
     let sanitizedTopic: string;
     try {
       sanitizedTopic = sanitizeUserInput(topic, MAX_TOPIC_LENGTH);
-    } catch (error) {
+    } catch {
       return NextResponse.json(
         { error: 'Invalid input detected' },
         { status: 400 }
@@ -58,6 +61,42 @@ export async function POST(request: NextRequest) {
     // Validate style parameter (whitelist)
     const allowedStyles = ['专业严肃', '轻松活泼', '学术严谨', '商务正式'];
     const sanitizedStyle = allowedStyles.includes(style) ? style : '专业严肃';
+
+    // Cache namespace is isolated by run mode and workflow version so that
+    // mock output can never be served to real (live) requests and vice versa.
+    const runMode = process.env.MOCK_LLM === '1' ? 'mock' : 'live';
+    const cacheKey = buildOutlineCacheKey({
+      topic: sanitizedTopic,
+      style: sanitizedStyle,
+      mode: runMode,
+    });
+
+    // Offline mock mode (MOCK_LLM=1): deterministic outline, no external API
+    if (process.env.MOCK_LLM === '1') {
+      const mockOutline = [
+        { id: '1', level: 1, title: `${sanitizedTopic} - 概述` },
+        { id: '2', level: 2, title: '背景与现状' },
+        { id: '3', level: 2, title: '关键挑战' },
+        { id: '4', level: 1, title: '应用与影响' },
+        { id: '5', level: 1, title: '未来展望' },
+      ];
+      await cache.set(cacheKey, JSON.stringify(mockOutline), OUTLINE_CACHE_TTL);
+      return NextResponse.json({ outline: mockOutline, mock: true });
+    }
+
+    // Redis cache lookup (no-op when CACHE_ENABLED is not set)
+    const cachedOutline = await cache.get(cacheKey);
+    if (cachedOutline) {
+      try {
+        const outline = JSON.parse(cachedOutline);
+        if (Array.isArray(outline)) {
+          console.log('[Dify Outline] Cache hit');
+          return NextResponse.json({ outline, cached: true });
+        }
+      } catch {
+        // Corrupt cache entry: fall through to the live call
+      }
+    }
 
     // Get API configuration from environment
     const apiKey = process.env.NEXT_PUBLIC_DIFY_OUTLINE_KEY;
@@ -221,6 +260,9 @@ export async function POST(request: NextRequest) {
     if (duplicateIds.length > 0) {
       console.warn('[Dify Outline] Duplicate IDs detected:', duplicateIds);
     }
+
+      // Cache the parsed outline (no-op when Redis is disabled)
+      await cache.set(cacheKey, JSON.stringify(outline), OUTLINE_CACHE_TTL);
 
       return NextResponse.json({ outline });
     } catch (fetchError) {

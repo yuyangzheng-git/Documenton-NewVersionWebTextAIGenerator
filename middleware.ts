@@ -10,9 +10,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Get client identifier
-  const ip = request.ip ||
-    request.headers.get('x-forwarded-for')?.split(',')[0] ||
+  // Get client identifier (NextRequest has no built-in `ip` property; use
+  // proxy headers when available)
+  const ip =
+    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
     request.headers.get('x-real-ip') ||
     'unknown';
 
